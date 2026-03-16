@@ -17,10 +17,16 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+from accounts.views import SocietyViewSet
 
-router= DefaultRouter()
+
+router = DefaultRouter()
+router.register(r'society', SocietyViewSet, basename='society')
+# router.register(r'orphanage', OrphanageViewSet, basename='orphanage')  # Assuming you have an OrphanageViewSet
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
+    path('api/society/', include('accounts.urls')),
+    
 ]
