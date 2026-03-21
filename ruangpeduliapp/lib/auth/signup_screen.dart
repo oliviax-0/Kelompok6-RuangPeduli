@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/auth_widgets.dart';
+import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
-import 'package:ruangpeduliapp/verification_screen.dart';
-import 'package:ruangpeduliapp/fill_data_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/auth/verification_screen.dart';
+import 'package:ruangpeduliapp/auth/fill_data_masyarakat_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   final String role;

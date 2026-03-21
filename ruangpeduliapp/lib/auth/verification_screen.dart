@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:ruangpeduliapp/auth_widgets.dart';
-import 'package:ruangpeduliapp/success_screen.dart';
+import 'package:ruangpeduliapp/auth/auth_widgets.dart';
+import 'package:ruangpeduliapp/auth/success_screen.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 
 class VerificationScreen extends StatefulWidget {
@@ -30,6 +31,11 @@ class _VerificationScreenState extends State<VerificationScreen>
 
   final _authApi = AuthApi();
   bool _loading = false;
+  bool _resendLoading = false;
+
+  int _countdown = 60;
+  Timer? _timer;
+  bool get _canResend => _countdown == 0;
 
   @override
   void initState() {
@@ -44,47 +50,98 @@ class _VerificationScreenState extends State<VerificationScreen>
     Future.delayed(const Duration(milliseconds: 80), () {
       if (mounted) _controller.forward();
     });
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _countdown = 60;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      setState(() {
+        if (_countdown > 0) { _countdown--; } else { timer.cancel(); }
+      });
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _controller.dispose();
-    for (var c in _otpControllers) {
-      c.dispose();
-    }
-    for (var f in _focusNodes) {
-      f.dispose();
-    }
+    for (var c in _otpControllers) c.dispose();
+    for (var f in _focusNodes) f.dispose();
     super.dispose();
   }
 
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade400 : Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // ─── VERIFY OTP ────────────────────────────────────────────────────
   Future<void> _onVerify() async {
     final otp = _otpControllers.map((c) => c.text).join();
 
     if (otp.length != 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kode OTP harus 5 digit')),
-      );
+      _showSnackBar('Kode OTP harus 5 digit', isError: true);
       return;
     }
 
     setState(() => _loading = true);
+
     try {
       await _authApi.verifyOtp(widget.pendingId, otp);
-
       if (!mounted) return;
+
+      // ✅ Berhasil → ke SuccessScreen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const SuccessScreen(role: 'user')),
       );
     } catch (e) {
       if (!mounted) return;
-      print('Verify OTP error: $e'); // <-- debug
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Verifikasi gagal: $e')),
-      );
+      print('❌ Verify OTP error: $e');
+
+      // ❌ Gagal → pending sudah dihapus di backend
+      // Tampilkan error lalu kembali ke halaman signup
+      _showSnackBar('$e', isError: true);
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      // Balik ke halaman pertama (SignUpScreen)
+      Navigator.popUntil(context, (route) => route.isFirst);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // ─── RESEND OTP ─────────────────────────────────────────────────────
+  Future<void> _onResend() async {
+    if (!_canResend || _resendLoading) return;
+
+    setState(() => _resendLoading = true);
+
+    try {
+      await _authApi.resendOtp(widget.email);
+      if (!mounted) return;
+
+      for (var c in _otpControllers) c.clear();
+      _focusNodes[0].requestFocus();
+      _startCountdown();
+
+      _showSnackBar('OTP baru telah dikirim ke email kamu');
+    } catch (e) {
+      if (!mounted) return;
+      print('❌ Resend OTP error: $e');
+      _showSnackBar('Gagal kirim ulang OTP: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _resendLoading = false);
     }
   }
 
@@ -112,7 +169,7 @@ class _VerificationScreenState extends State<VerificationScreen>
             ),
           ),
 
-          // Wave sangat tinggi — hanya pojok kanan atas yang pink
+          // Wave
           Align(
             alignment: Alignment.bottomCenter,
             child: SizedBox(
@@ -131,15 +188,11 @@ class _VerificationScreenState extends State<VerificationScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Back button
                     const Padding(
                       padding: EdgeInsets.only(left: 16, top: 8),
                       child: AuthBackButton(),
                     ),
-
                     SizedBox(height: size.height * 0.28),
-
-                    // Konten
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -158,11 +211,21 @@ class _VerificationScreenState extends State<VerificationScreen>
                             ),
                             const SizedBox(height: 16),
 
-                            Text(
-                              'Masukkan kode 5 digit yang sudah dikirimkan\npada email ${widget.email.isNotEmpty ? widget.email : "com."}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
+                            RichText(
+                              text: TextSpan(
+                                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                                children: [
+                                  const TextSpan(
+                                    text: 'Masukkan kode 5 digit yang sudah dikirimkan\npada email ',
+                                  ),
+                                  TextSpan(
+                                    text: widget.email,
+                                    style: const TextStyle(
+                                      color: Color(0xFFF43D5E),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 40),
@@ -170,28 +233,78 @@ class _VerificationScreenState extends State<VerificationScreen>
                             // 5 OTP boxes
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children:
-                                  List.generate(5, (i) => _buildOtpBox(i)),
+                              children: List.generate(5, (i) => _buildOtpBox(i)),
+                            ),
+                            const SizedBox(height: 32),
+
+                            // Resend OTP
+                            Center(
+                              child: _resendLoading
+                                  ? const SizedBox(
+                                      height: 20, width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFF43D5E),
+                                      ),
+                                    )
+                                  : GestureDetector(
+                                      onTap: _canResend ? _onResend : null,
+                                      child: RichText(
+                                        text: TextSpan(
+                                          style: const TextStyle(fontSize: 13),
+                                          children: [
+                                            TextSpan(
+                                              text: 'Tidak menerima kode? ',
+                                              style: TextStyle(color: Colors.grey.shade500),
+                                            ),
+                                            TextSpan(
+                                              text: _canResend
+                                                  ? 'Kirim ulang'
+                                                  : 'Kirim ulang ($_countdown)',
+                                              style: TextStyle(
+                                                color: _canResend
+                                                    ? const Color(0xFFF43D5E)
+                                                    : Colors.grey.shade400,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                             ),
 
                             const Spacer(),
 
-                            // Verifikasi button
+                            // Tombol Verifikasi
                             Center(
                               child: SizedBox(
                                 width: size.width * 0.55,
                                 child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1A1A1A),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
                                   onPressed: _loading ? null : _onVerify,
                                   child: _loading
                                       ? const SizedBox(
-                                          height: 18,
-                                          width: 18,
+                                          height: 18, width: 18,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                             color: Colors.white,
                                           ),
                                         )
-                                      : const Text('Verifikasi'),
+                                      : const Text(
+                                          'Verifikasi',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ),
@@ -261,8 +374,8 @@ class _VerifWavePainter extends CustomPainter {
       ..moveTo(0, size.height * 0.10)
       ..quadraticBezierTo(size.width * 0.20, size.height * 0.01,
           size.width * 0.50, size.height * 0.07)
-      ..quadraticBezierTo(
-          size.width * 0.80, size.height * 0.13, size.width, size.height * 0.05)
+      ..quadraticBezierTo(size.width * 0.80, size.height * 0.13,
+          size.width, size.height * 0.05)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
@@ -276,8 +389,8 @@ class _VerifWavePainter extends CustomPainter {
       ..moveTo(0, size.height * 0.17)
       ..quadraticBezierTo(size.width * 0.22, size.height * 0.06,
           size.width * 0.50, size.height * 0.12)
-      ..quadraticBezierTo(
-          size.width * 0.78, size.height * 0.18, size.width, size.height * 0.10)
+      ..quadraticBezierTo(size.width * 0.78, size.height * 0.18,
+          size.width, size.height * 0.10)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();

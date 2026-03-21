@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/auth_widgets.dart';
-import 'package:ruangpeduliapp/login_screen.dart';
-import 'package:ruangpeduliapp/signup_screen.dart';
+import 'package:ruangpeduliapp/auth/auth_widgets.dart';
+import 'package:ruangpeduliapp/auth/login_screen.dart';
+import 'package:ruangpeduliapp/auth/signup_screen.dart';
 
 class AuthOptionsScreen extends StatefulWidget {
   final String role;

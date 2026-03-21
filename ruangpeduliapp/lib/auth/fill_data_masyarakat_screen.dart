@@ -1,26 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:ruangpeduliapp/auth_widgets.dart';
+import 'package:ruangpeduliapp/auth/auth_widgets.dart';
+import 'package:ruangpeduliapp/data/data.dart';
+import 'package:ruangpeduliapp/auth/verification_screen.dart';
 
-class FillDataPantiScreen extends StatefulWidget {
-  const FillDataPantiScreen({super.key});
+class FillDataMasyarakatScreen extends StatefulWidget {
+  final String email;
+  final String password; // <-- tambah
+
+  const FillDataMasyarakatScreen({
+    super.key,
+    required this.email,
+    required this.password, // <-- tambah
+  });
 
   @override
-  State<FillDataPantiScreen> createState() => _FillDataPantiScreenState();
+  State<FillDataMasyarakatScreen> createState() =>
+      _FillDataMasyarakatScreenState();
 }
 
-class _FillDataPantiScreenState extends State<FillDataPantiScreen>
+class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fade;
   late Animation<Offset> _slide;
 
-  final _namaPantiController = TextEditingController();
-  final _alamatPantiController = TextEditingController();
+  final _namaPenggunaController = TextEditingController();
+  final _alamatController = TextEditingController();
   final _usernameController = TextEditingController();
-  final _namaPJController = TextEditingController();
-  final _nomorPJController = TextEditingController();
   bool _agreeTnC = true;
+
+  final _api = AuthApi(); // <-- tambah
+  bool _loading = false; // <-- tambah
 
   @override
   void initState() {
@@ -40,28 +50,81 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
   @override
   void dispose() {
     _controller.dispose();
-    _namaPantiController.dispose();
-    _alamatPantiController.dispose();
+    _namaPenggunaController.dispose();
+    _alamatController.dispose();
     _usernameController.dispose();
-    _namaPJController.dispose();
-    _nomorPJController.dispose();
     super.dispose();
   }
 
   void _onSelanjutnya() {
+    print("=== TOMBOL DITEKAN ==="); // Debug 1
+
     if (!_agreeTnC) {
+      print("❌ S&K belum dicentang");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Anda harus menyetujui S&K terlebih dahulu')),
       );
       return;
     }
+    print("✓ S&K sudah dicentang");
 
-    // TODO: kirim data ini ke SignUpScreen / backend
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Submit data panti belum dihubungkan ke backend')),
+    if (_namaPenggunaController.text.isEmpty ||
+        _alamatController.text.isEmpty ||
+        _usernameController.text.isEmpty) {
+      print("❌ Ada field kosong:");
+      print("  - Nama: ${_namaPenggunaController.text}");
+      print("  - Alamat: ${_alamatController.text}");
+      print("  - Username: ${_usernameController.text}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Semua field wajib diisi')),
+      );
+      return;
+    }
+    print("✓ Semua field terisi");
+
+    final data = RegisterData(
+      username: _usernameController.text.trim(),
+      email: widget.email,
+      password: widget.password,
+      role: 'masyarakat',
+      namaPengguna: _namaPenggunaController.text.trim(),
+      alamat: _alamatController.text.trim(),
     );
+
+    print("=== MULAI REGISTER ==="); // Debug 2
+    print("Email: ${data.email}");
+    print("Username: ${data.username}");
+
+    setState(() => _loading = true);
+
+    _api.startRegister(data).then((pendingId) {
+      print("✓ REGISTER BERHASIL, pendingId: $pendingId"); // Debug 3
+      if (!mounted) {
+        print("❌ Widget tidak mounted, tidak bisa navigate");
+        return;
+      }
+      print("✓ Widget mounted, navigasi ke VerificationScreen");
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerificationScreen(
+            pendingId: pendingId,
+            email: widget.email,
+          ),
+        ),
+      );
+    }).catchError((e) {
+      print("❌ REGISTER GAGAL: $e"); // Debug 4
+      print("Error type: ${e.runtimeType}");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mendaftar: $e')),
+      );
+    }).whenComplete(() {
+      print("=== REGISTER SELESAI ===");
+      if (mounted) setState(() => _loading = false);
+    });
   }
 
   @override
@@ -72,7 +135,7 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // Gradient background
+          // Gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -88,17 +151,17 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
             ),
           ),
 
-          // Wave — tinggi sedang ~75%
+          // Wave
           Align(
             alignment: Alignment.bottomCenter,
             child: SizedBox(
-              height: size.height * 0.75,
+              height: size.height * 0.78,
               width: size.width,
-              child: CustomPaint(painter: _FillDataWavePainter()),
+              child: CustomPaint(painter: _MasyarakatWavePainter()),
             ),
           ),
 
-          // Konten
+          // Content
           SafeArea(
             child: FadeTransition(
               opacity: _fade,
@@ -107,15 +170,11 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Back button
                     const Padding(
                       padding: EdgeInsets.only(left: 16, top: 8),
                       child: AuthBackButton(),
                     ),
-
-                    SizedBox(height: size.height * 0.18),
-
-                    // Scrollable content
+                    SizedBox(height: size.height * 0.16),
                     Expanded(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -124,85 +183,46 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                           children: [
                             const SizedBox(height: 8),
 
-                            // Title
-                            const Text(
-                              'Isi Data',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF1A1A1A),
-                              ),
-                            ),
+                            const Text('Isi Data',
+                                style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF1A1A1A))),
                             const SizedBox(height: 28),
 
-                            // Nama Panti
-                            _SectionLabel('Nama Panti'),
+                            // Nama Pengguna
+                            _FieldLabel('Nama Pengguna'),
                             const SizedBox(height: 8),
-                            _RoundedField(
-                              controller: _namaPantiController,
-                              hint: 'Contoh: Panti Sayap Ibu Bintaro',
+                            _RoundedInput(
+                              controller: _namaPenggunaController,
+                              hint: 'Contoh: Sienna Malik',
                             ),
                             const SizedBox(height: 20),
 
-                            // Alamat Panti
-                            _SectionLabel('Alamat Panti'),
+                            // Alamat
+                            _FieldLabel('Alamat'),
                             const SizedBox(height: 8),
-                            _RoundedField(
-                              controller: _alamatPantiController,
+                            _RoundedInput(
+                              controller: _alamatController,
                               hint: 'Contoh: Jalan Sudirman 123',
                             ),
                             const SizedBox(height: 20),
 
                             // Username
-                            _SectionLabel('Username'),
+                            _FieldLabel('Username'),
                             const SizedBox(height: 8),
-                            _RoundedField(
+                            _RoundedInput(
                               controller: _usernameController,
-                              hint: 'Contoh: panti_sayapibu',
+                              hint: 'Contoh: sunshinebecomesyou14',
                             ),
-                            const SizedBox(height: 8),
-
-                            // Divider Penanggungjawab
-                            Center(
-                              child: Text(
-                                'Penanggungjawab',
-                                style: TextStyle(
-                                    fontSize: 13, color: Colors.grey.shade500),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Nama Penanggungjawab
-                            _SectionLabel('Nama Penanggungjawab'),
-                            const SizedBox(height: 8),
-                            _RoundedField(
-                              controller: _namaPJController,
-                              hint: 'Masukan Nama Lengkap',
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Nomor Penanggungjawab
-                            _SectionLabel('Nomor Penanggungjawab/Panti'),
-                            const SizedBox(height: 8),
-                            _RoundedField(
-                              controller: _nomorPJController,
-                              hint: 'Masukan Nomor Telepon Aktif',
-                              keyboardType: TextInputType.phone,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly
-                              ],
-                            ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 28),
 
                             // Syarat dan Ketentuan
-                            const Text(
-                              'Syarat dan Ketentuan',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF1A1A1A),
-                              ),
-                            ),
+                            const Text('Syarat dan Ketentuan',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1A1A1A))),
                             const SizedBox(height: 12),
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,13 +266,12 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                             ),
                             const SizedBox(height: 40),
 
-                            // Selanjutnya button
                             Center(
                               child: SizedBox(
                                 width: size.width * 0.55,
                                 child: DarkButton(
-                                  label: 'Sign Up',
-                                  onTap: _onSelanjutnya,
+                                  label: _loading ? 'Memproses...' : 'Sign Up',
+                                  onTap: _loading ? () {} : _onSelanjutnya,
                                 ),
                               ),
                             ),
@@ -272,44 +291,30 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
   }
 }
 
-// ── Reusable widgets ──
-
-class _SectionLabel extends StatelessWidget {
+class _FieldLabel extends StatelessWidget {
   final String text;
-  const _SectionLabel(this.text);
+  const _FieldLabel(this.text);
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w700,
-        color: Color(0xFF1A1A1A),
-      ),
-    );
+    return Text(text,
+        style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1A1A1A)));
   }
 }
 
-class _RoundedField extends StatelessWidget {
+class _RoundedInput extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
-  final TextInputType keyboardType;
-  final List<TextInputFormatter> inputFormatters;
 
-  const _RoundedField({
-    required this.controller,
-    required this.hint,
-    this.keyboardType = TextInputType.text,
-    this.inputFormatters = const [],
-  });
+  const _RoundedInput({required this.controller, required this.hint});
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
       style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
       decoration: InputDecoration(
         hintText: hint,
@@ -331,8 +336,7 @@ class _RoundedField extends StatelessWidget {
   }
 }
 
-// ── Wave painter ──
-class _FillDataWavePainter extends CustomPainter {
+class _MasyarakatWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paintBack = Paint()
@@ -340,11 +344,11 @@ class _FillDataWavePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final pathBack = Path()
-      ..moveTo(0, size.height * 0.14)
-      ..quadraticBezierTo(size.width * 0.20, size.height * 0.02,
-          size.width * 0.50, size.height * 0.10)
+      ..moveTo(0, size.height * 0.12)
+      ..quadraticBezierTo(size.width * 0.20, size.height * 0.01,
+          size.width * 0.50, size.height * 0.08)
       ..quadraticBezierTo(
-          size.width * 0.80, size.height * 0.18, size.width, size.height * 0.07)
+          size.width * 0.80, size.height * 0.15, size.width, size.height * 0.06)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
@@ -355,11 +359,11 @@ class _FillDataWavePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final pathFront = Path()
-      ..moveTo(0, size.height * 0.22)
-      ..quadraticBezierTo(size.width * 0.22, size.height * 0.08,
-          size.width * 0.50, size.height * 0.16)
+      ..moveTo(0, size.height * 0.20)
+      ..quadraticBezierTo(size.width * 0.22, size.height * 0.07,
+          size.width * 0.50, size.height * 0.14)
       ..quadraticBezierTo(
-          size.width * 0.78, size.height * 0.24, size.width, size.height * 0.13)
+          size.width * 0.78, size.height * 0.21, size.width, size.height * 0.12)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
