@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/auth/forgot_password_screen.dart';
+import 'package:ruangpeduliapp/auth/fill_data_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/auth/fill_data_panti_screen.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
 import 'package:ruangpeduliapp/panti/home_panti_screen.dart';
@@ -23,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _passwordController = TextEditingController();
   final _api = AuthApi();
   bool _loading = false;
+  bool _googleLoading = false;
   String? _emailError;
   String? _passwordError;
   String? _generalError;
@@ -48,6 +51,56 @@ class _LoginScreenState extends State<LoginScreen>
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onGoogleLogin() async {
+    final backendRole = widget.role.toLowerCase().contains('panti') ? 'panti' : 'masyarakat';
+
+    setState(() { _googleLoading = true; _generalError = null; });
+    try {
+      final idToken = await GoogleSignInService.signIn();
+      if (idToken == null) return; // user cancelled
+
+      final result = await _api.googleAuth(idToken, backendRole);
+
+      if (!mounted) return;
+
+      if (result['exists'] == true) {
+        final role = result['role'] as String;
+        final Widget home = role == 'panti'
+            ? const HomePantiScreen()
+            : const HomeMasyarakatScreen();
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => home),
+          (route) => false,
+        );
+      } else {
+        // Account doesn't exist → go to fill data with Google token
+        final email = result['email'] as String? ?? '';
+        if (backendRole == 'panti') {
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => FillDataPantiScreen(
+              email: email,
+              password: '',
+              googleIdToken: idToken,
+            ),
+          ));
+        } else {
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => FillDataMasyarakatScreen(
+              email: email,
+              password: '',
+              googleIdToken: idToken,
+            ),
+          ));
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _generalError = '$e');
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
   }
 
   Future<void> _onLogin() async {
@@ -194,9 +247,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                           // Google Login — tanpa background, logo asli + teks
                           GestureDetector(
-                            onTap: () {
-                              // TODO: Google Sign-In
-                            },
+                            onTap: (_loading || _googleLoading) ? null : _onGoogleLogin,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -206,11 +257,11 @@ class _LoginScreenState extends State<LoginScreen>
                                   height: 28,
                                 ),
                                 const SizedBox(width: 12),
-                                const Text(
-                                  'Log In dengan Google',
+                                Text(
+                                  _googleLoading ? 'Memproses...' : 'Log In dengan Google',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Color(0xFF1A1A1A),
+                                    color: _googleLoading ? Colors.grey : const Color(0xFF1A1A1A),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
