@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/auth_widgets.dart';
+import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   final String role;

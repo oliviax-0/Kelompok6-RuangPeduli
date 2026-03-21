@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:ruangpeduliapp/splash_screen.dart';
+import 'package:ruangpeduliapp/auth/splash_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

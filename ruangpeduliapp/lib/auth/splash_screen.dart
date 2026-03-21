@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/role_selection_screen.dart';
+import 'package:ruangpeduliapp/auth/role_selection_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
