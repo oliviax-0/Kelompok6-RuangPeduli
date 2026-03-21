@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/auth_widgets.dart';
-import 'package:ruangpeduliapp/verification_screen.dart';
+import 'package:ruangpeduliapp/data/data.dart'; // <-- tambah
+import 'package:ruangpeduliapp/verification_screen.dart'; // <-- tambah
 
 class FillDataMasyarakatScreen extends StatefulWidget {
   final String email;
-  const FillDataMasyarakatScreen({super.key, required this.email});
+  final String password; // <-- tambah
+
+  const FillDataMasyarakatScreen({
+    super.key,
+    required this.email,
+    required this.password, // <-- tambah
+  });
 
   @override
   State<FillDataMasyarakatScreen> createState() =>
@@ -22,6 +29,9 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
   final _usernameController = TextEditingController();
   bool _agreeTnC = true;
 
+  final _api = AuthApi(); // <-- tambah
+  bool _loading = false; // <-- tambah
+
   @override
   void initState() {
     super.initState();
@@ -32,8 +42,9 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
       begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    Future.delayed(const Duration(milliseconds: 80),
-        () { if (mounted) _controller.forward(); });
+    Future.delayed(const Duration(milliseconds: 80), () {
+      if (mounted) _controller.forward();
+    });
   }
 
   @override
@@ -46,17 +57,74 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
   }
 
   void _onSelanjutnya() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => VerificationScreen(
-          role: 'Masyarakat',
-          email: widget.email,
-        ),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-        transitionDuration: const Duration(milliseconds: 350),
-      ),
+    print("=== TOMBOL DITEKAN ==="); // Debug 1
+
+    if (!_agreeTnC) {
+      print("❌ S&K belum dicentang");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Anda harus menyetujui S&K terlebih dahulu')),
+      );
+      return;
+    }
+    print("✓ S&K sudah dicentang");
+
+    if (_namaPenggunaController.text.isEmpty ||
+        _alamatController.text.isEmpty ||
+        _usernameController.text.isEmpty) {
+      print("❌ Ada field kosong:");
+      print("  - Nama: ${_namaPenggunaController.text}");
+      print("  - Alamat: ${_alamatController.text}");
+      print("  - Username: ${_usernameController.text}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Semua field wajib diisi')),
+      );
+      return;
+    }
+    print("✓ Semua field terisi");
+
+    final data = RegisterData(
+      username: _usernameController.text.trim(),
+      email: widget.email,
+      password: widget.password,
+      role: 'masyarakat',
+      namaPengguna: _namaPenggunaController.text.trim(),
+      alamat: _alamatController.text.trim(),
     );
+
+    print("=== MULAI REGISTER ==="); // Debug 2
+    print("Email: ${data.email}");
+    print("Username: ${data.username}");
+
+    setState(() => _loading = true);
+
+    _api.startRegister(data).then((pendingId) {
+      print("✓ REGISTER BERHASIL, pendingId: $pendingId"); // Debug 3
+      if (!mounted) {
+        print("❌ Widget tidak mounted, tidak bisa navigate");
+        return;
+      }
+      print("✓ Widget mounted, navigasi ke VerificationScreen");
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VerificationScreen(
+            pendingId: pendingId,
+            email: widget.email,
+          ),
+        ),
+      );
+    }).catchError((e) {
+      print("❌ REGISTER GAGAL: $e"); // Debug 4
+      print("Error type: ${e.runtimeType}");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mendaftar: $e')),
+      );
+    }).whenComplete(() {
+      print("=== REGISTER SELESAI ===");
+      if (mounted) setState(() => _loading = false);
+    });
   }
 
   @override
@@ -106,9 +174,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                       padding: EdgeInsets.only(left: 16, top: 8),
                       child: AuthBackButton(),
                     ),
-
                     SizedBox(height: size.height * 0.16),
-
                     Expanded(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -170,8 +236,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                                         () => _agreeTnC = val ?? false),
                                     activeColor: const Color(0xFF2C2C2C),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(4)),
+                                        borderRadius: BorderRadius.circular(4)),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -205,8 +270,8 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                               child: SizedBox(
                                 width: size.width * 0.55,
                                 child: DarkButton(
-                                  label: 'Sign Up',
-                                  onTap: _onSelanjutnya,
+                                  label: _loading ? 'Memproses...' : 'Sign Up',
+                                  onTap: _loading ? () {} : _onSelanjutnya,
                                 ),
                               ),
                             ),
@@ -264,8 +329,7 @@ class _RoundedInput extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
         ),
       ),
     );
@@ -283,8 +347,8 @@ class _MasyarakatWavePainter extends CustomPainter {
       ..moveTo(0, size.height * 0.12)
       ..quadraticBezierTo(size.width * 0.20, size.height * 0.01,
           size.width * 0.50, size.height * 0.08)
-      ..quadraticBezierTo(size.width * 0.80, size.height * 0.15,
-          size.width, size.height * 0.06)
+      ..quadraticBezierTo(
+          size.width * 0.80, size.height * 0.15, size.width, size.height * 0.06)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
@@ -298,8 +362,8 @@ class _MasyarakatWavePainter extends CustomPainter {
       ..moveTo(0, size.height * 0.20)
       ..quadraticBezierTo(size.width * 0.22, size.height * 0.07,
           size.width * 0.50, size.height * 0.14)
-      ..quadraticBezierTo(size.width * 0.78, size.height * 0.21,
-          size.width, size.height * 0.12)
+      ..quadraticBezierTo(
+          size.width * 0.78, size.height * 0.21, size.width, size.height * 0.12)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();

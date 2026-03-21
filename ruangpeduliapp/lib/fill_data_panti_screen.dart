@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ruangpeduliapp/auth_widgets.dart';
-import 'package:ruangpeduliapp/verification_screen.dart';
 
 class FillDataPantiScreen extends StatefulWidget {
   const FillDataPantiScreen({super.key});
@@ -33,8 +32,9 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
       begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    Future.delayed(const Duration(milliseconds: 80),
-        () { if (mounted) _controller.forward(); });
+    Future.delayed(const Duration(milliseconds: 80), () {
+      if (mounted) _controller.forward();
+    });
   }
 
   @override
@@ -49,16 +49,18 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
   }
 
   void _onSelanjutnya() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => VerificationScreen(
-          role: 'Panti Sosial',
-          email: '',
-        ),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-        transitionDuration: const Duration(milliseconds: 350),
-      ),
+    if (!_agreeTnC) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Anda harus menyetujui S&K terlebih dahulu')),
+      );
+      return;
+    }
+
+    // TODO: kirim data ini ke SignUpScreen / backend
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Submit data panti belum dihubungkan ke backend')),
     );
   }
 
@@ -210,8 +212,8 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                                   height: 24,
                                   child: Checkbox(
                                     value: _agreeTnC,
-                                    onChanged: (val) =>
-                                        setState(() => _agreeTnC = val ?? false),
+                                    onChanged: (val) => setState(
+                                        () => _agreeTnC = val ?? false),
                                     activeColor: const Color(0xFF2C2C2C),
                                     shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(4)),
@@ -322,8 +324,7 @@ class _RoundedField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
         ),
       ),
     );
@@ -342,8 +343,8 @@ class _FillDataWavePainter extends CustomPainter {
       ..moveTo(0, size.height * 0.14)
       ..quadraticBezierTo(size.width * 0.20, size.height * 0.02,
           size.width * 0.50, size.height * 0.10)
-      ..quadraticBezierTo(size.width * 0.80, size.height * 0.18,
-          size.width, size.height * 0.07)
+      ..quadraticBezierTo(
+          size.width * 0.80, size.height * 0.18, size.width, size.height * 0.07)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
@@ -357,8 +358,8 @@ class _FillDataWavePainter extends CustomPainter {
       ..moveTo(0, size.height * 0.22)
       ..quadraticBezierTo(size.width * 0.22, size.height * 0.08,
           size.width * 0.50, size.height * 0.16)
-      ..quadraticBezierTo(size.width * 0.78, size.height * 0.24,
-          size.width, size.height * 0.13)
+      ..quadraticBezierTo(
+          size.width * 0.78, size.height * 0.24, size.width, size.height * 0.13)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();

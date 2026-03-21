@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/auth_widgets.dart';
-import 'package:ruangpeduliapp/verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final String role;
@@ -29,8 +28,9 @@ class _LoginScreenState extends State<LoginScreen>
       begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    Future.delayed(const Duration(milliseconds: 80),
-        () { if (mounted) _controller.forward(); });
+    Future.delayed(const Duration(milliseconds: 80), () {
+      if (mounted) _controller.forward();
+    });
   }
 
   @override
@@ -42,16 +42,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _onLogin() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => VerificationScreen(
-          role: widget.role,
-          email: _emailController.text,
-        ),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-        transitionDuration: const Duration(milliseconds: 350),
-      ),
+    // TODO: Implement real login (call backend, then navigate to home screen)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Login belum diimplementasikan')),
     );
   }
 
@@ -121,7 +114,8 @@ class _LoginScreenState extends State<LoginScreen>
                           Center(
                             child: SizedBox(
                               width: size.width * 0.58,
-                              child: DarkButton(label: 'Log In', onTap: _onLogin),
+                              child:
+                                  DarkButton(label: 'Log In', onTap: _onLogin),
                             ),
                           ),
                           const SizedBox(height: 28),

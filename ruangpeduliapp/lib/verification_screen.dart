@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ruangpeduliapp/auth_widgets.dart';
 import 'package:ruangpeduliapp/success_screen.dart';
+import 'package:ruangpeduliapp/data/data.dart';
 
 class VerificationScreen extends StatefulWidget {
-  final String role;
+  final String pendingId;
   final String email;
-  const VerificationScreen({super.key, required this.role, required this.email});
+
+  const VerificationScreen({
+    super.key,
+    required this.pendingId,
+    required this.email,
+  });
 
   @override
   State<VerificationScreen> createState() => _VerificationScreenState();
@@ -22,6 +28,9 @@ class _VerificationScreenState extends State<VerificationScreen>
       List.generate(5, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(5, (_) => FocusNode());
 
+  final _authApi = AuthApi();
+  bool _loading = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,34 +41,51 @@ class _VerificationScreenState extends State<VerificationScreen>
       begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-    Future.delayed(const Duration(milliseconds: 80),
-        () { if (mounted) _controller.forward(); });
+    Future.delayed(const Duration(milliseconds: 80), () {
+      if (mounted) _controller.forward();
+    });
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    for (var c in _otpControllers) { c.dispose(); }
-    for (var f in _focusNodes) { f.dispose(); }
+    for (var c in _otpControllers) {
+      c.dispose();
+    }
+    for (var f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
-  void _onVerify() {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => SuccessScreen(role: widget.role),
-        transitionsBuilder: (_, anim, __, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 500),
-      ),
-    );
+  Future<void> _onVerify() async {
+    final otp = _otpControllers.map((c) => c.text).join();
+
+    if (otp.length != 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kode OTP harus 5 digit')),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      await _authApi.verifyOtp(widget.pendingId, otp);
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SuccessScreen(role: 'user')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      print('Verify OTP error: $e'); // <-- debug
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Verifikasi gagal: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -144,7 +170,8 @@ class _VerificationScreenState extends State<VerificationScreen>
                             // 5 OTP boxes
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: List.generate(5, (i) => _buildOtpBox(i)),
+                              children:
+                                  List.generate(5, (i) => _buildOtpBox(i)),
                             ),
 
                             const Spacer(),
@@ -153,9 +180,18 @@ class _VerificationScreenState extends State<VerificationScreen>
                             Center(
                               child: SizedBox(
                                 width: size.width * 0.55,
-                                child: DarkButton(
-                                  label: 'Verifikasi',
-                                  onTap: _onVerify,
+                                child: ElevatedButton(
+                                  onPressed: _loading ? null : _onVerify,
+                                  child: _loading
+                                      ? const SizedBox(
+                                          height: 18,
+                                          width: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text('Verifikasi'),
                                 ),
                               ),
                             ),
@@ -199,8 +235,7 @@ class _VerificationScreenState extends State<VerificationScreen>
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide:
-                const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
+            borderSide: const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
           ),
         ),
         onChanged: (val) {
@@ -224,12 +259,10 @@ class _VerifWavePainter extends CustomPainter {
 
     final pathBack = Path()
       ..moveTo(0, size.height * 0.10)
-      ..quadraticBezierTo(
-          size.width * 0.20, size.height * 0.01,
+      ..quadraticBezierTo(size.width * 0.20, size.height * 0.01,
           size.width * 0.50, size.height * 0.07)
       ..quadraticBezierTo(
-          size.width * 0.80, size.height * 0.13,
-          size.width, size.height * 0.05)
+          size.width * 0.80, size.height * 0.13, size.width, size.height * 0.05)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
@@ -241,12 +274,10 @@ class _VerifWavePainter extends CustomPainter {
 
     final pathFront = Path()
       ..moveTo(0, size.height * 0.17)
-      ..quadraticBezierTo(
-          size.width * 0.22, size.height * 0.06,
+      ..quadraticBezierTo(size.width * 0.22, size.height * 0.06,
           size.width * 0.50, size.height * 0.12)
       ..quadraticBezierTo(
-          size.width * 0.78, size.height * 0.18,
-          size.width, size.height * 0.10)
+          size.width * 0.78, size.height * 0.18, size.width, size.height * 0.10)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
