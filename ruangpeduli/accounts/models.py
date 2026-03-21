@@ -7,32 +7,52 @@ class User(AbstractUser):
         ('masyarakat', 'Masyarakat'),
         ('panti', 'Panti Sosial'),
     ]
-    
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+
+    def __str__(self):
+        return f"{self.username} ({self.role})"
+
+    @property
+    def profile(self):
+        """Ambil profile sesuai role user"""
+        if self.role == 'masyarakat':
+            return getattr(self, 'society_profile', None)
+        elif self.role == 'panti':
+            return getattr(self, 'orphanage_profile', None)
+        return None
+
+    @property
+    def nama(self):
+        """Ambil nama sesuai role"""
+        if self.role == 'masyarakat':
+            p = getattr(self, 'society_profile', None)
+            return p.nama_pengguna if p else self.username
+        elif self.role == 'panti':
+            p = getattr(self, 'orphanage_profile', None)
+            return p.nama_panti if p else self.username
+        return self.username
+
 
 class PendingRegistration(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    username = models.CharField(max_length=150)
+    username = models.CharField(max_length=150, default='')
     email = models.EmailField()
-    password = models.CharField(max_length=255, default='')  # <-- tambah default=''
-    role = models.CharField(max_length=20)
-    
+    password = models.CharField(max_length=255, default='')
+    role = models.CharField(max_length=20, default='masyarakat')
+
     # Masyarakat
     nama_pengguna = models.CharField(max_length=255, null=True, blank=True)
     alamat = models.TextField(null=True, blank=True)
-    
+
     # Panti
     nama_panti = models.CharField(max_length=255, null=True, blank=True)
     alamat_panti = models.TextField(null=True, blank=True)
     nomor_panti = models.CharField(max_length=20, null=True, blank=True)
-    
+
     # OTP
     otp_code = models.CharField(max_length=5, null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
-    
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
-        return f"{self.email} - {self.role}"
-
-
+        return f"{self.email} - {self.role} (pending)"
