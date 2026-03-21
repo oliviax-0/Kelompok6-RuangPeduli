@@ -128,6 +128,98 @@ class AuthApi {
     }
   }
 
+  // ─── LOGIN ────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> login(String email, String password, String role) async {
+    final url = Uri.parse('$baseUrl/login/');
+    print('📤 POST $url');
+
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'password': password, 'role': role}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Koneksi timeout'),
+          );
+
+      print('📥 Status: ${res.statusCode}');
+      print('📥 Body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        final body = jsonDecode(res.body);
+        throw Exception(body['error'] ?? 'Login gagal');
+      }
+
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } on SocketException catch (e) {
+      print('❌ SocketException: $e');
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── FORGOT PASSWORD ──────────────────────────────────────────────
+  Future<void> forgotPassword(String email) async {
+    final url = Uri.parse('$baseUrl/forgot-password/');
+    print('📤 POST $url');
+
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Koneksi timeout'),
+          );
+
+      print('📥 Status: ${res.statusCode}');
+      print('📥 Body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        final body = jsonDecode(res.body);
+        throw Exception(body['error'] ?? 'Gagal mengirim OTP');
+      }
+    } on SocketException catch (e) {
+      print('❌ SocketException: $e');
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── RESET PASSWORD ───────────────────────────────────────────────
+  Future<void> resetPassword(String email, String otp, String newPassword) async {
+    final url = Uri.parse('$baseUrl/reset-password/');
+    print('📤 POST $url');
+
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'otp': otp, 'new_password': newPassword}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Koneksi timeout'),
+          );
+
+      print('📥 Status: ${res.statusCode}');
+      print('📥 Body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        final body = jsonDecode(res.body);
+        throw Exception(body['error'] ?? 'Gagal reset sandi');
+      }
+    } on SocketException catch (e) {
+      print('❌ SocketException: $e');
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
   // ─── RESEND OTP ───────────────────────────────────────────────────
   Future<void> resendOtp(String email) async {
     final url = Uri.parse('$baseUrl/resend-otp/');
