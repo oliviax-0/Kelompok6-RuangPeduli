@@ -1,3 +1,4 @@
+import re
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from accounts.models import PendingRegistration, User
@@ -17,6 +18,22 @@ class RegisterStartSerializer(serializers.ModelSerializer):
             'alamat_panti',
             'nomor_panti',
         ]
+
+    def validate_password(self, value):
+        if len(value) < 6:
+            raise serializers.ValidationError('Sandi minimal 6 karakter.')
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError('Sandi harus mengandung minimal 1 huruf kapital.')
+        if not re.search(r'\d', value):
+            raise serializers.ValidationError('Sandi harus mengandung minimal 1 angka.')
+        return value
+
+    def validate_username(self, value):
+        if not re.search(r'[a-zA-Z]', value):
+            raise serializers.ValidationError('Username harus mengandung huruf.')
+        if not re.search(r'\d', value):
+            raise serializers.ValidationError('Username harus mengandung angka.')
+        return value
 
     def validate(self, attrs):
         role = attrs.get('role')

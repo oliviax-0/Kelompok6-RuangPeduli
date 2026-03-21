@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
+import 'package:ruangpeduliapp/auth/forgot_password_screen.dart';
+import 'package:ruangpeduliapp/data/data.dart';
+import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/panti/home_panti_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final String role;
@@ -17,6 +21,11 @@ class _LoginScreenState extends State<LoginScreen>
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _api = AuthApi();
+  bool _loading = false;
+  String? _emailError;
+  String? _passwordError;
+  String? _generalError;
 
   @override
   void initState() {
@@ -41,11 +50,43 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  void _onLogin() {
-    // TODO: Implement real login (call backend, then navigate to home screen)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Login belum diimplementasikan')),
-    );
+  Future<void> _onLogin() async {
+    final emailErr = _emailController.text.isEmpty ? 'Email wajib diisi' : null;
+    final passErr = _passwordController.text.isEmpty ? 'Sandi wajib diisi' : null;
+    setState(() {
+      _emailError = emailErr;
+      _passwordError = passErr;
+      _generalError = null;
+    });
+    if (emailErr != null || passErr != null) return;
+
+    setState(() => _loading = true);
+
+    try {
+      final backendRole = widget.role.toLowerCase().contains('panti') ? 'panti' : 'masyarakat';
+      final result = await _api.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+        backendRole,
+      );
+
+      if (!mounted) return;
+
+      final role = result['role'] as String;
+      final Widget home = role == 'panti'
+          ? const HomePantiScreen()
+          : const HomeMasyarakatScreen();
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => home),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _generalError = '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -98,6 +139,8 @@ class _LoginScreenState extends State<LoginScreen>
                             label: 'Email',
                             hint: 'Masukan Email',
                             controller: _emailController,
+                            errorText: _emailError,
+                            onChanged: (_) => setState(() => _emailError = null),
                           ),
                           const SizedBox(height: 24),
 
@@ -107,15 +150,44 @@ class _LoginScreenState extends State<LoginScreen>
                             hint: 'Masukan Sandi',
                             obscure: true,
                             controller: _passwordController,
+                            errorText: _passwordError,
+                            onChanged: (_) => setState(() => _passwordError = null),
                           ),
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 8),
+
+                          // Lupa Sandi
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ForgotPasswordScreen(role: widget.role),
+                                ),
+                              ),
+                              child: const Text(
+                                'Lupa Sandi?',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFFF43D5E),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          InlineMessage(message: _generalError),
+                          if (_generalError != null) const SizedBox(height: 12),
 
                           // Log In button (centered)
                           Center(
                             child: SizedBox(
                               width: size.width * 0.58,
-                              child:
-                                  DarkButton(label: 'Log In', onTap: _onLogin),
+                              child: DarkButton(
+                                label: _loading ? 'Memproses...' : 'Log In',
+                                onTap: _loading ? () {} : _onLogin,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 28),
