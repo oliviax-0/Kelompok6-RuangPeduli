@@ -9,6 +9,8 @@ import random
 import string
 import resend
 from django.db import transaction, IntegrityError
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 from accounts.models import User, PendingRegistration, PasswordResetPending
 from .serializers import RegisterStartSerializer
 
@@ -389,3 +391,126 @@ class ResendOtpView(APIView):
             {'message': 'OTP baru telah dikirim ke email kamu'},
             status=status.HTTP_200_OK
         )
+
+class GoogleAuthView(APIView):
+    """
+    POST /api/google-auth/
+    Body: { "id_token": "...", "role": "masyarakat|panti" }
+    Verify Google token. If user exists → login. If not → return email/name for registration.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        token = request.data.get('id_token', '').strip()
+        role  = request.data.get('role', '').strip()
+
+        if not token or not role:
+            return Response({'error': 'id_token dan role wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not settings.GOOGLE_CLIENT_ID:
+            return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+        except ValueError as e:
+            return Response({'error': f'Token Google tidak valid: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = idinfo.get('email', '')
+        name  = idinfo.get('name', '')
+
+        user = User.objects.filter(email=email, role=role).first()
+
+        if user:
+            return Response({
+                'exists': True,
+                'user_id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'exists': False,
+                'email': email,
+                'name': name,
+            }, status=status.HTTP_200_OK)
+
+
+class GoogleRegisterView(APIView):
+    """
+    POST /api/google-register/
+    Create user directly from Google data — no OTP needed (Google already verified email).
+    Body: { "id_token", "role", "username", "nama_pengguna"/"nama_panti", "alamat"/"alamat_panti", "nomor_panti" }
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        token    = request.data.get('id_token', '').strip()
+        role     = request.data.get('role', '').strip()
+        username = request.data.get('username', '').strip()
+
+        if not token or not role or not username:
+            return Response({'error': 'id_token, role, dan username wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not settings.GOOGLE_CLIENT_ID:
+            return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+        except ValueError as e:
+            return Response({'error': f'Token Google tidak valid: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = idinfo.get('email', '')
+
+        if User.objects.filter(email=email, role=role).exists():
+            return Response({'error': 'Email sudah terdaftar untuk role ini, silakan login'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username sudah digunakan'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                from django.contrib.auth.hashers import make_password
+                user = User.objects.create(
+                    username=username,
+                    email=email,
+                    password=make_password(None),  # unusable password — login via Google
+                    role=role,
+                )
+
+                if role == 'masyarakat':
+                    from profiles.models import SocietyProfile
+                    SocietyProfile.objects.create(
+                        user=user,
+                        nama_pengguna=request.data.get('nama_pengguna', ''),
+                        alamat=request.data.get('alamat', ''),
+                    )
+                elif role == 'panti':
+                    from profiles.models import OrphanageProfile
+                    OrphanageProfile.objects.create(
+                        user=user,
+                        nama_panti=request.data.get('nama_panti', ''),
+                        alamat_panti=request.data.get('alamat_panti', ''),
+                        nomor_panti=request.data.get('nomor_panti', ''),
+                    )
+
+            return Response({
+                'success': True,
+                'user_id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+            }, status=status.HTTP_201_CREATED)
+
+        except IntegrityError:
+            return Response({'error': 'Username atau email sudah digunakan'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'Terjadi kesalahan: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

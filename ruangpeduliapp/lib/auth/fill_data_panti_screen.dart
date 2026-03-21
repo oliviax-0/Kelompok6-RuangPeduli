@@ -3,15 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/auth/verification_screen.dart';
+import 'package:ruangpeduliapp/auth/success_screen.dart';
 
 class FillDataPantiScreen extends StatefulWidget {
   final String email;
   final String password;
+  final String? googleIdToken; // non-null → Google mode (skip OTP)
 
   const FillDataPantiScreen({
     super.key,
     required this.email,
     required this.password,
+    this.googleIdToken,
   });
 
   @override
@@ -89,32 +92,56 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
 
     setState(() => _loading = true);
 
-    _api.startRegister(RegisterData(
-      username: username,
-      email: widget.email,
-      password: widget.password,
-      role: 'panti',
-      namaPanti: _namaPantiController.text.trim(),
-      alamatPanti: _alamatPantiController.text.trim(),
-      nomorPanti: _nomorPantiController.text.trim(),
-    )).then((pendingId) {
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VerificationScreen(
-            pendingId: pendingId,
-            email: widget.email,
-            role: 'panti',
+    if (widget.googleIdToken != null) {
+      // Google mode — register directly, no OTP
+      _api.googleRegister(
+        idToken: widget.googleIdToken!,
+        role: 'panti',
+        username: username,
+        namaPanti: _namaPantiController.text.trim(),
+        alamatPanti: _alamatPantiController.text.trim(),
+        nomorPanti: _nomorPantiController.text.trim(),
+      ).then((_) {
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const SuccessScreen(role: 'panti')),
+          (route) => false,
+        );
+      }).catchError((e) {
+        if (!mounted) return;
+        setState(() => _generalError = '$e');
+      }).whenComplete(() {
+        if (mounted) setState(() => _loading = false);
+      });
+    } else {
+      _api.startRegister(RegisterData(
+        username: username,
+        email: widget.email,
+        password: widget.password,
+        role: 'panti',
+        namaPanti: _namaPantiController.text.trim(),
+        alamatPanti: _alamatPantiController.text.trim(),
+        nomorPanti: _nomorPantiController.text.trim(),
+      )).then((pendingId) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerificationScreen(
+              pendingId: pendingId,
+              email: widget.email,
+              role: 'panti',
+            ),
           ),
-        ),
-      );
-    }).catchError((e) {
-      if (!mounted) return;
-      setState(() => _generalError = '$e');
-    }).whenComplete(() {
-      if (mounted) setState(() => _loading = false);
-    });
+        );
+      }).catchError((e) {
+        if (!mounted) return;
+        setState(() => _generalError = '$e');
+      }).whenComplete(() {
+        if (mounted) setState(() => _loading = false);
+      });
+    }
   }
 
   @override

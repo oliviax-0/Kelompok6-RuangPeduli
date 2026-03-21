@@ -88,6 +88,11 @@ STATIC_URL = 'static/'
 CORS_ALLOW_ALL_ORIGINS = True
 
 # ============================================================
+# GOOGLE OAUTH — Web Client ID dari Google Cloud Console
+# ============================================================
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+
+# ============================================================
 # RESEND — loaded from .env
 # ============================================================
 RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')

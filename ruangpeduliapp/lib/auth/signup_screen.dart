@@ -4,6 +4,8 @@ import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/auth/fill_data_masyarakat_screen.dart';
 import 'package:ruangpeduliapp/auth/fill_data_panti_screen.dart';
 
+// ignore_for_file: use_build_context_synchronously
+
 class SignUpScreen extends StatefulWidget {
   final String role;
   const SignUpScreen({super.key, required this.role});
@@ -31,6 +33,8 @@ class _SignUpScreenState extends State<SignUpScreen>
   String? _emailError;
   String? _passwordError;
   String? _confirmPasswordError;
+  String? _googleError;
+  bool _googleLoading = false;
 
   final api = AuthApi();
 
@@ -62,6 +66,48 @@ class _SignUpScreenState extends State<SignUpScreen>
     _alamatPantiController.dispose();
     _nomorPantiController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onGoogleSignUp() async {
+    final backendRole = widget.role == 'Panti Sosial' ? 'panti' : 'masyarakat';
+    setState(() { _googleLoading = true; _googleError = null; });
+    try {
+      final idToken = await GoogleSignInService.signIn();
+      if (idToken == null) return; // user cancelled
+
+      final result = await api.googleAuth(idToken, backendRole);
+
+      if (!mounted) return;
+
+      if (result['exists'] == true) {
+        setState(() => _googleError = 'Akun Google ini sudah terdaftar, silahkan login');
+        return;
+      }
+
+      final email = result['email'] as String? ?? '';
+      if (backendRole == 'panti') {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => FillDataPantiScreen(
+            email: email,
+            password: '',
+            googleIdToken: idToken,
+          ),
+        ));
+      } else {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => FillDataMasyarakatScreen(
+            email: email,
+            password: '',
+            googleIdToken: idToken,
+          ),
+        ));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _googleError = '$e');
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
   }
 
   String? _validatePassword(String password) {
@@ -180,8 +226,37 @@ class _SignUpScreenState extends State<SignUpScreen>
                               width: size.width * 0.58,
                               child: DarkButton(
                                 label: 'Selanjutnya',
-                                onTap: _onSignUp, // <-- panggil backend
+                                onTap: _googleLoading ? () {} : _onSignUp,
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+
+                          // Google Sign Up
+                          if (_googleError != null) ...[
+                            InlineMessage(message: _googleError),
+                            const SizedBox(height: 8),
+                          ],
+                          GestureDetector(
+                            onTap: _googleLoading ? null : _onGoogleSignUp,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  'assets/images/logo_google.png',
+                                  width: 28,
+                                  height: 28,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  _googleLoading ? 'Memproses...' : 'Daftar dengan Google',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: _googleLoading ? Colors.grey : const Color(0xFF1A1A1A),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 40),
