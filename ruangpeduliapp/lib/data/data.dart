@@ -126,7 +126,7 @@ class AuthApi {
   }
 
   // ─── VERIFY OTP ───────────────────────────────────────────────────
-  Future<void> verifyOtp(String pendingId, String otp) async {
+  Future<Map<String, dynamic>> verifyOtp(String pendingId, String otp) async {
     final url = Uri.parse('$baseUrl/verify/');
     print('📤 POST $url');
     print('📦 Body: pending_id=$pendingId, otp=$otp');
@@ -150,6 +150,8 @@ class AuthApi {
         final body = jsonDecode(res.body);
         throw Exception(body['error'] ?? 'Verifikasi gagal');
       }
+
+      return jsonDecode(res.body) as Map<String, dynamic>;
     } on SocketException catch (e) {
       print('❌ SocketException: $e');
       throw Exception('Tidak bisa konek ke server');

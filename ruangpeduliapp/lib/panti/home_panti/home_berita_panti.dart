@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/data/content_api.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -8,21 +9,29 @@ const Color kSalmon = Color(0xFFEBB9B1);
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 class BeritaDetailPanti extends StatefulWidget {
+  final int beritaId;
+  final int? userId;
   final String title;
-  final String imageUrl;
+  final String? thumbnail;
   final String date;
   final String authorName;
   final String pantiName;
   final String body;
+  final int upvoteCount;
+  final int downvoteCount;
 
   const BeritaDetailPanti({
     super.key,
+    required this.beritaId,
+    required this.userId,
     required this.title,
-    required this.imageUrl,
+    required this.thumbnail,
     required this.date,
     required this.authorName,
     required this.pantiName,
     required this.body,
+    required this.upvoteCount,
+    required this.downvoteCount,
   });
 
   @override
@@ -30,42 +39,63 @@ class BeritaDetailPanti extends StatefulWidget {
 }
 
 class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
-  int _upvotes = 25;
-  int _downvotes = 0;
+  late int _upvotes;
+  late int _downvotes;
   bool _hasUpvoted = false;
   bool _hasDownvoted = false;
+  bool _voting = false;
 
-  void _onUpvote() {
-    setState(() {
-      if (_hasUpvoted) {
-        _upvotes--;
-        _hasUpvoted = false;
-      } else {
-        _upvotes++;
-        _hasUpvoted = true;
-        if (_hasDownvoted) {
-          _downvotes--;
-          _hasDownvoted = false;
-        }
-      }
-    });
+  @override
+  void initState() {
+    super.initState();
+    _upvotes = widget.upvoteCount;
+    _downvotes = widget.downvoteCount;
   }
 
-  void _onDownvote() {
-    setState(() {
-      if (_hasDownvoted) {
-        _downvotes--;
-        _hasDownvoted = false;
-      } else {
-        _downvotes++;
-        _hasDownvoted = true;
-        if (_hasUpvoted) {
-          _upvotes--;
+  Future<void> _vote(String voteType) async {
+    if (widget.userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silakan login untuk memberi vote')),
+      );
+      return;
+    }
+    if (_voting) return;
+    setState(() => _voting = true);
+
+    try {
+      final result = await ContentApi().voteBerita(
+        widget.beritaId,
+        widget.userId!,
+        voteType,
+      );
+      setState(() {
+        _upvotes = result['upvote_count'];
+        _downvotes = result['downvote_count'];
+        final action = result['action'];
+        if (action == 'removed') {
+          _hasUpvoted = false;
+          _hasDownvoted = false;
+        } else if (voteType == 'up') {
+          _hasUpvoted = true;
+          _hasDownvoted = false;
+        } else {
+          _hasDownvoted = true;
           _hasUpvoted = false;
         }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
       }
-    });
+    } finally {
+      if (mounted) setState(() => _voting = false);
+    }
   }
+
+  void _onUpvote() => _vote('up');
+  void _onDownvote() => _vote('down');
 
   @override
   Widget build(BuildContext context) {
@@ -111,21 +141,32 @@ class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
               borderRadius: BorderRadius.circular(15),
               child: AspectRatio(
                 aspectRatio: 16 / 10,
-                child: Image.network(
-                  widget.imageUrl,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (_, child, progress) => progress == null
-                      ? child
-                      : Container(
+                child: widget.thumbnail != null
+                    ? Image.network(
+                        widget.thumbnail!,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (_, child, progress) => progress == null
+                            ? child
+                            : Container(
+                                color: const Color(0xFFE0E0E0),
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(kPink),
+                                  ),
+                                ),
+                              ),
+                        errorBuilder: (_, __, ___) => Container(
                           color: const Color(0xFFE0E0E0),
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(kPink),
-                            ),
-                          ),
+                          child: const Icon(Icons.broken_image_outlined,
+                              color: Colors.grey, size: 40),
                         ),
-                ),
+                      )
+                    : Container(
+                        color: const Color(0xFFE0E0E0),
+                        child: const Icon(Icons.newspaper_rounded,
+                            color: Colors.grey, size: 40),
+                      ),
               ),
             ),
             const SizedBox(height: 16),
@@ -285,6 +326,3 @@ class _VoteButton extends StatelessWidget {
   }
 }
 
-// ─── Recommendation Card ──────────────────────────────────────────────────────
-
-// Note: Recommendation section removed for simplicity. Can be re-added later if needed.
