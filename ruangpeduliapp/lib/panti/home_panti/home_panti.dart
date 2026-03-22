@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:ruangpeduliapp/panti/keuangan_panti.dart';
 import 'package:ruangpeduliapp/panti/inventory_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/profile_panti.dart';
@@ -51,13 +53,32 @@ class HomePanti extends StatefulWidget {
 class _HomePantiState extends State<HomePanti> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
-  late Future<List<BeritaModel>> _beritaFuture;
   String? _profilePictureUrl;
+
+  List<BeritaModel> _beritas = [];
+  bool _loading = true;
+  String? _error;
+  Timer? _debounce;
+
+  final SpeechToText _stt = SpeechToText();
+  bool _sttReady = false;
+  bool _listening = false;
 
   @override
   void initState() {
     super.initState();
-    _beritaFuture = ContentApi().fetchBeritas();
+    _fetchBeritas();
+    _searchController.addListener(_onSearchChanged);
+    _stt.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          if (mounted) setState(() => _listening = false);
+        }
+      },
+      onError: (error) {
+        if (mounted) setState(() => _listening = false);
+      },
+    ).then((ok) { if (mounted) setState(() => _sttReady = ok); });
     if (widget.pantiId != null) {
       ProfileApi().fetchPantiProfile(widget.pantiId!).then((profile) {
         if (mounted) setState(() => _profilePictureUrl = profile.profilePicture);
@@ -65,8 +86,67 @@ class _HomePantiState extends State<HomePanti> {
     }
   }
 
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _fetchBeritas(search: _searchController.text.trim());
+    });
+  }
+
+  Future<void> _fetchBeritas({String? search}) async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final result = await ContentApi().fetchBeritas(
+        search: search?.isNotEmpty == true ? search : null,
+      );
+      if (mounted) setState(() { _beritas = result; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _toggleMic() async {
+    if (!_sttReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mikrofon tidak tersedia di perangkat ini')),
+      );
+      return;
+    }
+    if (_listening) {
+      await _stt.stop();
+      setState(() => _listening = false);
+      return;
+    }
+
+    // Pick best available locale (prefer id_ID, fall back to device default)
+    final locales = await _stt.locales();
+    String? localeId;
+    for (final l in locales) {
+      if (l.localeId.startsWith('id')) { localeId = l.localeId; break; }
+    }
+
+    setState(() { _listening = true; _searchController.clear(); });
+    await _stt.listen(
+      onResult: (result) {
+        if (!mounted) return;
+        setState(() => _searchController.text = result.recognizedWords);
+        if (result.finalResult) {
+          setState(() => _listening = false);
+          _fetchBeritas(search: result.recognizedWords.trim());
+        }
+      },
+      listenFor: const Duration(seconds: 10),
+      pauseFor: const Duration(seconds: 3),
+      localeId: localeId,
+    );
+  }
+
   @override
   void dispose() {
+    _debounce?.cancel();
+    _stt.stop();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -152,7 +232,7 @@ class _HomePantiState extends State<HomePanti> {
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -166,10 +246,14 @@ class _HomePantiState extends State<HomePanti> {
                     color: Colors.grey[400],
                     fontSize: 15,
                   ),
-                  prefixIcon: Icon(
-                    Icons.mic_none_rounded,
-                    color: Colors.grey[400],
-                    size: 22,
+                  prefixIcon: IconButton(
+                    onPressed: _toggleMic,
+                    icon: Icon(
+                      _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                      color: _listening ? kPink : Colors.grey[400],
+                      size: 22,
+                    ),
+                    splashRadius: 20,
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 13),
@@ -185,39 +269,33 @@ class _HomePantiState extends State<HomePanti> {
   // ─── News Feed ───────────────────────────────────────────────────────────
 
   Widget _buildNewsFeed() {
-    return FutureBuilder<List<BeritaModel>>(
-      future: _beritaFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(kPink),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              snapshot.error.toString(),
-              style: const TextStyle(color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          );
-        }
-        final beritas = snapshot.data ?? [];
-        if (beritas.isEmpty) {
-          return const Center(
-            child: Text('Belum ada berita.', style: TextStyle(color: Colors.grey)),
-          );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-          itemCount: beritas.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
-          itemBuilder: (context, index) =>
-              _NewsCard(item: beritas[index], userId: widget.userId),
-        );
-      },
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(kPink)),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Text(_error!, style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+      );
+    }
+    if (_beritas.isEmpty) {
+      return Center(
+        child: Text(
+          _searchController.text.trim().isNotEmpty
+              ? 'Tidak ada berita untuk "${_searchController.text.trim()}".'
+              : 'Belum ada berita.',
+          style: const TextStyle(color: Colors.grey),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      itemCount: _beritas.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (context, index) =>
+          _NewsCard(item: _beritas[index], userId: widget.userId),
     );
   }
 
@@ -237,7 +315,7 @@ class _HomePantiState extends State<HomePanti> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: kPink.withOpacity(0.4),
+                color: kPink.withValues(alpha: 0.4),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -304,7 +382,7 @@ class _HomePantiState extends State<HomePanti> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Icon(
                         icons[index],
-                        color: selected ? Colors.black : Colors.white.withOpacity(0.65),
+                        color: selected ? Colors.black : Colors.white.withValues(alpha: 0.65),
                         size: 26,
                       ),
                     ),

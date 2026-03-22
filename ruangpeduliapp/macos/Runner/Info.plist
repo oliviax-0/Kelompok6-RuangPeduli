@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Mikrofon digunakan untuk mencari berita dengan suara</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Pengenalan suara digunakan untuk mencari berita</string>
 </dict>
 </plist>
