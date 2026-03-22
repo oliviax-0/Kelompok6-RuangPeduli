@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
-import 'package:ruangpeduliapp/auth/verification_screen.dart';
 import 'package:ruangpeduliapp/auth/fill_data_masyarakat_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -56,47 +55,6 @@ class _SignUpScreenState extends State<SignUpScreen>
     _alamatPantiController.dispose();
     _nomorPantiController.dispose();
     super.dispose();
-  }
-
-  Future<void> _handleSignUp() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email dan sandi wajib diisi')),
-      );
-      return;
-    }
-
-    // mapping ke role yang dipakai backend
-    final backendRole =
-        widget.role.toLowerCase().contains('panti') ? 'panti' : 'masyarakat';
-
-    final data = RegisterData(
-      username: _emailController.text, // sementara pakai email sebagai username
-      email: _emailController.text,
-      password: _passwordController.text,
-      role: backendRole,
-    );
-
-    try {
-      final pendingId = await api.startRegister(data);
-      if (!mounted) return;
-
-      // pindah ke layar verifikasi OTP
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VerificationScreen(
-            pendingId: pendingId,
-            email: data.email,
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal daftar: $e')),
-      );
-    }
   }
 
   void _onSignUp() {

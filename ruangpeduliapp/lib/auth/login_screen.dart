@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
+import 'package:ruangpeduliapp/panti/home_panti/home_panti.dart';
 
 class LoginScreen extends StatefulWidget {
   final String role;
@@ -42,10 +43,31 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _onLogin() {
-    // TODO: Implement real login (call backend, then navigate to home screen)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Login belum diimplementasikan')),
-    );
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // Validasi input
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email dan Sandi tidak boleh kosong')),
+      );
+      return;
+    }
+
+    // TODO: Validate dengan backend
+    // Untuk saat ini, navigasi ke home screen berdasarkan role
+    if (widget.role == 'Panti Sosial') {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const HomePanti(),
+        ),
+      );
+    } else {
+      // Untuk role lain, bisa tambahkan navigasi ke screen lain
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login untuk ${widget.role} belum tersedia')),
+      );
+    }
   }
 
   @override
