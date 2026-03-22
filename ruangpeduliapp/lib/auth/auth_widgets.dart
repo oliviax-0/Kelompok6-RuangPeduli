@@ -1,5 +1,162 @@
 import 'package:flutter/material.dart';
 
+// ── Custom overlay popup ──
+void showCustomPopup(
+  BuildContext context,
+  String message, {
+  bool isError = true,
+}) {
+  final overlay = Overlay.of(context);
+  late OverlayEntry entry;
+
+  entry = OverlayEntry(
+    builder: (_) => _CustomPopup(
+      message: message,
+      isError: isError,
+      onDismiss: () => entry.remove(),
+    ),
+  );
+
+  overlay.insert(entry);
+}
+
+class _CustomPopup extends StatefulWidget {
+  final String message;
+  final bool isError;
+  final VoidCallback onDismiss;
+
+  const _CustomPopup({
+    required this.message,
+    required this.isError,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_CustomPopup> createState() => _CustomPopupState();
+}
+
+class _CustomPopupState extends State<_CustomPopup>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 300));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+
+    _ctrl.forward();
+
+    Future.delayed(const Duration(seconds: 3), () async {
+      if (!mounted) return;
+      await _ctrl.reverse();
+      widget.onDismiss();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isError ? const Color(0xFFF43D5E) : Colors.green;
+    final icon = widget.isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded;
+
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 16,
+      left: 24,
+      right: 24,
+      child: Material(
+        color: Colors.transparent,
+        child: FadeTransition(
+          opacity: _fade,
+          child: SlideTransition(
+            position: _slide,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: color, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.message,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF1A1A1A),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Inline error / info text ──
+class InlineMessage extends StatelessWidget {
+  final String? message;
+  final bool isError;
+
+  const InlineMessage({super.key, this.message, this.isError = true});
+
+  @override
+  Widget build(BuildContext context) {
+    if (message == null || message!.isEmpty) return const SizedBox.shrink();
+    final color = isError ? const Color(0xFFF43D5E) : Colors.green.shade600;
+    final icon = isError ? Icons.info_outline_rounded : Icons.check_circle_outline_rounded;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              message!,
+              style: TextStyle(fontSize: 12, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Shared gradient + wave background ──
 class AuthBackground extends StatelessWidget {
   final Widget child;
@@ -159,11 +316,13 @@ class AuthBackButton extends StatelessWidget {
 }
 
 // ── Shared underline text field ──
-class UnderlineField extends StatelessWidget {
+class UnderlineField extends StatefulWidget {
   final String label;
   final String hint;
   final bool obscure;
   final TextEditingController? controller;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
 
   const UnderlineField({
     super.key,
@@ -171,34 +330,75 @@ class UnderlineField extends StatelessWidget {
     required this.hint,
     this.obscure = false,
     this.controller,
+    this.errorText,
+    this.onChanged,
   });
 
   @override
+  State<UnderlineField> createState() => _UnderlineFieldState();
+}
+
+class _UnderlineFieldState extends State<UnderlineField> {
+  bool _hidden = true;
+
+  @override
   Widget build(BuildContext context) {
+    final hasError = widget.errorText != null && widget.errorText!.isNotEmpty;
+    final isObscured = widget.obscure && _hidden;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(widget.label,
             style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF1A1A1A))),
         const SizedBox(height: 10),
         TextField(
-          controller: controller,
-          obscureText: obscure,
+          controller: widget.controller,
+          obscureText: isObscured,
+          onChanged: widget.onChanged,
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: widget.hint,
             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
             enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey.shade300)),
-            focusedBorder: const UnderlineInputBorder(
-                borderSide:
-                    BorderSide(color: Color(0xFFF43D5E), width: 1.5)),
+                borderSide: BorderSide(
+                    color: hasError ? const Color(0xFFF43D5E) : Colors.grey.shade300)),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(
+                    color: hasError ? const Color(0xFFF43D5E) : const Color(0xFFF43D5E),
+                    width: 1.5)),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            suffixIcon: widget.obscure
+                ? GestureDetector(
+                    onTap: () => setState(() => _hidden = !_hidden),
+                    child: Icon(
+                      _hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 20,
+                      color: Colors.grey.shade400,
+                    ),
+                  )
+                : null,
           ),
         ),
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.info_outline_rounded,
+                  size: 13, color: Color(0xFFF43D5E)),
+              const SizedBox(width: 4),
+              Text(
+                widget.errorText!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFF43D5E),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
