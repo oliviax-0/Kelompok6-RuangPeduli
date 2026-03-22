@@ -9,7 +9,9 @@ import random
 import string
 import resend
 from django.db import transaction, IntegrityError
-from accounts.models import User, PendingRegistration
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from accounts.models import User, PendingRegistration, PasswordResetPending
 from .serializers import RegisterStartSerializer
 
 OTP_HTML = """
@@ -27,7 +29,7 @@ OTP_HTML = """
             {otp}
         </div>
         <p style="color: #888; font-size: 13px; line-height: 1.6;">
-            Kode ini berlaku selama <b>10 menit</b>.<br>
+            Kode ini berlaku selama <b>5 menit</b>.<br>
             Jangan bagikan kode ini kepada siapapun.
         </p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
@@ -58,7 +60,7 @@ def _send_via_gmail(email: str, otp: str) -> bool:
     try:
         send_mail(
             subject="Kode OTP RuangPeduli",
-            message=f"Kode OTP kamu: {otp}\nBerlaku selama 10 menit.",
+            message=f"Kode OTP kamu: {otp}\nBerlaku selama 5 menit.",
             from_email=f"RuangPeduli <{settings.EMAIL_HOST_USER}>",
             recipient_list=[email],
             fail_silently=False,
@@ -90,10 +92,11 @@ class RegisterStartView(generics.CreateAPIView):
         email = request.data.get('email')
         username = request.data.get('username')
 
-        # ✅ Cek email sudah terdaftar di User
-        if User.objects.filter(email=email).exists():
+        # ✅ Cek email + role sudah terdaftar di User
+        role = request.data.get('role')
+        if User.objects.filter(email=email, role=role).exists():
             return Response(
-                {'error': 'Email sudah terdaftar, silakan login'},
+                {'error': 'Email sudah terdaftar untuk role ini, silakan login'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -117,7 +120,7 @@ class RegisterStartView(generics.CreateAPIView):
 
         otp = ''.join(random.choices(string.digits, k=5))
         pending.otp_code = otp
-        pending.expires_at = timezone.now() + timedelta(minutes=10)
+        pending.expires_at = timezone.now() + timedelta(minutes=5)
         pending.save()
 
         print(f"{'='*40}")
@@ -162,11 +165,10 @@ class VerifyOtpView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ❌ OTP salah → hapus pending
+        # ❌ OTP salah → biarkan pending, user bisa coba lagi
         if pending.otp_code != otp:
-            pending.delete()  # ← HAPUS
             return Response(
-                {'error': 'OTP salah, silakan daftar ulang'},
+                {'error': 'OTP salah, silakan coba lagi'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -212,16 +214,159 @@ class VerifyOtpView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+        panti_id = None
+        if user.role == 'panti':
+            from profiles.models import OrphanageProfile
+            try:
+                panti_id = OrphanageProfile.objects.get(user=user).id
+            except OrphanageProfile.DoesNotExist:
+                pass
+
         return Response(
             {
                 'success': True,
                 'message': 'Registrasi berhasil! Silakan login.',
                 'user_id': user.id,
                 'username': user.username,
+                'role': user.role,
+                'panti_id': panti_id,
             },
             status=status.HTTP_201_CREATED
         )
     
+class LoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        password = request.data.get('password')
+        role = request.data.get('role')
+
+        if not email or not password or not role:
+            return Response(
+                {'error': 'Email, sandi, dan role wajib diisi'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(email=email, role=role)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Email atau sandi salah'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if not user.check_password(password):
+            return Response(
+                {'error': 'Email atau sandi salah'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        panti_id = None
+        if user.role == 'panti':
+            from profiles.models import OrphanageProfile
+            try:
+                panti_id = OrphanageProfile.objects.get(user=user).id
+            except OrphanageProfile.DoesNotExist:
+                pass
+
+        return Response({
+            'success': True,
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'panti_id': panti_id,
+        }, status=status.HTTP_200_OK)
+
+
+class ForgotPasswordRequestView(APIView):
+    """
+    POST /api/forgot-password/
+    Body: { "email": "..." }
+    Sends OTP to email if user exists.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email', '').strip()
+        if not email:
+            return Response({'error': 'Email wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not User.objects.filter(email=email).exists():
+            return Response({'error': 'Email tidak terdaftar'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Delete any previous reset pending for this email
+        PasswordResetPending.objects.filter(email=email).delete()
+
+        otp = ''.join(random.choices(string.digits, k=5))
+        pending = PasswordResetPending.objects.create(
+            email=email,
+            otp_code=otp,
+            expires_at=timezone.now() + timedelta(minutes=5),
+        )
+
+        print(f"{'='*40}")
+        print(f"📧 Reset email : {email}")
+        print(f"🔑 OTP         : {otp}")
+        print(f"⏰ Expires     : {pending.expires_at}")
+        print(f"{'='*40}")
+
+        sent = _send_otp_email(email, otp)
+        if not sent:
+            return Response({'error': 'Gagal mengirim email, coba lagi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({'message': 'Kode OTP telah dikirim ke email kamu'}, status=status.HTTP_200_OK)
+
+
+class ForgotPasswordResetView(APIView):
+    """
+    POST /api/reset-password/
+    Body: { "email": "...", "otp": "...", "new_password": "..." }
+    Verifies OTP and resets password for all accounts with that email.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email', '').strip()
+        otp = request.data.get('otp', '').strip()
+        new_password = request.data.get('new_password', '')
+
+        if not email or not otp or not new_password:
+            return Response({'error': 'Email, OTP, dan sandi baru wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        import re
+        if len(new_password) < 6:
+            return Response({'error': 'Sandi minimal 6 karakter'}, status=status.HTTP_400_BAD_REQUEST)
+        if not re.search(r'[A-Z]', new_password):
+            return Response({'error': 'Sandi harus mengandung minimal 1 huruf kapital'}, status=status.HTTP_400_BAD_REQUEST)
+        if not re.search(r'\d', new_password):
+            return Response({'error': 'Sandi harus mengandung minimal 1 angka'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            pending = PasswordResetPending.objects.get(email=email)
+        except PasswordResetPending.DoesNotExist:
+            return Response({'error': 'Sesi reset tidak ditemukan, silakan minta OTP lagi'}, status=status.HTTP_404_NOT_FOUND)
+
+        if timezone.now() > pending.expires_at:
+            pending.delete()
+            return Response({'error': 'OTP sudah expired, silakan minta OTP lagi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if pending.otp_code != otp:
+            return Response({'error': 'OTP salah, silakan coba lagi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Reset password for all accounts with this email
+        users = User.objects.filter(email=email)
+        for user in users:
+            user.set_password(new_password)
+            user.save()
+
+        pending.delete()
+        print(f"✅ Password reset untuk {email} ({users.count()} akun)")
+
+        return Response({'message': 'Sandi berhasil direset. Silakan login.'}, status=status.HTTP_200_OK)
+
+
 class ResendOtpView(APIView):
     """
     POST /api/resend-otp/
@@ -249,7 +394,7 @@ class ResendOtpView(APIView):
         # Generate OTP baru
         otp = ''.join(random.choices(string.digits, k=5))
         pending.otp_code = otp
-        pending.expires_at = timezone.now() + timedelta(minutes=10)
+        pending.expires_at = timezone.now() + timedelta(minutes=5)
         pending.save()
 
         print(f"🔄 Resend OTP ke {email}: {otp}")
@@ -265,3 +410,126 @@ class ResendOtpView(APIView):
             {'message': 'OTP baru telah dikirim ke email kamu'},
             status=status.HTTP_200_OK
         )
+
+class GoogleAuthView(APIView):
+    """
+    POST /api/google-auth/
+    Body: { "id_token": "...", "role": "masyarakat|panti" }
+    Verify Google token. If user exists → login. If not → return email/name for registration.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        token = request.data.get('id_token', '').strip()
+        role  = request.data.get('role', '').strip()
+
+        if not token or not role:
+            return Response({'error': 'id_token dan role wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not settings.GOOGLE_CLIENT_ID:
+            return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+        except ValueError as e:
+            return Response({'error': f'Token Google tidak valid: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = idinfo.get('email', '')
+        name  = idinfo.get('name', '')
+
+        user = User.objects.filter(email=email, role=role).first()
+
+        if user:
+            return Response({
+                'exists': True,
+                'user_id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'exists': False,
+                'email': email,
+                'name': name,
+            }, status=status.HTTP_200_OK)
+
+
+class GoogleRegisterView(APIView):
+    """
+    POST /api/google-register/
+    Create user directly from Google data — no OTP needed (Google already verified email).
+    Body: { "id_token", "role", "username", "nama_pengguna"/"nama_panti", "alamat"/"alamat_panti", "nomor_panti" }
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        token    = request.data.get('id_token', '').strip()
+        role     = request.data.get('role', '').strip()
+        username = request.data.get('username', '').strip()
+
+        if not token or not role or not username:
+            return Response({'error': 'id_token, role, dan username wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not settings.GOOGLE_CLIENT_ID:
+            return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+        except ValueError as e:
+            return Response({'error': f'Token Google tidak valid: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = idinfo.get('email', '')
+
+        if User.objects.filter(email=email, role=role).exists():
+            return Response({'error': 'Email sudah terdaftar untuk role ini, silakan login'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username sudah digunakan'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                from django.contrib.auth.hashers import make_password
+                user = User.objects.create(
+                    username=username,
+                    email=email,
+                    password=make_password(None),  # unusable password — login via Google
+                    role=role,
+                )
+
+                if role == 'masyarakat':
+                    from profiles.models import SocietyProfile
+                    SocietyProfile.objects.create(
+                        user=user,
+                        nama_pengguna=request.data.get('nama_pengguna', ''),
+                        alamat=request.data.get('alamat', ''),
+                    )
+                elif role == 'panti':
+                    from profiles.models import OrphanageProfile
+                    OrphanageProfile.objects.create(
+                        user=user,
+                        nama_panti=request.data.get('nama_panti', ''),
+                        alamat_panti=request.data.get('alamat_panti', ''),
+                        nomor_panti=request.data.get('nomor_panti', ''),
+                    )
+
+            return Response({
+                'success': True,
+                'user_id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+            }, status=status.HTTP_201_CREATED)
+
+        except IntegrityError:
+            return Response({'error': 'Username atau email sudah digunakan'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'Terjadi kesalahan: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

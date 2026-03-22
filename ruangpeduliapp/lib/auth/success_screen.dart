@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/panti/home_panti_screen.dart';
+import 'package:ruangpeduliapp/panti/home_panti/home_panti.dart';
 import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
 
 class SuccessScreen extends StatefulWidget {
   final String role;
-  const SuccessScreen({super.key, required this.role});
+  final int? userId;
+  final int? pantiId;
+  const SuccessScreen({
+    super.key,
+    required this.role,
+    this.userId,
+    this.pantiId,
+  });
 
   @override
   State<SuccessScreen> createState() => _SuccessScreenState();
@@ -63,8 +70,8 @@ class _SuccessScreenState extends State<SuccessScreen>
   }
 
   void _navigateToHome() {
-    final Widget home = widget.role == 'Panti Sosial'
-        ? const HomePantiScreen()
+    final Widget home = widget.role == 'panti'
+        ? HomePanti(userId: widget.userId, pantiId: widget.pantiId)
         : const HomeMasyarakatScreen();
 
     Navigator.of(context).pushAndRemoveUntil(

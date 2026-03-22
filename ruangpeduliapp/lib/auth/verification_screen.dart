@@ -8,11 +8,13 @@ import 'package:ruangpeduliapp/data/data.dart';
 class VerificationScreen extends StatefulWidget {
   final String pendingId;
   final String email;
+  final String role;
 
   const VerificationScreen({
     super.key,
     required this.pendingId,
     required this.email,
+    this.role = 'masyarakat',
   });
 
   @override
@@ -73,14 +75,14 @@ class _VerificationScreenState extends State<VerificationScreen>
     super.dispose();
   }
 
+  String? _otpError;
+  String? _otpSuccess;
+
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red.shade400 : Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    setState(() {
+      if (isError) { _otpError = message; _otpSuccess = null; }
+      else { _otpSuccess = message; _otpError = null; }
+    });
   }
 
   // ─── VERIFY OTP ────────────────────────────────────────────────────
@@ -95,27 +97,28 @@ class _VerificationScreenState extends State<VerificationScreen>
     setState(() => _loading = true);
 
     try {
-      await _authApi.verifyOtp(widget.pendingId, otp);
+      final result = await _authApi.verifyOtp(widget.pendingId, otp);
       if (!mounted) return;
 
       // ✅ Berhasil → ke SuccessScreen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const SuccessScreen(role: 'user')),
+        MaterialPageRoute(
+          builder: (_) => SuccessScreen(
+            role: widget.role,
+            userId: result['user_id'] as int?,
+            pantiId: result['panti_id'] as int?,
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       print('❌ Verify OTP error: $e');
-
-      // ❌ Gagal → pending sudah dihapus di backend
-      // Tampilkan error lalu kembali ke halaman signup
       _showSnackBar('$e', isError: true);
 
-      await Future.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-
-      // Balik ke halaman pertama (SignUpScreen)
-      Navigator.popUntil(context, (route) => route.isFirst);
+      // Kosongkan kotak OTP agar user bisa coba lagi
+      for (var c in _otpControllers) { c.clear(); }
+      _focusNodes[0].requestFocus();
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -235,7 +238,10 @@ class _VerificationScreenState extends State<VerificationScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: List.generate(5, (i) => _buildOtpBox(i)),
                             ),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: 8),
+                            InlineMessage(message: _otpError),
+                            InlineMessage(message: _otpSuccess, isError: false),
+                            const SizedBox(height: 24),
 
                             // Resend OTP
                             Center(
