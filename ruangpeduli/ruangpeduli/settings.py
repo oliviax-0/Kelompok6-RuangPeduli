@@ -4,7 +4,7 @@ import certifi
 from dotenv import load_dotenv
 
 # Load .env file
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / '.env')
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
