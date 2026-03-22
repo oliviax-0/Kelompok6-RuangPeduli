@@ -12,6 +12,7 @@ class BeritaModel {
   final String? thumbnail;
   final String authorName;
   final String pantiName;
+  final String? pantiProfilePicture;
   final String createdAt;
   final int upvoteCount;
   final int downvoteCount;
@@ -23,6 +24,7 @@ class BeritaModel {
     this.thumbnail,
     required this.authorName,
     required this.pantiName,
+    this.pantiProfilePicture,
     required this.createdAt,
     required this.upvoteCount,
     required this.downvoteCount,
@@ -36,6 +38,7 @@ class BeritaModel {
       thumbnail: json['thumbnail'],
       authorName: json['author_name'] ?? '',
       pantiName: json['panti_name'] ?? '',
+      pantiProfilePicture: json['panti_profile_picture'],
       createdAt: json['created_at'] ?? '',
       upvoteCount: json['upvote_count'] ?? 0,
       downvoteCount: json['downvote_count'] ?? 0,

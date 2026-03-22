@@ -286,7 +286,7 @@ class AuthApi {
   }
 
   // ─── GOOGLE REGISTER ──────────────────────────────────────────────
-  Future<void> googleRegister({
+  Future<Map<String, dynamic>> googleRegister({
     required String idToken,
     required String role,
     required String username,
@@ -329,6 +329,7 @@ class AuthApi {
         final decoded = jsonDecode(res.body);
         throw Exception(decoded['error'] ?? 'Registrasi Google gagal');
       }
+      return jsonDecode(res.body) as Map<String, dynamic>;
     } on SocketException {
       throw Exception('Tidak bisa konek ke server');
     }
@@ -360,6 +361,75 @@ class AuthApi {
       }
     } on SocketException catch (e) {
       print('❌ SocketException: $e');
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── CHANGE PASSWORD ──────────────────────────────────────────────
+  Future<void> changePassword(int userId, String currentPassword, String newPassword) async {
+    final url = Uri.parse('$baseUrl/change-password/');
+    try {
+      final res = await http
+          .post(url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'user_id': userId, 'current_password': currentPassword, 'new_password': newPassword}))
+          .timeout(const Duration(seconds: 15), onTimeout: () => throw Exception('Koneksi timeout'));
+      final body = jsonDecode(res.body);
+      if (res.statusCode != 200) throw Exception(body['error'] ?? 'Gagal mengubah kata sandi');
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── REQUEST EMAIL CHANGE (step 1) ───────────────────────────────
+  /// Sends OTP to user's CURRENT email. Returns the email OTP was sent to.
+  Future<String> requestEmailChange(int userId) async {
+    final url = Uri.parse('$baseUrl/request-email-change/');
+    try {
+      final res = await http
+          .post(url, headers: {'Content-Type': 'application/json'}, body: jsonEncode({'user_id': userId}))
+          .timeout(const Duration(seconds: 15), onTimeout: () => throw Exception('Koneksi timeout'));
+      final body = jsonDecode(res.body);
+      if (res.statusCode != 200) throw Exception(body['error'] ?? 'Gagal mengirim OTP');
+      return body['sent_to'] as String;
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── REQUEST NEW EMAIL VERIFY (step 3) ───────────────────────────
+  /// Verifies current email OTP, then sends OTP to NEW email.
+  /// Returns the new email OTP was sent to.
+  Future<String> requestNewEmailVerify(int userId, String otpCurrent, String newEmail) async {
+    final url = Uri.parse('$baseUrl/request-new-email-verify/');
+    try {
+      final res = await http
+          .post(url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'user_id': userId, 'otp_current': otpCurrent, 'new_email': newEmail}))
+          .timeout(const Duration(seconds: 15), onTimeout: () => throw Exception('Koneksi timeout'));
+      final body = jsonDecode(res.body);
+      if (res.statusCode != 200) throw Exception(body['error'] ?? 'Gagal mengirim OTP ke email baru');
+      return body['sent_to'] as String;
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── CONFIRM EMAIL CHANGE (step 4) ───────────────────────────────
+  /// Verifies new email OTP and saves the new email. Returns the new email.
+  Future<String> confirmEmailChange(int userId, String otpNew, String newEmail) async {
+    final url = Uri.parse('$baseUrl/confirm-email-change/');
+    try {
+      final res = await http
+          .post(url,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'user_id': userId, 'otp_new': otpNew, 'new_email': newEmail}))
+          .timeout(const Duration(seconds: 15), onTimeout: () => throw Exception('Koneksi timeout'));
+      final body = jsonDecode(res.body);
+      if (res.statusCode != 200) throw Exception(body['error'] ?? 'Gagal mengubah email');
+      return body['new_email'] as String;
+    } on SocketException {
       throw Exception('Tidak bisa konek ke server');
     }
   }

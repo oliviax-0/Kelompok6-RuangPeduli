@@ -13,6 +13,7 @@ class BeritaDetailPanti extends StatefulWidget {
   final int? userId;
   final String title;
   final String? thumbnail;
+  final String? pantiProfilePicture;
   final String date;
   final String authorName;
   final String pantiName;
@@ -26,6 +27,7 @@ class BeritaDetailPanti extends StatefulWidget {
     required this.userId,
     required this.title,
     required this.thumbnail,
+    this.pantiProfilePicture,
     required this.date,
     required this.authorName,
     required this.pantiName,
@@ -213,13 +215,17 @@ class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
-                  image: const DecorationImage(
-                    image: NetworkImage(
-                      'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=200&q=80',
-                    ),
-                    fit: BoxFit.cover,
-                  ),
+                  color: Colors.grey[300],
+                  image: widget.pantiProfilePicture != null
+                      ? DecorationImage(
+                          image: NetworkImage(widget.pantiProfilePicture!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
+                child: widget.pantiProfilePicture == null
+                    ? const Icon(Icons.home_work_rounded, color: Colors.white, size: 22)
+                    : null,
               ),
               const SizedBox(width: 12),
               // Text info

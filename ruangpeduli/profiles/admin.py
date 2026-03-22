@@ -2,7 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 from django.contrib import admin
-from .models import SocietyProfile, OrphanageProfile
+from .models import SocietyProfile, OrphanageProfile, PantiMedia
 
 
 @admin.register(SocietyProfile)
@@ -31,3 +31,9 @@ class OrphanageProfileAdmin(admin.ModelAdmin):
     def get_email(self, obj):
         return obj.user.email
     get_email.short_description = 'Email'
+
+
+@admin.register(PantiMedia)
+class PantiMediaAdmin(admin.ModelAdmin):
+    list_display = ['panti', 'media_type', 'order', 'created_at']
+    list_filter = ['media_type']

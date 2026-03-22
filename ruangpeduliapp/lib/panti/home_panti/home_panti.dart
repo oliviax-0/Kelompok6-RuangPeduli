@@ -4,6 +4,7 @@ import 'package:ruangpeduliapp/panti/inventory_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/profile_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_berita_panti.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
 
 void main() {
   runApp(const MyApp());
@@ -51,11 +52,17 @@ class _HomePantiState extends State<HomePanti> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   late Future<List<BeritaModel>> _beritaFuture;
+  String? _profilePictureUrl;
 
   @override
   void initState() {
     super.initState();
     _beritaFuture = ContentApi().fetchBeritas();
+    if (widget.pantiId != null) {
+      ProfileApi().fetchPantiProfile(widget.pantiId!).then((profile) {
+        if (mounted) setState(() => _profilePictureUrl = profile.profilePicture);
+      }).catchError((_) {});
+    }
   }
 
   @override
@@ -102,7 +109,7 @@ class _HomePantiState extends State<HomePanti> {
       case 2:
         return const InventarisPanti();
       case 3:
-        return const ProfilePanti();
+        return ProfilePanti(pantiId: widget.pantiId, userId: widget.userId);
       default:
         return _buildNewsFeed();
     }
@@ -122,13 +129,17 @@ class _HomePantiState extends State<HomePanti> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: kPink, width: 2),
-              image: const DecorationImage(
-                image: NetworkImage(
-                  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80',
-                ),
-                fit: BoxFit.cover,
-              ),
+              color: Colors.grey[200],
+              image: _profilePictureUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(_profilePictureUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
+            child: _profilePictureUrl == null
+                ? const Icon(Icons.home_work_rounded, color: Colors.grey, size: 24)
+                : null,
           ),
           const SizedBox(width: 12),
 
@@ -336,6 +347,7 @@ class _NewsCard extends StatelessWidget {
               userId: userId,
               title: item.title,
               thumbnail: item.thumbnail,
+              pantiProfilePicture: item.pantiProfilePicture,
               date: item.formattedDate,
               authorName: item.authorName,
               pantiName: item.pantiName,
