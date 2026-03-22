@@ -56,3 +56,14 @@ class PendingRegistration(models.Model):
 
     def __str__(self):
         return f"{self.email} - {self.role} (pending)"
+
+
+class PasswordResetPending(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField()
+    otp_code = models.CharField(max_length=5)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.email} (reset pending)"

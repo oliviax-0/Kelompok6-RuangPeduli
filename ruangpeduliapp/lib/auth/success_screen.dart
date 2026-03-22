@@ -63,7 +63,7 @@ class _SuccessScreenState extends State<SuccessScreen>
   }
 
   void _navigateToHome() {
-    final Widget home = widget.role == 'Panti Sosial'
+    final Widget home = widget.role == 'panti'
         ? const HomePantiScreen()
         : const HomeMasyarakatScreen();
 

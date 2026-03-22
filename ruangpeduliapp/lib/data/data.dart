@@ -1,6 +1,34 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:google_sign_in/google_sign_in.dart';
+
+// ─── GOOGLE SIGN-IN SERVICE ──────────────────────────────────────────────────
+class GoogleSignInService {
+  static final _googleSignIn = GoogleSignIn(
+    clientId: '773421848878-1dagn4rc098tqg20e1r84vc3100uim9g.apps.googleusercontent.com',
+    scopes: ['email', 'profile'],
+  );
+
+  /// Opens the Google account picker and returns the id_token string.
+  /// Returns null if the user cancelled. Throws on error.
+  static Future<String?> signIn() async {
+    try {
+      final account = await _googleSignIn.signIn();
+      if (account == null) return null; // user cancelled
+      final auth = await account.authentication;
+      final token = auth.idToken;
+      if (token == null) throw Exception('Gagal mendapatkan token dari Google');
+      return token;
+    } catch (e) {
+      throw Exception('Google Sign-In gagal: $e');
+    }
+  }
+
+  static Future<void> signOut() async {
+    await _googleSignIn.signOut();
+  }
+}
 
 class RegisterData {
   final String username;
@@ -124,6 +152,182 @@ class AuthApi {
       }
     } on SocketException catch (e) {
       print('❌ SocketException: $e');
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── LOGIN ────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> login(String email, String password, String role) async {
+    final url = Uri.parse('$baseUrl/login/');
+    print('📤 POST $url');
+
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'password': password, 'role': role}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Koneksi timeout'),
+          );
+
+      print('📥 Status: ${res.statusCode}');
+      print('📥 Body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        final body = jsonDecode(res.body);
+        throw Exception(body['error'] ?? 'Login gagal');
+      }
+
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } on SocketException catch (e) {
+      print('❌ SocketException: $e');
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── FORGOT PASSWORD ──────────────────────────────────────────────
+  Future<void> forgotPassword(String email) async {
+    final url = Uri.parse('$baseUrl/forgot-password/');
+    print('📤 POST $url');
+
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Koneksi timeout'),
+          );
+
+      print('📥 Status: ${res.statusCode}');
+      print('📥 Body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        final body = jsonDecode(res.body);
+        throw Exception(body['error'] ?? 'Gagal mengirim OTP');
+      }
+    } on SocketException catch (e) {
+      print('❌ SocketException: $e');
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── RESET PASSWORD ───────────────────────────────────────────────
+  Future<void> resetPassword(String email, String otp, String newPassword) async {
+    final url = Uri.parse('$baseUrl/reset-password/');
+    print('📤 POST $url');
+
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'otp': otp, 'new_password': newPassword}),
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Koneksi timeout'),
+          );
+
+      print('📥 Status: ${res.statusCode}');
+      print('📥 Body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        final body = jsonDecode(res.body);
+        throw Exception(body['error'] ?? 'Gagal reset sandi');
+      }
+    } on SocketException catch (e) {
+      print('❌ SocketException: $e');
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── GOOGLE AUTH ──────────────────────────────────────────────────
+  /// Verify Google id_token with backend.
+  /// Returns the full response map:
+  ///   exists=true  → {exists, user_id, username, email, role}
+  ///   exists=false → {exists, email, name}
+  Future<Map<String, dynamic>> googleAuth(String idToken, String role) async {
+    final url = Uri.parse('$baseUrl/google-auth/');
+    print('📤 POST $url');
+
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'id_token': idToken, 'role': role}),
+          )
+          .timeout(
+            const Duration(seconds: 20),
+            onTimeout: () => throw Exception('Koneksi timeout'),
+          );
+
+      print('📥 Status: ${res.statusCode}');
+      print('📥 Body: ${res.body}');
+
+      if (res.statusCode != 200) {
+        final body = jsonDecode(res.body);
+        throw Exception(body['error'] ?? 'Google auth gagal');
+      }
+
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  // ─── GOOGLE REGISTER ──────────────────────────────────────────────
+  Future<void> googleRegister({
+    required String idToken,
+    required String role,
+    required String username,
+    String? namaPengguna,
+    String? alamat,
+    String? namaPanti,
+    String? alamatPanti,
+    String? nomorPanti,
+  }) async {
+    final url = Uri.parse('$baseUrl/google-register/');
+    print('📤 POST $url');
+
+    final body = <String, dynamic>{
+      'id_token': idToken,
+      'role': role,
+      'username': username,
+      if (namaPengguna != null) 'nama_pengguna': namaPengguna,
+      if (alamat != null) 'alamat': alamat,
+      if (namaPanti != null) 'nama_panti': namaPanti,
+      if (alamatPanti != null) 'alamat_panti': alamatPanti,
+      if (nomorPanti != null) 'nomor_panti': nomorPanti,
+    };
+
+    try {
+      final res = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(
+            const Duration(seconds: 20),
+            onTimeout: () => throw Exception('Koneksi timeout'),
+          );
+
+      print('📥 Status: ${res.statusCode}');
+      print('📥 Body: ${res.body}');
+
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        final decoded = jsonDecode(res.body);
+        throw Exception(decoded['error'] ?? 'Registrasi Google gagal');
+      }
+    } on SocketException {
       throw Exception('Tidak bisa konek ke server');
     }
   }
