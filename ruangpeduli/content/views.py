@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from accounts.models import User
 from profiles.models import OrphanageProfile
 from .models import Berita, BeritaImage, BeritaVote, Video
@@ -25,6 +26,13 @@ class BeritaListView(APIView):
         panti_id = request.query_params.get('panti')
         if panti_id:
             qs = qs.filter(panti_id=panti_id)
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(title__icontains=search) |
+                Q(content__icontains=search) |
+                Q(panti__nama_panti__icontains=search)
+            )
         serializer = BeritaSerializer(qs, many=True, context={'request': request})
         return Response(serializer.data)
 

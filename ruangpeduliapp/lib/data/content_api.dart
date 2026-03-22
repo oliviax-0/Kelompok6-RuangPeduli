@@ -65,11 +65,13 @@ class BeritaModel {
 class ContentApi {
   String get _base => AppConfig.baseUrl;
 
-  /// Fetch published beritas. Pass [pantiId] to filter by panti.
-  Future<List<BeritaModel>> fetchBeritas({int? pantiId}) async {
-    final uri = pantiId != null
-        ? Uri.parse('$_base/content/berita/?panti=$pantiId')
-        : Uri.parse('$_base/content/berita/');
+  /// Fetch published beritas. Pass [pantiId] to filter by panti,
+  /// [search] to filter by keyword (title / content / panti name).
+  Future<List<BeritaModel>> fetchBeritas({int? pantiId, String? search}) async {
+    final params = <String, String>{};
+    if (pantiId != null) params['panti'] = '$pantiId';
+    if (search != null && search.isNotEmpty) params['search'] = search;
+    final uri = Uri.parse('$_base/content/berita/').replace(queryParameters: params.isEmpty ? null : params);
 
     try {
       final res = await http.get(uri).timeout(
