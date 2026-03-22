@@ -3,6 +3,7 @@ import 'package:ruangpeduliapp/panti/keuangan_panti.dart';
 import 'package:ruangpeduliapp/panti/inventory_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/profile_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_berita_panti.dart';
+import 'package:ruangpeduliapp/data/content_api.dart';
 
 void main() {
   runApp(const MyApp());
@@ -21,7 +22,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF5F5F5),
       ),
-      home: const HomePanti(),
+      home: const HomePanti(userId: null, pantiId: null),
     );
   }
 }
@@ -33,65 +34,14 @@ const Color kPinkDark = Color(0xFFE5728A);
 const Color kCardBg = Colors.white;
 const double kRadius = 20.0;
 
-// ─── Data Model ──────────────────────────────────────────────────────────────
-
-class NewsItem {
-  final String title;
-  final String date;
-  final String imageUrl;
-  final String authorName;
-  final String pantiName;
-  final String body;
-
-  const NewsItem({
-    required this.title,
-    required this.date,
-    required this.imageUrl,
-    required this.authorName,
-    required this.pantiName,
-    required this.body,
-  });
-}
-
-final List<NewsItem> _dummyNews = [
-  NewsItem(
-    title: 'Mahasiswa dan Pemuda Gelar Kerja Bakti di Panti Asuhan Kasih Mulia',
-    date: '12 Februari 2026',
-    imageUrl: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=800&q=80',
-    authorName: 'Mawar Lestari',
-    pantiName: 'Panti Kasih Mulia',
-    body: 'Sejumlah mahasiswa dari Universitas , bersama komunitas pemuda lokal menggelar kegiatan kerja bakti di Panti Asuhan Kasih Mulia, Tangerang. Acara ini bertujuan untuk menciptakan lingkungan yang bersih, nyaman, serta menumbuhkan semangat kepedulian sosial di kalangan generasi muda.\n\nRangkaian Kegiatan:\nKerja bakti dimulai sejak pukul 07.00 pagi. Para peserta dibagi ke dalam beberapa kelompok dengan tugas berbeda, seperti:\nMembersihkan lingkungan: halaman, taman, dan area bermain anak-anak.\nPerbaikan fasilitas: mengecat dinding ruang belajar, memperbaiki meja dan kursi, serta merapikan kamar tidur.\nDekorasi kreatif: membuat mural edukatif di dinding ruang belajar untuk menambah semangat anak-anak saat belajar.\nInteraksi sosial: mengadakan permainan edukatif, sesi membaca bersama, dan berbagi cerita motivasi.\n\nSelain itu, mahasiswa juga mengadakan mini-workshop tentang kebersihan diri dan pentingnya menjaga lingkungan. Anak-anak panti terlihat antusias mengikuti setiap kegiatan, bahkan beberapa di antaranya ikut membantu para mahasiswa dalam menyelesaikan tugas-tugas ringan.',
-  ),
-  NewsItem(
-    title: 'Kegiatan Sosial Bersama Anak-Anak Panti',
-    date: '10 Februari 2026',
-    imageUrl: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&q=80',
-    authorName: 'Budi Santoso',
-    pantiName: 'Panti Kasih Mulia',
-    body: 'Program kegiatan sosial memberikan kesempatan kepada anak-anak panti untuk mengasah keterampilan mereka melalui berbagai aktivitas menarik dan edukatif. Kegiatan ini dirancang untuk meningkatkan kepercayaan diri dan kemampuan sosial anak-anak.',
-  ),
-  NewsItem(
-    title: 'Donasi Buku untuk Perpustakaan Panti',
-    date: '8 Februari 2026',
-    imageUrl: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&q=80',
-    authorName: 'Siti Nurhaliza',
-    pantiName: 'Panti Kasih Mulia',
-    body: 'Sebuah gerakan donasi buku berhasil mengumpulkan ratusan buku untuk perpustakaan panti asuhan di wilayah Tangerang. Koleksi buku mencakup berbagai genre mulai dari cerita anak, dongeng, hingga buku pengetahuan umum yang bermanfaat untuk pengembangan literasi anak-anak panti.',
-  ),
-  NewsItem(
-    title: 'Pelatihan Keterampilan untuk Anak Panti',
-    date: '5 Februari 2026',
-    imageUrl: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=80',
-    authorName: 'Ahmad Rifai',
-    pantiName: 'Panti Kasih Mulia',
-    body: 'Program pelatihan keterampilan memberikan kesempatan kepada anak-anak panti untuk belajar berbagai macam keterampilan praktis yang dapat membuka peluang kerja di masa depan. Pelatihan mencakup bidang kerajinan tangan, teknologi dasar, dan keterampilan hidup sehari-hari.',
-  ),
-];
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 class HomePanti extends StatefulWidget {
-  const HomePanti({super.key});
+  final int? userId;
+  final int? pantiId;
+
+  const HomePanti({super.key, required this.userId, required this.pantiId});
 
   @override
   State<HomePanti> createState() => _HomePantiState();
@@ -100,6 +50,13 @@ class HomePanti extends StatefulWidget {
 class _HomePantiState extends State<HomePanti> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
+  late Future<List<BeritaModel>> _beritaFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _beritaFuture = ContentApi().fetchBeritas();
+  }
 
   @override
   void dispose() {
@@ -217,12 +174,38 @@ class _HomePantiState extends State<HomePanti> {
   // ─── News Feed ───────────────────────────────────────────────────────────
 
   Widget _buildNewsFeed() {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-      itemCount: _dummyNews.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        return _NewsCard(item: _dummyNews[index]);
+    return FutureBuilder<List<BeritaModel>>(
+      future: _beritaFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation(kPink),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              snapshot.error.toString(),
+              style: const TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+        final beritas = snapshot.data ?? [];
+        if (beritas.isEmpty) {
+          return const Center(
+            child: Text('Belum ada berita.', style: TextStyle(color: Colors.grey)),
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+          itemCount: beritas.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          itemBuilder: (context, index) =>
+              _NewsCard(item: beritas[index], userId: widget.userId),
+        );
       },
     );
   }
@@ -337,9 +320,10 @@ class _HomePantiState extends State<HomePanti> {
 // ─── News Card ────────────────────────────────────────────────────────────────
 
 class _NewsCard extends StatelessWidget {
-  final NewsItem item;
+  final BeritaModel item;
+  final int? userId;
 
-  const _NewsCard({required this.item});
+  const _NewsCard({required this.item, required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -348,12 +332,16 @@ class _NewsCard extends StatelessWidget {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => BeritaDetailPanti(
+              beritaId: item.id,
+              userId: userId,
               title: item.title,
-              imageUrl: item.imageUrl,
-              date: item.date,
+              thumbnail: item.thumbnail,
+              date: item.formattedDate,
               authorName: item.authorName,
               pantiName: item.pantiName,
-              body: item.body,
+              body: item.content,
+              upvoteCount: item.upvoteCount,
+              downvoteCount: item.downvoteCount,
             ),
           ),
         );
@@ -364,7 +352,7 @@ class _NewsCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(kRadius),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.07),
+              color: Colors.black.withValues(alpha: 0.07),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -374,61 +362,70 @@ class _NewsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          // ── Card Image ──────────────────────────────────────────────────
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Image.network(
-              item.imageUrl,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return Container(
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation(kPink),
-                      strokeWidth: 2,
+            // ── Card Image ────────────────────────────────────────────────
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: item.thumbnail != null
+                  ? Image.network(
+                      item.thumbnail!,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation(kPink),
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.broken_image_outlined,
+                            color: Colors.grey, size: 40),
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.newspaper_rounded,
+                          color: Colors.grey, size: 40),
+                    ),
+            ),
+
+            // ── Card Text Area ────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14.5,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                );
-              },
-              errorBuilder: (_, __, ___) => Container(
-                color: Colors.grey[200],
-                child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 40),
+                  const SizedBox(width: 8),
+                  Text(
+                    item.formattedDate,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-
-          // ── Card Text Area ──────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    item.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14.5,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  item.date,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),      ),    );
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -5,7 +5,7 @@ import 'package:ruangpeduliapp/auth/fill_data_masyarakat_screen.dart';
 import 'package:ruangpeduliapp/auth/fill_data_panti_screen.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
-import 'package:ruangpeduliapp/panti/home_panti_screen.dart';
+import 'package:ruangpeduliapp/panti/home_panti/home_panti.dart';
 
 class LoginScreen extends StatefulWidget {
   final String role;
@@ -67,8 +67,10 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (result['exists'] == true) {
         final role = result['role'] as String;
+        final userId = result['user_id'] as int?;
+        final pantiId = result['panti_id'] as int?;
         final Widget home = role == 'panti'
-            ? const HomePantiScreen()
+            ? HomePanti(userId: userId, pantiId: pantiId)
             : const HomeMasyarakatScreen();
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => home),
@@ -126,8 +128,10 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
 
       final role = result['role'] as String;
+      final userId = result['user_id'] as int?;
+      final pantiId = result['panti_id'] as int?;
       final Widget home = role == 'panti'
-          ? const HomePantiScreen()
+          ? HomePanti(userId: userId, pantiId: pantiId)
           : const HomeMasyarakatScreen();
 
       Navigator.of(context).pushAndRemoveUntil(

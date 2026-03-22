@@ -97,13 +97,19 @@ class _VerificationScreenState extends State<VerificationScreen>
     setState(() => _loading = true);
 
     try {
-      await _authApi.verifyOtp(widget.pendingId, otp);
+      final result = await _authApi.verifyOtp(widget.pendingId, otp);
       if (!mounted) return;
 
       // ✅ Berhasil → ke SuccessScreen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => SuccessScreen(role: widget.role)),
+        MaterialPageRoute(
+          builder: (_) => SuccessScreen(
+            role: widget.role,
+            userId: result['user_id'] as int?,
+            pantiId: result['panti_id'] as int?,
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;

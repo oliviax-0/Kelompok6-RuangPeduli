@@ -214,12 +214,22 @@ class VerifyOtpView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+        panti_id = None
+        if user.role == 'panti':
+            from profiles.models import OrphanageProfile
+            try:
+                panti_id = OrphanageProfile.objects.get(user=user).id
+            except OrphanageProfile.DoesNotExist:
+                pass
+
         return Response(
             {
                 'success': True,
                 'message': 'Registrasi berhasil! Silakan login.',
                 'user_id': user.id,
                 'username': user.username,
+                'role': user.role,
+                'panti_id': panti_id,
             },
             status=status.HTTP_201_CREATED
         )
@@ -252,12 +262,21 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
+        panti_id = None
+        if user.role == 'panti':
+            from profiles.models import OrphanageProfile
+            try:
+                panti_id = OrphanageProfile.objects.get(user=user).id
+            except OrphanageProfile.DoesNotExist:
+                pass
+
         return Response({
             'success': True,
             'user_id': user.id,
             'username': user.username,
             'email': user.email,
             'role': user.role,
+            'panti_id': panti_id,
         }, status=status.HTTP_200_OK)
 
 
