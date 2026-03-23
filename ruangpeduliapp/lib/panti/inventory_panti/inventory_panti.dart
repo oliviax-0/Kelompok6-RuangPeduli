@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/data/residents_api.dart';
+import 'inventory_panti_anggota.dart';
+import 'inventory_panti_stokmasuk.dart';
+import 'inventory_panti_stokkeluar.dart';
+import 'inventory_panti_notifikasi.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -11,13 +16,40 @@ const Color kRed = Color(0xFFE53935);
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 class InventarisPanti extends StatefulWidget {
-  const InventarisPanti({super.key});
+  final int? userId;
+  final int? pantiId;
+  const InventarisPanti({super.key, this.userId, this.pantiId});
 
   @override
   State<InventarisPanti> createState() => _InventarisPantiState();
 }
 
 class _InventarisPantiState extends State<InventarisPanti> {
+  int? _pegawaiCount;
+  int? _penghuniCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCounts();
+  }
+
+  Future<void> _fetchCounts() async {
+    if (widget.userId == null) return;
+    try {
+      final results = await Future.wait([
+        ResidentsApi().fetchPekerja(widget.userId!),
+        ResidentsApi().fetchPenghuni(widget.userId!),
+      ]);
+      if (mounted) {
+        setState(() {
+          _pegawaiCount = results[0].length;
+          _penghuniCount = results[1].length;
+        });
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -33,7 +65,6 @@ class _InventarisPantiState extends State<InventarisPanti> {
       ),
     );
   }
-
   // ─── Header ──────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
@@ -46,7 +77,7 @@ class _InventarisPantiState extends State<InventarisPanti> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: kPink.withOpacity(0.15),
+              color: kPink.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Center(
@@ -66,7 +97,12 @@ class _InventarisPantiState extends State<InventarisPanti> {
             ),
           ),
           // Bell with red badge
-          Stack(
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const InventarisNotifikasiScreen()),
+            ),
+            child: Stack(
             clipBehavior: Clip.none,
             children: [
               Container(
@@ -77,7 +113,7 @@ class _InventarisPantiState extends State<InventarisPanti> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withValues(alpha: 0.08),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -99,6 +135,7 @@ class _InventarisPantiState extends State<InventarisPanti> {
               ),
             ],
           ),
+          ),
         ],
       ),
     );
@@ -112,12 +149,12 @@ class _InventarisPantiState extends State<InventarisPanti> {
       decoration: BoxDecoration(
         color: kPinkLight,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF1A1A1A), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: kPink.withOpacity(0.12),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 16,
+            spreadRadius: 1,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -139,7 +176,10 @@ class _InventarisPantiState extends State<InventarisPanti> {
                 child: _SquareCard(
                   label: 'Stok Masuk',
                   icon: _BoxArrowIcon(arrowColor: kGreen, arrowUp: true),
-                  onTap: () {},
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StokMasukScreen()),
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -147,27 +187,13 @@ class _InventarisPantiState extends State<InventarisPanti> {
                 child: _SquareCard(
                   label: 'Stok Keluar',
                   icon: _BoxArrowIcon(arrowColor: kRed, arrowUp: false),
-                  onTap: () {},
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StokKeluarScreen()),
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          // + button bottom right
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: () {},
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1A1A1A),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.add, color: Colors.white, size: 22),
-              ),
-            ),
           ),
         ],
       ),
@@ -182,12 +208,12 @@ class _InventarisPantiState extends State<InventarisPanti> {
       decoration: BoxDecoration(
         color: kPinkLight,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF1A1A1A), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: kPink.withOpacity(0.12),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 16,
+            spreadRadius: 1,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -223,9 +249,9 @@ class _InventarisPantiState extends State<InventarisPanti> {
                           'Pegawai ',
                           style: TextStyle(fontSize: 14, color: Color(0xFF5A2828)),
                         ),
-                        const Text(
-                          '8',
-                          style: TextStyle(
+                        Text(
+                          _pegawaiCount?.toString() ?? '—',
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
                             color: Color(0xFF1A1A1A),
@@ -248,9 +274,9 @@ class _InventarisPantiState extends State<InventarisPanti> {
                           'Penghuni ',
                           style: TextStyle(fontSize: 14, color: Color(0xFF5A2828)),
                         ),
-                        const Text(
-                          '16',
-                          style: TextStyle(
+                        Text(
+                          _penghuniCount?.toString() ?? '—',
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
                             color: Color(0xFF1A1A1A),
@@ -272,7 +298,10 @@ class _InventarisPantiState extends State<InventarisPanti> {
                 child: _SquareCard(
                   label: 'Pegawai',
                   icon: const Icon(Icons.work_rounded, size: 42, color: Color(0xFF1A1A1A)),
-                  onTap: () {},
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => DaftarPegawaiScreen(userId: widget.userId)),
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -280,7 +309,10 @@ class _InventarisPantiState extends State<InventarisPanti> {
                 child: _SquareCard(
                   label: 'Penghuni',
                   icon: const Icon(Icons.groups_rounded, size: 42, color: Color(0xFF1A1A1A)),
-                  onTap: () {},
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => DaftarPenghuniScreen(userId: widget.userId)),
+                  ),
                 ),
               ),
             ],
@@ -289,6 +321,7 @@ class _InventarisPantiState extends State<InventarisPanti> {
       ),
     );
   }
+
 }
 
 // ─── Square Card ─────────────────────────────────────────────────────────────
@@ -315,7 +348,7 @@ class _SquareCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),

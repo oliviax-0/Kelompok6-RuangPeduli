@@ -1,7 +1,7 @@
 # Environment variables - JANGAN DI-COMMIT!
 .env
 .env.*
-!.env.example
+
 
 # Python
 __pycache__/

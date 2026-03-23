@@ -12,6 +12,7 @@ class BeritaModel {
   final String? thumbnail;
   final String authorName;
   final String pantiName;
+  final String? pantiProfilePicture;
   final String createdAt;
   final int upvoteCount;
   final int downvoteCount;
@@ -23,6 +24,7 @@ class BeritaModel {
     this.thumbnail,
     required this.authorName,
     required this.pantiName,
+    this.pantiProfilePicture,
     required this.createdAt,
     required this.upvoteCount,
     required this.downvoteCount,
@@ -36,6 +38,7 @@ class BeritaModel {
       thumbnail: json['thumbnail'],
       authorName: json['author_name'] ?? '',
       pantiName: json['panti_name'] ?? '',
+      pantiProfilePicture: json['panti_profile_picture'],
       createdAt: json['created_at'] ?? '',
       upvoteCount: json['upvote_count'] ?? 0,
       downvoteCount: json['downvote_count'] ?? 0,
@@ -62,11 +65,13 @@ class BeritaModel {
 class ContentApi {
   String get _base => AppConfig.baseUrl;
 
-  /// Fetch published beritas. Pass [pantiId] to filter by panti.
-  Future<List<BeritaModel>> fetchBeritas({int? pantiId}) async {
-    final uri = pantiId != null
-        ? Uri.parse('$_base/content/berita/?panti=$pantiId')
-        : Uri.parse('$_base/content/berita/');
+  /// Fetch published beritas. Pass [pantiId] to filter by panti,
+  /// [search] to filter by keyword (title / content / panti name).
+  Future<List<BeritaModel>> fetchBeritas({int? pantiId, String? search}) async {
+    final params = <String, String>{};
+    if (pantiId != null) params['panti'] = '$pantiId';
+    if (search != null && search.isNotEmpty) params['search'] = search;
+    final uri = Uri.parse('$_base/content/berita/').replace(queryParameters: params.isEmpty ? null : params);
 
     try {
       final res = await http.get(uri).timeout(

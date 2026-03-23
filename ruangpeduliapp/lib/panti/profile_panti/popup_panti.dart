@@ -1,47 +1,67 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const Color kPink = Color(0xFFF28C9F);
 
-// ─── Public helpers — call these from profile_panti.dart ─────────────────────
+// ─── Public helpers ───────────────────────────────────────────────────────────
 
-void showAlamatPopup(BuildContext context, {String initialValue = ''}) {
-  showDialog(
+/// Returns the saved alamat string, or null if cancelled.
+Future<String?> showAlamatPopup(
+  BuildContext context, {
+  required int pantiId,
+  String initialValue = '',
+}) {
+  return showDialog<String>(
     context: context,
-    barrierColor: Colors.black.withOpacity(0.4),
-    builder: (_) => _AlamatDialog(initialValue: initialValue),
+    barrierColor: Colors.black.withValues(alpha: 0.4),
+    builder: (_) => _AlamatDialog(pantiId: pantiId, initialValue: initialValue),
   );
 }
 
-void showDeskripsiPopup(BuildContext context, {String initialValue = ''}) {
-  showDialog(
+/// Returns the saved deskripsi string, or null if cancelled.
+Future<String?> showDeskripsiPopup(
+  BuildContext context, {
+  required int pantiId,
+  String initialValue = '',
+}) {
+  return showDialog<String>(
     context: context,
-    barrierColor: Colors.black.withOpacity(0.4),
-    builder: (_) => _DeskripsiDialog(initialValue: initialValue),
+    barrierColor: Colors.black.withValues(alpha: 0.4),
+    builder: (_) =>
+        _DeskripsiDialog(pantiId: pantiId, initialValue: initialValue),
   );
 }
 
-void showFotoVideoPopup(BuildContext context) {
-  showDialog(
+/// Returns the updated media list, or null if cancelled.
+Future<List<PantiMediaModel>?> showFotoVideoPopup(
+  BuildContext context, {
+  required int pantiId,
+  required List<PantiMediaModel> media,
+}) {
+  return showDialog<List<PantiMediaModel>>(
     context: context,
-    barrierColor: Colors.black.withOpacity(0.4),
-    builder: (_) => const _FotoVideoDialog(),
+    barrierColor: Colors.black.withValues(alpha: 0.4),
+    builder: (_) => _FotoVideoDialog(pantiId: pantiId, initialMedia: media),
   );
 }
 
 // ─── Shared Widgets ───────────────────────────────────────────────────────────
 
-/// Base popup shell — white card, rounded, with title + child + Simpan button
 class _PopupShell extends StatelessWidget {
   final String title;
   final Widget content;
   final VoidCallback onSave;
+  final bool isSaving;
 
   const _PopupShell({
     required this.title,
     required this.content,
     required this.onSave,
+    this.isSaving = false,
   });
 
   @override
@@ -55,7 +75,6 @@ class _PopupShell extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title
             Text(
               title,
               style: const TextStyle(
@@ -65,29 +84,37 @@ class _PopupShell extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Content
             content,
             const SizedBox(height: 20),
-
-            // Simpan button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: onSave,
+                onPressed: isSaving ? null : onSave,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kPink,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: kPink.withValues(alpha: 0.5),
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                child: const Text(
-                  'Simpan',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
+                child: isSaving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Simpan',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
               ),
             ),
           ],
@@ -97,7 +124,6 @@ class _PopupShell extends StatelessWidget {
   }
 }
 
-/// Shared multi-line text field used by Alamat and Deskripsi
 Widget _buildMultilineField({
   required TextEditingController controller,
   required String hint,
@@ -115,7 +141,8 @@ Widget _buildMultilineField({
       style: const TextStyle(fontSize: 13.5, color: Color(0xFF1A1A1A)),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 13.5),
+        hintStyle:
+            const TextStyle(color: Color(0xFFAAAAAA), fontSize: 13.5),
         border: InputBorder.none,
         contentPadding: const EdgeInsets.all(14),
       ),
@@ -126,8 +153,9 @@ Widget _buildMultilineField({
 // ─── Alamat Dialog ────────────────────────────────────────────────────────────
 
 class _AlamatDialog extends StatefulWidget {
+  final int pantiId;
   final String initialValue;
-  const _AlamatDialog({this.initialValue = ''});
+  const _AlamatDialog({required this.pantiId, this.initialValue = ''});
 
   @override
   State<_AlamatDialog> createState() => _AlamatDialogState();
@@ -135,6 +163,7 @@ class _AlamatDialog extends StatefulWidget {
 
 class _AlamatDialogState extends State<_AlamatDialog> {
   late final TextEditingController _controller;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -148,17 +177,39 @@ class _AlamatDialogState extends State<_AlamatDialog> {
     super.dispose();
   }
 
+  Future<void> _save() async {
+    final value = _controller.text.trim();
+    setState(() => _isSaving = true);
+    try {
+      await ProfileApi().updatePantiProfile(
+        widget.pantiId,
+        alamatPanti: value,
+      );
+      if (!mounted) return;
+      Navigator.pop(context, value);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return _PopupShell(
       title: 'Alamat',
+      isSaving: _isSaving,
       content: _buildMultilineField(
         controller: _controller,
-        hint:
-            'Jalan Edu City Kavling Edu I No. 10, Jalan BSD Raya Barat Laut 1, Serpong, Pagedangan, Kabupaten Tangerang, Banten 15339',
+        hint: 'Masukkan alamat panti...',
         maxLines: 6,
       ),
-      onSave: () => Navigator.pop(context),
+      onSave: _save,
     );
   }
 }
@@ -166,8 +217,9 @@ class _AlamatDialogState extends State<_AlamatDialog> {
 // ─── Deskripsi Dialog ─────────────────────────────────────────────────────────
 
 class _DeskripsiDialog extends StatefulWidget {
+  final int pantiId;
   final String initialValue;
-  const _DeskripsiDialog({this.initialValue = ''});
+  const _DeskripsiDialog({required this.pantiId, this.initialValue = ''});
 
   @override
   State<_DeskripsiDialog> createState() => _DeskripsiDialogState();
@@ -175,6 +227,7 @@ class _DeskripsiDialog extends StatefulWidget {
 
 class _DeskripsiDialogState extends State<_DeskripsiDialog> {
   late final TextEditingController _controller;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -188,38 +241,105 @@ class _DeskripsiDialogState extends State<_DeskripsiDialog> {
     super.dispose();
   }
 
+  Future<void> _save() async {
+    final value = _controller.text.trim();
+    setState(() => _isSaving = true);
+    try {
+      await ProfileApi().updatePantiProfile(
+        widget.pantiId,
+        description: value,
+      );
+      if (!mounted) return;
+      Navigator.pop(context, value);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return _PopupShell(
       title: 'Deskripsi',
+      isSaving: _isSaving,
       content: _buildMultilineField(
         controller: _controller,
-        hint:
-            'Panti Asuhan Kasih Muliah hadir sejak tahun 1947. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum quis est porttitor erat gravida ultricies. Vivamus sit amet nulla ipsum. Aliquam ac euismod ex.',
+        hint: 'Tulis deskripsi panti...',
         maxLines: 7,
       ),
-      onSave: () => Navigator.pop(context),
+      onSave: _save,
     );
   }
 }
 
 // ─── Foto & Video Dialog ──────────────────────────────────────────────────────
 
-class _MediaItem {
-  final String url;
-  final bool isVideo;
-  const _MediaItem(this.url, {this.isVideo = false});
+class _FotoVideoDialog extends StatefulWidget {
+  final int pantiId;
+  final List<PantiMediaModel> initialMedia;
+  const _FotoVideoDialog(
+      {required this.pantiId, required this.initialMedia});
+
+  @override
+  State<_FotoVideoDialog> createState() => _FotoVideoDialogState();
 }
 
-const List<_MediaItem> _sampleMedia = [
-  _MediaItem('https://images.unsplash.com/photo-1509062522246-3755977927d7?w=400&q=80'),
-  _MediaItem('https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=400&q=80'),
-  _MediaItem('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&q=80', isVideo: true),
-  _MediaItem('https://images.unsplash.com/photo-1529390079861-591de354faf5?w=400&q=80'),
-];
+class _FotoVideoDialogState extends State<_FotoVideoDialog> {
+  late List<PantiMediaModel> _media;
+  bool _isUploading = false;
 
-class _FotoVideoDialog extends StatelessWidget {
-  const _FotoVideoDialog();
+  @override
+  void initState() {
+    super.initState();
+    _media = List.from(widget.initialMedia);
+  }
+
+  Future<void> _upload() async {
+    final picker = ImagePicker();
+    final XFile? picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked == null) return;
+
+    setState(() => _isUploading = true);
+    try {
+      final newMedia = await ProfileApi().uploadPantiMedia(
+        widget.pantiId,
+        file: File(picked.path),
+        mediaType: 'photo',
+        order: _media.length,
+      );
+      setState(() => _media.add(newMedia));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _delete(PantiMediaModel item) async {
+    try {
+      await ProfileApi().deletePantiMedia(widget.pantiId, item.id);
+      setState(() => _media.removeWhere((m) => m.id == item.id));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,47 +347,73 @@ class _FotoVideoDialog extends StatelessWidget {
       title: 'Foto & Video',
       content: Column(
         children: [
-          // Upload button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: _isUploading ? null : _upload,
               style: ElevatedButton.styleFrom(
-                backgroundColor: kPink.withOpacity(0.18),
+                backgroundColor: kPink.withValues(alpha: 0.18),
                 foregroundColor: const Color(0xFFD0607A),
+                disabledBackgroundColor:
+                    kPink.withValues(alpha: 0.08),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
               ),
-              child: const Text(
-                'Unggah Foto atau Video',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
+              child: _isUploading
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFFD0607A)),
+                      ),
+                    )
+                  : const Text(
+                      'Unggah Foto',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
             ),
           ),
           const SizedBox(height: 14),
-
-          // Media grid
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            children: _sampleMedia.map((item) => _MediaTile(item: item)).toList(),
-          ),
+          if (_media.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'Belum ada foto & video.',
+                style: TextStyle(
+                    fontSize: 13.5, color: Colors.grey[500]),
+              ),
+            )
+          else
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              children: _media
+                  .map((item) => _MediaTile(
+                        item: item,
+                        onDelete: () => _delete(item),
+                      ))
+                  .toList(),
+            ),
         ],
       ),
-      onSave: () => Navigator.pop(context),
+      onSave: () => Navigator.pop(context, _media),
     );
   }
 }
 
 class _MediaTile extends StatelessWidget {
-  final _MediaItem item;
-  const _MediaTile({required this.item});
+  final PantiMediaModel item;
+  final VoidCallback onDelete;
+  const _MediaTile({required this.item, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -276,36 +422,62 @@ class _MediaTile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            item.url,
-            fit: BoxFit.cover,
-            loadingBuilder: (_, child, progress) => progress == null
-                ? child
-                : Container(
+          item.file != null
+              ? Image.network(
+                  item.file!,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : Container(
+                          color: const Color(0xFFE0E0E0),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(kPink),
+                            ),
+                          ),
+                        ),
+                  errorBuilder: (_, __, ___) => Container(
                     color: const Color(0xFFE0E0E0),
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(kPink),
-                      ),
-                    ),
+                    child: const Icon(Icons.broken_image_outlined,
+                        color: Colors.grey),
                   ),
-            errorBuilder: (_, __, ___) => Container(
-              color: const Color(0xFFE0E0E0),
-              child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
-            ),
-          ),
+                )
+              : Container(
+                  color: const Color(0xFFE0E0E0),
+                  child: const Icon(Icons.image_not_supported_outlined,
+                      color: Colors.grey),
+                ),
           if (item.isVideo)
             Container(
-              color: Colors.black.withOpacity(0.22),
+              color: Colors.black.withValues(alpha: 0.22),
               child: const Center(
                 child: CircleAvatar(
                   radius: 22,
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.play_arrow_rounded, color: Color(0xFF1A1A1A), size: 26),
+                  child: Icon(Icons.play_arrow_rounded,
+                      color: Color(0xFF1A1A1A), size: 26),
                 ),
               ),
             ),
+          // Delete button
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: onDelete,
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close_rounded,
+                    color: Colors.white, size: 14),
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -1,9 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:ruangpeduliapp/panti/keuangan_panti.dart';
-import 'package:ruangpeduliapp/panti/inventory_panti.dart';
+import 'package:ruangpeduliapp/panti/inventory_panti/inventory_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/profile_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_berita_panti.dart';
+import 'package:ruangpeduliapp/panti/home_panti/home_beritabaru.dart';
+import 'package:ruangpeduliapp/panti/home_panti/home_ai.dart';
+import 'package:ruangpeduliapp/panti/inventory_panti/inventory_panti_produkbaru.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
 
 void main() {
   runApp(const MyApp());
@@ -50,16 +56,100 @@ class HomePanti extends StatefulWidget {
 class _HomePantiState extends State<HomePanti> {
   int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
-  late Future<List<BeritaModel>> _beritaFuture;
+  String? _profilePictureUrl;
+
+  List<BeritaModel> _beritas = [];
+  bool _loading = true;
+  String? _error;
+  Timer? _debounce;
+
+  final SpeechToText _stt = SpeechToText();
+  bool _sttReady = false;
+  bool _listening = false;
 
   @override
   void initState() {
     super.initState();
-    _beritaFuture = ContentApi().fetchBeritas();
+    _fetchBeritas();
+    _searchController.addListener(_onSearchChanged);
+    _stt.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          if (mounted) setState(() => _listening = false);
+        }
+      },
+      onError: (error) {
+        if (mounted) setState(() => _listening = false);
+      },
+    ).then((ok) { if (mounted) setState(() => _sttReady = ok); });
+    if (widget.pantiId != null) {
+      ProfileApi().fetchPantiProfile(widget.pantiId!).then((profile) {
+        if (mounted) setState(() => _profilePictureUrl = profile.profilePicture);
+      }).catchError((_) {});
+    }
+  }
+
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _fetchBeritas(search: _searchController.text.trim());
+    });
+  }
+
+  Future<void> _fetchBeritas({String? search}) async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final result = await ContentApi().fetchBeritas(
+        search: search?.isNotEmpty == true ? search : null,
+      );
+      if (mounted) setState(() { _beritas = result; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _toggleMic() async {
+    if (!_sttReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mikrofon tidak tersedia di perangkat ini')),
+      );
+      return;
+    }
+    if (_listening) {
+      await _stt.stop();
+      setState(() => _listening = false);
+      return;
+    }
+
+    // Pick best available locale (prefer id_ID, fall back to device default)
+    final locales = await _stt.locales();
+    String? localeId;
+    for (final l in locales) {
+      if (l.localeId.startsWith('id')) { localeId = l.localeId; break; }
+    }
+
+    setState(() { _listening = true; _searchController.clear(); });
+    await _stt.listen(
+      onResult: (result) {
+        if (!mounted) return;
+        setState(() => _searchController.text = result.recognizedWords);
+        if (result.finalResult) {
+          setState(() => _listening = false);
+          _fetchBeritas(search: result.recognizedWords.trim());
+        }
+      },
+      listenFor: const Duration(seconds: 10),
+      pauseFor: const Duration(seconds: 3),
+      localeId: localeId,
+    );
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _stt.stop();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -83,7 +173,7 @@ class _HomePantiState extends State<HomePanti> {
       ),
 
       // ── FAB ──────────────────────────────────────────────────────────────
-      floatingActionButton: _buildFAB(),
+      floatingActionButton: _selectedIndex == 2 ? null : _buildFAB(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
 
       // ── Bottom Nav ───────────────────────────────────────────────────────
@@ -98,11 +188,11 @@ class _HomePantiState extends State<HomePanti> {
       case 0:
         return _buildNewsFeed();
       case 1:
-        return const KeuanganPanti();
+        return KeuanganPanti(userId: widget.userId);
       case 2:
-        return const InventarisPanti();
+        return InventarisPanti(userId: widget.userId);
       case 3:
-        return const ProfilePanti();
+        return ProfilePanti(pantiId: widget.pantiId, userId: widget.userId);
       default:
         return _buildNewsFeed();
     }
@@ -116,18 +206,25 @@ class _HomePantiState extends State<HomePanti> {
       child: Row(
         children: [
           // Profile avatar
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: kPink, width: 2),
-              image: const DecorationImage(
-                image: NetworkImage(
-                  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80',
-                ),
-                fit: BoxFit.cover,
+          GestureDetector(
+            onTap: () => setState(() => _selectedIndex = 3),
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: kPink, width: 2),
+                color: Colors.grey[200],
+                image: _profilePictureUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(_profilePictureUrl!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
+              child: _profilePictureUrl == null
+                  ? const Icon(Icons.home_work_rounded, color: Colors.grey, size: 24)
+                  : null,
             ),
           ),
           const SizedBox(width: 12),
@@ -141,7 +238,7 @@ class _HomePantiState extends State<HomePanti> {
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -155,10 +252,14 @@ class _HomePantiState extends State<HomePanti> {
                     color: Colors.grey[400],
                     fontSize: 15,
                   ),
-                  prefixIcon: Icon(
-                    Icons.mic_none_rounded,
-                    color: Colors.grey[400],
-                    size: 22,
+                  prefixIcon: IconButton(
+                    onPressed: _toggleMic,
+                    icon: Icon(
+                      _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                      color: _listening ? kPink : Colors.grey[400],
+                      size: 22,
+                    ),
+                    splashRadius: 20,
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 13),
@@ -174,39 +275,33 @@ class _HomePantiState extends State<HomePanti> {
   // ─── News Feed ───────────────────────────────────────────────────────────
 
   Widget _buildNewsFeed() {
-    return FutureBuilder<List<BeritaModel>>(
-      future: _beritaFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(kPink),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              snapshot.error.toString(),
-              style: const TextStyle(color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          );
-        }
-        final beritas = snapshot.data ?? [];
-        if (beritas.isEmpty) {
-          return const Center(
-            child: Text('Belum ada berita.', style: TextStyle(color: Colors.grey)),
-          );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-          itemCount: beritas.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
-          itemBuilder: (context, index) =>
-              _NewsCard(item: beritas[index], userId: widget.userId),
-        );
-      },
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(kPink)),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Text(_error!, style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+      );
+    }
+    if (_beritas.isEmpty) {
+      return Center(
+        child: Text(
+          _searchController.text.trim().isNotEmpty
+              ? 'Tidak ada berita untuk "${_searchController.text.trim()}".'
+              : 'Belum ada berita.',
+          style: const TextStyle(color: Colors.grey),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      itemCount: _beritas.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (context, index) =>
+          _NewsCard(item: _beritas[index], userId: widget.userId),
     );
   }
 
@@ -217,39 +312,59 @@ class _HomePantiState extends State<HomePanti> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // AI secondary button (placeholder — full impl later)
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: kPink,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: kPink.withOpacity(0.4),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => _selectedIndex == 3
+                    ? const TambahProdukScreen()
+                    : const HomeAIPanti(),
               ),
-            ],
-          ),
-          child: const Center(
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              color: Colors.white,
-              size: 22,
+            );
+          },
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(255, 246, 243, 243),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: kPink.withValues(alpha: 0.4),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(
+              child: _selectedIndex == 3
+                  ? const Icon(Icons.add, color: kPink, size: 26)
+                  : Image.asset(
+                      'assets/images/chatbot_logo.png',
+                      width: 28,
+                      height: 28,
+                    ),
             ),
           ),
         ),
+        if (_selectedIndex == 0 || _selectedIndex == 1) ...[
         const SizedBox(height: 12),
 
         // Main + FAB
         FloatingActionButton(
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BeritaBaruPanti()),
+            );
+          },
           backgroundColor: Colors.white,
           elevation: 4,
           shape: const CircleBorder(),
           child: const Icon(Icons.add, color: kPinkDark, size: 28),
         ),
+        ],
       ],
     );
   }
@@ -293,7 +408,7 @@ class _HomePantiState extends State<HomePanti> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Icon(
                         icons[index],
-                        color: selected ? Colors.black : Colors.white.withOpacity(0.65),
+                        color: selected ? Colors.black : Colors.white.withValues(alpha: 0.65),
                         size: 26,
                       ),
                     ),
@@ -336,6 +451,7 @@ class _NewsCard extends StatelessWidget {
               userId: userId,
               title: item.title,
               thumbnail: item.thumbnail,
+              pantiProfilePicture: item.pantiProfilePicture,
               date: item.formattedDate,
               authorName: item.authorName,
               pantiName: item.pantiName,

@@ -101,11 +101,15 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
         namaPanti: _namaPantiController.text.trim(),
         alamatPanti: _alamatPantiController.text.trim(),
         nomorPanti: _nomorPantiController.text.trim(),
-      ).then((_) {
+      ).then((result) {
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const SuccessScreen(role: 'panti')),
+          MaterialPageRoute(builder: (_) => SuccessScreen(
+            role: 'panti',
+            userId: result['user_id'] as int?,
+            pantiId: result['panti_id'] as int?,
+          )),
           (route) => false,
         );
       }).catchError((e) {
