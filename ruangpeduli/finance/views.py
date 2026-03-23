@@ -50,12 +50,16 @@ class DashboardView(APIView):
             panti=panti, tanggal__month=month, tanggal__year=year
         ).aggregate(total=Sum('jumlah'))['total'] or 0
 
+        # Saldo = cumulative all-time balance
+        all_pemasukan   = Pemasukan.objects.filter(panti=panti).aggregate(total=Sum('jumlah'))['total'] or 0
+        all_pengeluaran = Pengeluaran.objects.filter(panti=panti).aggregate(total=Sum('jumlah'))['total'] or 0
+
         return Response({
             'month': month,
             'year':  year,
             'total_pemasukan':   total_pemasukan,
             'total_pengeluaran': total_pengeluaran,
-            'saldo':             total_pemasukan - total_pengeluaran,
+            'saldo':             all_pemasukan - all_pengeluaran,
         })
 
 

@@ -5,6 +5,9 @@ import 'package:ruangpeduliapp/panti/keuangan_panti.dart';
 import 'package:ruangpeduliapp/panti/inventory_panti/inventory_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/profile_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_berita_panti.dart';
+import 'package:ruangpeduliapp/panti/home_panti/home_beritabaru.dart';
+import 'package:ruangpeduliapp/panti/home_panti/home_ai.dart';
+import 'package:ruangpeduliapp/panti/inventory_panti/inventory_panti_produkbaru.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 
@@ -170,7 +173,7 @@ class _HomePantiState extends State<HomePanti> {
       ),
 
       // ── FAB ──────────────────────────────────────────────────────────────
-      floatingActionButton: _buildFAB(),
+      floatingActionButton: _selectedIndex == 2 ? null : _buildFAB(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
 
       // ── Bottom Nav ───────────────────────────────────────────────────────
@@ -185,9 +188,9 @@ class _HomePantiState extends State<HomePanti> {
       case 0:
         return _buildNewsFeed();
       case 1:
-        return const KeuanganPanti();
+        return KeuanganPanti(userId: widget.userId);
       case 2:
-        return const InventarisPanti();
+        return InventarisPanti(userId: widget.userId);
       case 3:
         return ProfilePanti(pantiId: widget.pantiId, userId: widget.userId);
       default:
@@ -203,23 +206,26 @@ class _HomePantiState extends State<HomePanti> {
       child: Row(
         children: [
           // Profile avatar
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: kPink, width: 2),
-              color: Colors.grey[200],
-              image: _profilePictureUrl != null
-                  ? DecorationImage(
-                      image: NetworkImage(_profilePictureUrl!),
-                      fit: BoxFit.cover,
-                    )
+          GestureDetector(
+            onTap: () => setState(() => _selectedIndex = 3),
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: kPink, width: 2),
+                color: Colors.grey[200],
+                image: _profilePictureUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(_profilePictureUrl!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: _profilePictureUrl == null
+                  ? const Icon(Icons.home_work_rounded, color: Colors.grey, size: 24)
                   : null,
             ),
-            child: _profilePictureUrl == null
-                ? const Icon(Icons.home_work_rounded, color: Colors.grey, size: 24)
-                : null,
           ),
           const SizedBox(width: 12),
 
@@ -306,39 +312,59 @@ class _HomePantiState extends State<HomePanti> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // AI secondary button (placeholder — full impl later)
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: kPink,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: kPink.withValues(alpha: 0.4),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => _selectedIndex == 3
+                    ? const TambahProdukScreen()
+                    : const HomeAIPanti(),
               ),
-            ],
-          ),
-          child: const Center(
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              color: Colors.white,
-              size: 22,
+            );
+          },
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(255, 246, 243, 243),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: kPink.withValues(alpha: 0.4),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(
+              child: _selectedIndex == 3
+                  ? const Icon(Icons.add, color: kPink, size: 26)
+                  : Image.asset(
+                      'assets/images/chatbot_logo.png',
+                      width: 28,
+                      height: 28,
+                    ),
             ),
           ),
         ),
+        if (_selectedIndex == 0 || _selectedIndex == 1) ...[
         const SizedBox(height: 12),
 
         // Main + FAB
         FloatingActionButton(
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BeritaBaruPanti()),
+            );
+          },
           backgroundColor: Colors.white,
           elevation: 4,
           shape: const CircleBorder(),
           child: const Icon(Icons.add, color: kPinkDark, size: 28),
         ),
+        ],
       ],
     );
   }
