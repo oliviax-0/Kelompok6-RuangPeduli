@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'inventory_panti_produkbaru.dart';
+import 'package:ruangpeduliapp/data/inventory_api.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -7,6 +7,7 @@ const Color kPink = Color(0xFFF28C9F);
 const Color kPinkDark = Color(0xFFE5728A);
 const Color kPinkLight = Color(0xFFFAE8EC);
 const Color kRed = Color(0xFFE53935);
+const Color kGreen = Color(0xFF2DB34A);
 
 const List<double> _greyscaleMatrix = [
   0.2126, 0.7152, 0.0722, 0, 0,
@@ -20,64 +21,109 @@ const List<double> _greyscaleMatrix = [
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class StokMasukScreen extends StatelessWidget {
-  const StokMasukScreen({super.key});
+  final int? userId;
+  final int? pantiId;
+
+  const StokMasukScreen({super.key, this.userId, this.pantiId});
 
   @override
-  Widget build(BuildContext context) => const StokMasukDetailScreen();
-}
-
-// ─── Data Model ──────────────────────────────────────────────────────────────
-
-class _KategoriItem {
-  final String nama;
-  final int jumlahJenis;
-  final bool hasAlert;
-
-  _KategoriItem({
-    required this.nama,
-    required this.jumlahJenis,
-    this.hasAlert = false,
-  });
+  Widget build(BuildContext context) => StokDetailScreen(
+        title: 'Stok Masuk',
+        userId: userId,
+        pantiId: pantiId,
+      );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// STOK MASUK DETAIL SCREEN
+// SHARED STOK DETAIL SCREEN (used by both Stok Masuk and Stok Keluar)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class StokMasukDetailScreen extends StatefulWidget {
+class StokDetailScreen extends StatefulWidget {
   final String title;
+  final int? userId;
+  final int? pantiId;
 
-  const StokMasukDetailScreen({
+  const StokDetailScreen({
     super.key,
-    this.title = 'Stok Masuk',
+    required this.title,
+    this.userId,
+    this.pantiId,
   });
 
   @override
-  State<StokMasukDetailScreen> createState() => _StokMasukDetailScreenState();
+  State<StokDetailScreen> createState() => _StokDetailScreenState();
 }
 
-class _StokMasukDetailScreenState extends State<StokMasukDetailScreen> {
+class _StokDetailScreenState extends State<StokDetailScreen> {
   bool _isEditMode = false;
+  List<CategoryModel> _categories = [];
+  bool _loading = true;
+  String? _error;
 
-  final List<_KategoriItem> _items = [
-    _KategoriItem(nama: 'Makanan', jumlahJenis: 6),
-    _KategoriItem(nama: 'Minuman', jumlahJenis: 3),
-    _KategoriItem(nama: 'Obat-Obatan', jumlahJenis: 7),
-    _KategoriItem(nama: 'Bahan Pokok', jumlahJenis: 9, hasAlert: true),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories();
+  }
+
+  Future<void> _fetchCategories() async {
+    if (widget.pantiId == null) {
+      if (mounted) setState(() { _loading = false; });
+      return;
+    }
+    if (mounted) setState(() { _loading = true; _error = null; });
+    try {
+      final cats = await InventoryApi().fetchCategories(widget.pantiId!);
+      if (mounted) setState(() { _categories = cats; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
 
   void _toggleEditMode() => setState(() => _isEditMode = !_isEditMode);
 
   void _confirmDelete(int index) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.35),
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (_) => _ConfirmDeleteDialog(
-        onHapus: () {
-          setState(() => _items.removeAt(index));
+        message: 'Apakah Anda yakin ingin menghapus kategori tersebut?',
+        onHapus: () async {
           Navigator.pop(context);
+          if (widget.userId == null) return;
+          try {
+            await InventoryApi().deleteCategory(widget.userId!, _categories[index].id);
+            _fetchCategories();
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(e.toString())),
+              );
+            }
+          }
         },
         onBatal: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  void _showTambahKategoriDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => _TambahKategoriDialog(
+        onAdd: (nama) async {
+          if (widget.userId == null) return;
+          try {
+            await InventoryApi().addCategory(widget.userId!, nama);
+            _fetchCategories();
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(e.toString())),
+              );
+            }
+          }
+        },
       ),
     );
   }
@@ -106,14 +152,11 @@ class _StokMasukDetailScreenState extends State<StokMasukDetailScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Search bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: _buildSearchBar(),
           ),
           const SizedBox(height: 12),
-
-          // Count label
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: RichText(
@@ -122,7 +165,7 @@ class _StokMasukDetailScreenState extends State<StokMasukDetailScreen> {
                 style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
                 children: [
                   TextSpan(
-                    text: '${_items.length}',
+                    text: _loading ? '...' : '${_categories.length}',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ],
@@ -130,47 +173,74 @@ class _StokMasukDetailScreenState extends State<StokMasukDetailScreen> {
             ),
           ),
           const SizedBox(height: 10),
-
-          // List - Fixed ColorFiltered blocking touches
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              itemCount: _items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                if (_isEditMode) {
-                  return ColorFiltered(
-                    colorFilter: const ColorFilter.matrix(_greyscaleMatrix),
-                    child: _KategoriTile(
-                      item: _items[index],
-                      isEditMode: _isEditMode,
-                      onDelete: () => _confirmDelete(index),
-                      onTap: null,
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(kPink),
                     ),
-                  );
-                }
-                return _KategoriTile(
-                  item: _items[index],
-                  isEditMode: _isEditMode,
-                  onDelete: () => _confirmDelete(index),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => StokMasukDetailKategoriScreen(kategori: _items[index]),
-                    ),
-                  ),
-                );
-              },
-            ),
+                  )
+                : _error != null
+                    ? Center(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : _categories.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Belum ada kategori.',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            itemCount: _categories.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final cat = _categories[index];
+                              if (_isEditMode) {
+                                return ColorFiltered(
+                                  colorFilter: const ColorFilter.matrix(_greyscaleMatrix),
+                                  child: _KategoriTile(
+                                    nama: cat.name,
+                                    jumlahJenis: cat.itemCount,
+                                    hasAlert: cat.hasAlert,
+                                    isEditMode: true,
+                                    onDelete: () => _confirmDelete(index),
+                                    onTap: null,
+                                  ),
+                                );
+                              }
+                              return _KategoriTile(
+                                nama: cat.name,
+                                jumlahJenis: cat.itemCount,
+                                hasAlert: cat.hasAlert,
+                                isEditMode: false,
+                                onDelete: () => _confirmDelete(index),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => StokDetailKategoriScreen(
+                                      categoryId: cat.id,
+                                      categoryName: cat.name,
+                                      hasAlert: cat.hasAlert,
+                                      userId: widget.userId,
+                                    ),
+                                  ),
+                                ).then((_) => _fetchCategories()),
+                              );
+                            },
+                          ),
           ),
-
-          // Tambahkan Kategori button (only visible when not in edit mode)
           if (!_isEditMode)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
               child: Center(
                 child: ElevatedButton.icon(
-                  onPressed: () => _showTambahKategoriDialog(),
+                  onPressed: _showTambahKategoriDialog,
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text(
                     'Tambahkan Kategori',
@@ -188,11 +258,9 @@ class _StokMasukDetailScreenState extends State<StokMasukDetailScreen> {
             ),
         ],
       ),
-
-      // Edit FAB
       floatingActionButton: FloatingActionButton(
         onPressed: _toggleEditMode,
-        backgroundColor: _isEditMode ? Colors.white : Colors.white,
+        backgroundColor: Colors.white,
         elevation: _isEditMode ? 2 : 4,
         shape: const CircleBorder(),
         child: Icon(
@@ -203,14 +271,227 @@ class _StokMasukDetailScreenState extends State<StokMasukDetailScreen> {
       ),
     );
   }
+}
 
-  void _showTambahKategoriDialog() {
+// ═══════════════════════════════════════════════════════════════════════════════
+// DETAIL KATEGORI SCREEN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class StokDetailKategoriScreen extends StatefulWidget {
+  final int categoryId;
+  final String categoryName;
+  final bool hasAlert;
+  final int? userId;
+
+  const StokDetailKategoriScreen({
+    super.key,
+    required this.categoryId,
+    required this.categoryName,
+    required this.hasAlert,
+    this.userId,
+  });
+
+  @override
+  State<StokDetailKategoriScreen> createState() => _StokDetailKategoriScreenState();
+}
+
+class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
+  List<InventoryItemModel> _items = [];
+  bool _loading = true;
+  String? _error;
+  bool _isEditMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchItems();
+  }
+
+  Future<void> _fetchItems() async {
+    if (mounted) setState(() { _loading = true; _error = null; });
+    try {
+      final items = await InventoryApi().fetchItems(widget.categoryId);
+      if (mounted) setState(() { _items = items; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  void _confirmDeleteItem(int index) {
     showDialog(
       context: context,
-      builder: (_) => _TambahKategoriDialog(
-        onAdd: (nama) {
-          setState(() => _items.add(_KategoriItem(nama: nama, jumlahJenis: 0)));
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (_) => _ConfirmDeleteDialog(
+        message: 'Apakah Anda yakin ingin menghapus produk ini?',
+        onHapus: () async {
+          Navigator.pop(context);
+          if (widget.userId == null) return;
+          try {
+            await InventoryApi().deleteItem(widget.userId!, _items[index].id);
+            _fetchItems();
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(e.toString())),
+              );
+            }
+          }
         },
+        onBatal: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  void _showTambahItemDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => _TambahItemDialog(
+        onAdd: (name, qty, unit) async {
+          if (widget.userId == null) return;
+          try {
+            await InventoryApi().addItem(widget.userId!, widget.categoryId, name, qty, unit);
+            _fetchItems();
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(e.toString())),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  void _showEditItemDialog(InventoryItemModel item) {
+    showDialog(
+      context: context,
+      builder: (_) => _EditItemDialog(
+        item: item,
+        onSave: (qty) async {
+          if (widget.userId == null) return;
+          try {
+            await InventoryApi().updateItem(widget.userId!, item.id, quantity: qty);
+            _fetchItems();
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(e.toString())),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Text(
+              widget.categoryName,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            if (widget.hasAlert) ...[
+              const SizedBox(width: 6),
+              const Icon(Icons.error_rounded, color: kRed, size: 20),
+            ],
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => setState(() => _isEditMode = !_isEditMode),
+            icon: Icon(
+              Icons.edit_outlined,
+              color: _isEditMode ? kPinkDark : kPink,
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: _buildSearchBar(),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: RichText(
+              text: TextSpan(
+                text: 'Produk: ',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
+                children: [
+                  TextSpan(
+                    text: _loading ? '...' : '${_items.length}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(kPink),
+                    ),
+                  )
+                : _error != null
+                    ? Center(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : _items.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Belum ada produk.',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                            itemCount: _items.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final item = _items[index];
+                              return _ItemTile(
+                                item: item,
+                                isEditMode: _isEditMode,
+                                onDelete: () => _confirmDeleteItem(index),
+                                onEdit: () => _showEditItemDialog(item),
+                              );
+                            },
+                          ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showTambahItemDialog,
+        backgroundColor: kPink,
+        elevation: 4,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add, color: Colors.white, size: 22),
       ),
     );
   }
@@ -229,7 +510,7 @@ Widget _buildSearchBar() {
       decoration: InputDecoration(
         hintText: 'Search',
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-        prefixIcon: Icon(Icons.mic_none_rounded, color: Colors.grey[400], size: 20),
+        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
         border: InputBorder.none,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
       ),
@@ -240,13 +521,17 @@ Widget _buildSearchBar() {
 // ─── Kategori Tile ────────────────────────────────────────────────────────────
 
 class _KategoriTile extends StatelessWidget {
-  final _KategoriItem item;
+  final String nama;
+  final int jumlahJenis;
+  final bool hasAlert;
   final bool isEditMode;
   final VoidCallback? onTap;
   final VoidCallback onDelete;
 
   const _KategoriTile({
-    required this.item,
+    required this.nama,
+    required this.jumlahJenis,
+    required this.hasAlert,
     required this.isEditMode,
     required this.onTap,
     required this.onDelete,
@@ -263,7 +548,7 @@ class _KategoriTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -278,14 +563,14 @@ class _KategoriTile extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        item.nama,
+                        nama,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF1A1A1A),
                         ),
                       ),
-                      if (item.hasAlert) ...[
+                      if (hasAlert) ...[
                         const SizedBox(width: 6),
                         Icon(
                           isEditMode ? Icons.info_rounded : Icons.error_rounded,
@@ -297,13 +582,12 @@ class _KategoriTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${item.jumlahJenis} Jenis',
+                    '$jumlahJenis Jenis',
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
               ),
             ),
-            // Trailing: X in edit mode, chevron otherwise
             if (isEditMode)
               GestureDetector(
                 onTap: onDelete,
@@ -322,13 +606,122 @@ class _KategoriTile extends StatelessWidget {
   }
 }
 
+// ─── Item Tile ────────────────────────────────────────────────────────────────
+
+class _ItemTile extends StatelessWidget {
+  final InventoryItemModel item;
+  final bool isEditMode;
+  final VoidCallback onDelete;
+  final VoidCallback onEdit;
+
+  const _ItemTile({
+    required this.item,
+    required this.isEditMode,
+    required this.onDelete,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isEditMode ? const Color(0xFFF5F5F5) : kPinkLight,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    if (item.isOutOfStock) ...[
+                      const SizedBox(width: 6),
+                      const Icon(Icons.error_rounded, color: kRed, size: 16),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${item.quantity} ${item.unit}',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          if (isEditMode)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: onEdit,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.edit_outlined, color: Colors.grey[600], size: 20),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: onDelete,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close, color: Colors.grey[600], size: 20),
+                  ),
+                ),
+              ],
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: item.isOutOfStock
+                    ? kRed.withValues(alpha: 0.1)
+                    : kGreen.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                item.isOutOfStock ? 'Habis' : 'Ada',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: item.isOutOfStock ? kRed : kGreen,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Confirm Delete Dialog ────────────────────────────────────────────────────
 
 class _ConfirmDeleteDialog extends StatelessWidget {
+  final String message;
   final VoidCallback onHapus;
   final VoidCallback onBatal;
 
   const _ConfirmDeleteDialog({
+    required this.message,
     required this.onHapus,
     required this.onBatal,
   });
@@ -343,10 +736,10 @@ class _ConfirmDeleteDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Apakah Anda yakin ingin menghapus kategori tersebut?',
+            Text(
+              message,
               textAlign: TextAlign.left,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF1A1A1A),
@@ -357,21 +750,19 @@ class _ConfirmDeleteDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Ya (confirm delete)
                 OutlinedButton(
-                  onPressed: onHapus,
+                  onPressed: onBatal,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF1A1A1A),
                     side: const BorderSide(color: Color(0xFFDDDDDD)),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
-                  child: const Text('Ya', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: const Text('Tidak'),
                 ),
                 const SizedBox(width: 10),
-                // Tidak (cancel)
                 ElevatedButton(
-                  onPressed: onBatal,
+                  onPressed: onHapus,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPink,
                     foregroundColor: Colors.white,
@@ -379,7 +770,7 @@ class _ConfirmDeleteDialog extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
-                  child: const Text('Tidak', style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: const Text('Ya', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -402,6 +793,7 @@ class _TambahKategoriDialog extends StatefulWidget {
 
 class _TambahKategoriDialogState extends State<_TambahKategoriDialog> {
   final _controller = TextEditingController();
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -434,8 +826,14 @@ class _TambahKategoriDialogState extends State<_TambahKategoriDialog> {
                 filled: true,
                 fillColor: const Color(0xFFF2F2F2),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: const BorderSide(color: kPink, width: 1.5),
@@ -446,12 +844,15 @@ class _TambahKategoriDialogState extends State<_TambahKategoriDialog> {
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
-                onPressed: () {
-                  if (_controller.text.trim().isNotEmpty) {
-                    widget.onAdd(_controller.text.trim());
-                    Navigator.pop(context);
-                  }
-                },
+                onPressed: _saving
+                    ? null
+                    : () async {
+                        if (_controller.text.trim().isEmpty) return;
+                        setState(() => _saving = true);
+                        await widget.onAdd(_controller.text.trim());
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kPink,
                   foregroundColor: Colors.white,
@@ -459,7 +860,13 @@ class _TambahKategoriDialogState extends State<_TambahKategoriDialog> {
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
-                child: const Text('Tambahkan', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Tambahkan', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
           ],
@@ -469,87 +876,243 @@ class _TambahKategoriDialogState extends State<_TambahKategoriDialog> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// DETAIL KATEGORI SCREEN
-// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Tambah Item Dialog ───────────────────────────────────────────────────────
 
-class StokMasukDetailKategoriScreen extends StatelessWidget {
-  final _KategoriItem kategori;
+class _TambahItemDialog extends StatefulWidget {
+  final Future<void> Function(String name, int qty, String unit) onAdd;
+  const _TambahItemDialog({required this.onAdd});
 
-  const StokMasukDetailKategoriScreen({super.key, required this.kategori});
+  @override
+  State<_TambahItemDialog> createState() => _TambahItemDialogState();
+}
+
+class _TambahItemDialogState extends State<_TambahItemDialog> {
+  final _nameController = TextEditingController();
+  final _qtyController = TextEditingController();
+  final _unitController = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _qtyController.dispose();
+    _unitController.dispose();
+    super.dispose();
+  }
+
+  Widget _inputField(
+    TextEditingController ctrl,
+    String hint, {
+    TextInputType inputType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: inputType,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 13),
+        filled: true,
+        fillColor: const Color(0xFFF2F2F2),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: const BorderSide(color: kPink, width: 1.5),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              kategori.nama,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A)),
+            const Text(
+              'Tambah Produk',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
             ),
-            if (kategori.hasAlert) ...[
-              const SizedBox(width: 6),
-              const Icon(Icons.error_rounded, color: kRed, size: 20),
-            ],
-          ],
-        ),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: _buildSearchBar(),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Produk dalam kategori',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            const SizedBox(height: 10),
+            _inputField(_nameController, 'Nama Produk'),
+            const SizedBox(height: 8),
+            Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: kPinkLight, borderRadius: BorderRadius.circular(16)),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.folder_open_rounded, size: 48, color: Colors.grey[400]),
-                        const SizedBox(height: 8),
-                        Text('Kategori: ${kategori.nama}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+                Expanded(
+                  child: _inputField(
+                    _qtyController,
+                    'Jumlah',
+                    inputType: TextInputType.number,
                   ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _inputField(_unitController, 'Satuan (pcs, kg...)'),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const TambahProdukScreen()),
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton(
+                onPressed: _saving
+                    ? null
+                    : () async {
+                        final name = _nameController.text.trim();
+                        final qty = int.tryParse(_qtyController.text.trim()) ?? 0;
+                        final unit = _unitController.text.trim();
+                        if (name.isEmpty) return;
+                        setState(() => _saving = true);
+                        await widget.onAdd(name, qty, unit.isEmpty ? 'pcs' : unit);
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kPink,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Tambahkan', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
         ),
-        backgroundColor: kPink,
-        elevation: 4,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add, color: Colors.white, size: 22),
+      ),
+    );
+  }
+}
+
+// ─── Edit Item Dialog ─────────────────────────────────────────────────────────
+
+class _EditItemDialog extends StatefulWidget {
+  final InventoryItemModel item;
+  final Future<void> Function(int qty) onSave;
+
+  const _EditItemDialog({required this.item, required this.onSave});
+
+  @override
+  State<_EditItemDialog> createState() => _EditItemDialogState();
+}
+
+class _EditItemDialogState extends State<_EditItemDialog> {
+  late final TextEditingController _qtyController;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _qtyController = TextEditingController(text: widget.item.quantity.toString());
+  }
+
+  @override
+  void dispose() {
+    _qtyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Edit: ${widget.item.name}',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Satuan: ${widget.item.unit}',
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _qtyController,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Jumlah',
+                hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
+                filled: true,
+                fillColor: const Color(0xFFF2F2F2),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: const BorderSide(color: kPink, width: 1.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton(
+                onPressed: _saving
+                    ? null
+                    : () async {
+                        final qty = int.tryParse(_qtyController.text.trim());
+                        if (qty == null) return;
+                        setState(() => _saving = true);
+                        await widget.onSave(qty);
+                        if (!mounted) return;
+                        Navigator.pop(context);
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kPink,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

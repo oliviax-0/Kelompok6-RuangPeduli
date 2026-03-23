@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/data/residents_api.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -64,40 +65,55 @@ Widget _buildSearchBar() {
 // FLOW 1 — DAFTAR PEGAWAI
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _PegawaiItem {
-  final String nama;
-  final String divisi;
-  final String jabatan;
-  const _PegawaiItem({required this.nama, required this.divisi, required this.jabatan});
-}
-
-final List<_PegawaiItem> _pegawaiData = List.generate(
-  8,
-  (_) => const _PegawaiItem(nama: 'Eko Sutrisno', divisi: 'Administrasi', jabatan: 'Staf'),
-);
-
 class DaftarPegawaiScreen extends StatefulWidget {
-  const DaftarPegawaiScreen({super.key});
+  final int? userId;
+  const DaftarPegawaiScreen({super.key, required this.userId});
 
   @override
   State<DaftarPegawaiScreen> createState() => _DaftarPegawaiScreenState();
 }
 
 class _DaftarPegawaiScreenState extends State<DaftarPegawaiScreen> {
+  List<PekerjaModel> _pegawaiData = [];
+  bool _loading = true;
+  String? _error;
   String? _filterValue;
-  final List<String> _filterOptions = ['Semua', 'Administrasi', 'Keuangan', 'Logistik'];
 
-  List<_PegawaiItem> get _filtered {
+  List<String> get _filterOptions {
+    final divisis = _pegawaiData.map((e) => e.divisi).toSet().toList()..sort();
+    return ['Semua', ...divisis];
+  }
+
+  List<PekerjaModel> get _filtered {
     if (_filterValue == null || _filterValue == 'Semua') return _pegawaiData;
     return _pegawaiData.where((e) => e.divisi == _filterValue).toList();
   }
 
-  void _showTambahPegawaiDialog() {
-    showDialog(
+  @override
+  void initState() {
+    super.initState();
+    _fetchPekerja();
+  }
+
+  Future<void> _fetchPekerja() async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final result = await ResidentsApi().fetchPekerja(widget.userId!);
+      if (mounted) setState(() { _pegawaiData = result; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  void _showTambahPegawaiDialog() async {
+    if (widget.userId == null) return;
+    final added = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.35),
-      builder: (_) => const _TambahPegawaiDialog(),
+      builder: (_) => _TambahPegawaiDialog(userId: widget.userId!),
     );
+    if (added == true) _fetchPekerja();
   }
 
   @override
@@ -127,7 +143,6 @@ class _DaftarPegawaiScreenState extends State<DaftarPegawaiScreen> {
               children: [
                 Expanded(child: _buildSearchBar()),
                 const SizedBox(width: 10),
-                // Filter dropdown
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                   decoration: BoxDecoration(
@@ -136,7 +151,7 @@ class _DaftarPegawaiScreenState extends State<DaftarPegawaiScreen> {
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: _filterValue ?? 'Semua',
+                      value: _filterOptions.contains(_filterValue ?? 'Semua') ? (_filterValue ?? 'Semua') : 'Semua',
                       isDense: true,
                       icon: const Icon(Icons.tune_rounded, size: 18, color: Color(0xFF1A1A1A)),
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
@@ -162,12 +177,22 @@ class _DaftarPegawaiScreenState extends State<DaftarPegawaiScreen> {
 
           // List
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-              itemCount: _filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, index) => _PegawaiCard(item: _filtered[index]),
-            ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(kPink)))
+                : _error != null
+                    ? Center(child: Text(_error!, style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center))
+                    : _filtered.isEmpty
+                        ? const Center(child: Text('Belum ada pegawai.', style: TextStyle(color: Colors.grey)))
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                            itemCount: _filtered.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (_, index) => _PegawaiCard(
+                              item: _filtered[index],
+                              userId: widget.userId!,
+                              onChanged: _fetchPekerja,
+                            ),
+                          ),
           ),
         ],
       ),
@@ -183,18 +208,21 @@ class _DaftarPegawaiScreenState extends State<DaftarPegawaiScreen> {
 }
 
 class _PegawaiCard extends StatelessWidget {
-  final _PegawaiItem item;
-  const _PegawaiCard({required this.item});
+  final PekerjaModel item;
+  final int userId;
+  final VoidCallback onChanged;
+  const _PegawaiCard({required this.item, required this.userId, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        showDialog(
+      onTap: () async {
+        final changed = await showDialog<bool>(
           context: context,
           barrierColor: Colors.black.withOpacity(0.35),
-          builder: (_) => _EditPegawaiDialog(item: item),
+          builder: (_) => _EditPegawaiDialog(item: item, userId: userId),
         );
+        if (changed == true) onChanged();
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -209,7 +237,7 @@ class _PegawaiCard extends StatelessWidget {
             const SizedBox(height: 4),
             _infoRow('Divisi', item.divisi),
             const SizedBox(height: 4),
-            _infoRow('Posisi/jabatan', item.jabatan),
+            _infoRow('Posisi/jabatan', item.posisi),
           ],
         ),
       ),
@@ -238,7 +266,8 @@ class _PegawaiCard extends StatelessWidget {
 // ─── Tambah Pegawai Dialog ────────────────────────────────────────────────────
 
 class _TambahPegawaiDialog extends StatefulWidget {
-  const _TambahPegawaiDialog();
+  final int userId;
+  const _TambahPegawaiDialog({required this.userId});
 
   @override
   State<_TambahPegawaiDialog> createState() => _TambahPegawaiDialogState();
@@ -248,6 +277,7 @@ class _TambahPegawaiDialogState extends State<_TambahPegawaiDialog> {
   final _namaController = TextEditingController();
   final _divisiController = TextEditingController();
   final _jabatanController = TextEditingController();
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -255,6 +285,23 @@ class _TambahPegawaiDialogState extends State<_TambahPegawaiDialog> {
     _divisiController.dispose();
     _jabatanController.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    final nama = _namaController.text.trim();
+    final divisi = _divisiController.text.trim();
+    final jabatan = _jabatanController.text.trim();
+    if (nama.isEmpty || divisi.isEmpty || jabatan.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      await ResidentsApi().addPekerja(widget.userId, nama, divisi, jabatan);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 
   @override
@@ -272,23 +319,19 @@ class _TambahPegawaiDialogState extends State<_TambahPegawaiDialog> {
             const SizedBox(height: 8),
             _buildInputField(controller: _namaController, hint: 'Ketik Nama Staf'),
             const SizedBox(height: 14),
-
             _buildLabel('Divisi'),
             const SizedBox(height: 8),
             _buildInputField(controller: _divisiController, hint: 'Ketik Divisi'),
             const SizedBox(height: 14),
-
             _buildLabel('Jabatan'),
             const SizedBox(height: 8),
             _buildInputField(controller: _jabatanController, hint: 'Ketik Jabatan'),
             const SizedBox(height: 20),
-
-            // Buttons
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _saving ? null : () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF1A1A1A),
                       side: const BorderSide(color: Color(0xFFDDDDDD)),
@@ -301,7 +344,7 @@ class _TambahPegawaiDialogState extends State<_TambahPegawaiDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _saving ? null : _save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPink,
                       foregroundColor: Colors.white,
@@ -309,7 +352,9 @@ class _TambahPegawaiDialogState extends State<_TambahPegawaiDialog> {
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: const Text('Unggah', style: TextStyle(fontWeight: FontWeight.w700)),
+                    child: _saving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Unggah', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
@@ -324,8 +369,9 @@ class _TambahPegawaiDialogState extends State<_TambahPegawaiDialog> {
 // ─── Edit Pegawai Dialog ──────────────────────────────────────────────────────
 
 class _EditPegawaiDialog extends StatefulWidget {
-  final _PegawaiItem item;
-  const _EditPegawaiDialog({required this.item});
+  final PekerjaModel item;
+  final int userId;
+  const _EditPegawaiDialog({required this.item, required this.userId});
 
   @override
   State<_EditPegawaiDialog> createState() => _EditPegawaiDialogState();
@@ -335,13 +381,14 @@ class _EditPegawaiDialogState extends State<_EditPegawaiDialog> {
   late final TextEditingController _namaController;
   late final TextEditingController _divisiController;
   late final TextEditingController _jabatanController;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _namaController = TextEditingController(text: widget.item.nama);
     _divisiController = TextEditingController(text: widget.item.divisi);
-    _jabatanController = TextEditingController(text: widget.item.jabatan);
+    _jabatanController = TextEditingController(text: widget.item.posisi);
   }
 
   @override
@@ -350,6 +397,36 @@ class _EditPegawaiDialogState extends State<_EditPegawaiDialog> {
     _divisiController.dispose();
     _jabatanController.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    final nama = _namaController.text.trim();
+    final divisi = _divisiController.text.trim();
+    final jabatan = _jabatanController.text.trim();
+    if (nama.isEmpty || divisi.isEmpty || jabatan.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      await ResidentsApi().updatePekerja(widget.userId, widget.item.id, nama, divisi, jabatan);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  Future<void> _delete() async {
+    setState(() => _saving = true);
+    try {
+      await ResidentsApi().deletePekerja(widget.userId, widget.item.id);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 
   @override
@@ -363,7 +440,6 @@ class _EditPegawaiDialogState extends State<_EditPegawaiDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title with edit icon
             Row(
               children: const [
                 Icon(Icons.edit_outlined, size: 20, color: Color(0xFF1A1A1A)),
@@ -375,28 +451,23 @@ class _EditPegawaiDialogState extends State<_EditPegawaiDialog> {
               ],
             ),
             const SizedBox(height: 18),
-
             _buildLabel('Nama Lengkap'),
             const SizedBox(height: 8),
             _buildInputField(controller: _namaController, hint: 'Nama Lengkap'),
             const SizedBox(height: 14),
-
             _buildLabel('Divisi'),
             const SizedBox(height: 8),
             _buildInputField(controller: _divisiController, hint: 'Divisi'),
             const SizedBox(height: 14),
-
             _buildLabel('Jabatan'),
             const SizedBox(height: 8),
             _buildInputField(controller: _jabatanController, hint: 'Jabatan'),
             const SizedBox(height: 20),
-
-            // Buttons row: Batal | Simpan | Delete icon
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _saving ? null : () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF1A1A1A),
                       side: const BorderSide(color: Color(0xFFDDDDDD)),
@@ -409,7 +480,7 @@ class _EditPegawaiDialogState extends State<_EditPegawaiDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _saving ? null : _save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPink,
                       foregroundColor: Colors.white,
@@ -417,13 +488,14 @@ class _EditPegawaiDialogState extends State<_EditPegawaiDialog> {
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w700)),
+                    child: _saving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Delete button
                 GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: _saving ? null : _delete,
                   child: Container(
                     width: 44,
                     height: 44,
@@ -444,46 +516,55 @@ class _EditPegawaiDialogState extends State<_EditPegawaiDialog> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// FLOW 2 — DAFTAR PENGHUNI
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _PenghuniItem {
-  final String nama;
-  final String tahunLahir;
-  final String jenisKelamin;
-  const _PenghuniItem({required this.nama, required this.tahunLahir, required this.jenisKelamin});
-}
-
-final List<_PenghuniItem> _penghuniData = List.generate(
-  16,
-  (i) => _PenghuniItem(
-    nama: 'Sari Melatika',
-    tahunLahir: '2014',
-    jenisKelamin: i % 3 == 0 ? 'Laki-laki' : 'Perempuan',
-  ),
-);
-
 class DaftarPenghuniScreen extends StatefulWidget {
-  const DaftarPenghuniScreen({super.key});
+  final int? userId;
+  const DaftarPenghuniScreen({super.key, required this.userId});
 
   @override
   State<DaftarPenghuniScreen> createState() => _DaftarPenghuniScreenState();
 }
 
 class _DaftarPenghuniScreenState extends State<DaftarPenghuniScreen> {
+  List<PenghuniModel> _penghuniData = [];
+  bool _loading = true;
+  String? _error;
   String? _filterValue;
+
   final List<String> _filterOptions = ['Semua', 'Laki-laki', 'Perempuan'];
 
-  List<_PenghuniItem> get _filtered {
+  List<PenghuniModel> get _filtered {
     if (_filterValue == null || _filterValue == 'Semua') return _penghuniData;
     return _penghuniData.where((e) => e.jenisKelamin == _filterValue).toList();
   }
 
-  void _showTambahPenghuniDialog() {
-    showDialog(
+  @override
+  void initState() {
+    super.initState();
+    _fetchPenghuni();
+  }
+
+  Future<void> _fetchPenghuni() async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final result = await ResidentsApi().fetchPenghuni(widget.userId!);
+      if (mounted) setState(() { _penghuniData = result; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  void _showTambahPenghuniDialog() async {
+    if (widget.userId == null) return;
+    final added = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.35),
-      builder: (_) => const _TambahPenghuniDialog(),
+      builder: (_) => _TambahPenghuniDialog(userId: widget.userId!),
     );
+    if (added == true) _fetchPenghuni();
   }
 
   @override
@@ -506,7 +587,6 @@ class _DaftarPenghuniScreenState extends State<DaftarPenghuniScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Search + Filter row
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Row(
@@ -534,12 +614,8 @@ class _DaftarPenghuniScreenState extends State<DaftarPenghuniScreen> {
             ),
           ),
           const SizedBox(height: 12),
-
-          // Divider
           const Divider(height: 1, color: Color(0xFFEEEEEE)),
           const SizedBox(height: 10),
-
-          // Count
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
@@ -548,15 +624,23 @@ class _DaftarPenghuniScreenState extends State<DaftarPenghuniScreen> {
             ),
           ),
           const SizedBox(height: 10),
-
-          // List
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-              itemCount: _filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, index) => _PenghuniCard(item: _filtered[index]),
-            ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(kPink)))
+                : _error != null
+                    ? Center(child: Text(_error!, style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center))
+                    : _filtered.isEmpty
+                        ? const Center(child: Text('Belum ada penghuni.', style: TextStyle(color: Colors.grey)))
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                            itemCount: _filtered.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (_, index) => _PenghuniCard(
+                              item: _filtered[index],
+                              userId: widget.userId!,
+                              onChanged: _fetchPenghuni,
+                            ),
+                          ),
           ),
         ],
       ),
@@ -572,18 +656,21 @@ class _DaftarPenghuniScreenState extends State<DaftarPenghuniScreen> {
 }
 
 class _PenghuniCard extends StatelessWidget {
-  final _PenghuniItem item;
-  const _PenghuniCard({required this.item});
+  final PenghuniModel item;
+  final int userId;
+  final VoidCallback onChanged;
+  const _PenghuniCard({required this.item, required this.userId, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        showDialog(
+      onTap: () async {
+        final changed = await showDialog<bool>(
           context: context,
           barrierColor: Colors.black.withOpacity(0.35),
-          builder: (_) => _EditPenghuniDialog(item: item),
+          builder: (_) => _EditPenghuniDialog(item: item, userId: userId),
         );
+        if (changed == true) onChanged();
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -596,7 +683,7 @@ class _PenghuniCard extends StatelessWidget {
           children: [
             _infoRow('Nama', item.nama),
             const SizedBox(height: 4),
-            _infoRow('Tahun Lahir', item.tahunLahir),
+            _infoRow('Tahun Lahir', item.tahunLahir.toString()),
             const SizedBox(height: 4),
             _infoRow('Jenis Kelamin', item.jenisKelamin),
           ],
@@ -627,8 +714,9 @@ class _PenghuniCard extends StatelessWidget {
 // ─── Edit Penghuni Dialog ─────────────────────────────────────────────────────
 
 class _EditPenghuniDialog extends StatefulWidget {
-  final _PenghuniItem item;
-  const _EditPenghuniDialog({required this.item});
+  final PenghuniModel item;
+  final int userId;
+  const _EditPenghuniDialog({required this.item, required this.userId});
 
   @override
   State<_EditPenghuniDialog> createState() => _EditPenghuniDialogState();
@@ -638,12 +726,13 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
   late final TextEditingController _namaController;
   late final TextEditingController _tahunLahirController;
   late String? _jenisKelamin;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _namaController = TextEditingController(text: widget.item.nama);
-    _tahunLahirController = TextEditingController(text: widget.item.tahunLahir);
+    _tahunLahirController = TextEditingController(text: widget.item.tahunLahir.toString());
     _jenisKelamin = widget.item.jenisKelamin;
   }
 
@@ -652,6 +741,35 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
     _namaController.dispose();
     _tahunLahirController.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    final nama = _namaController.text.trim();
+    final tahun = int.tryParse(_tahunLahirController.text.trim());
+    if (nama.isEmpty || tahun == null || _jenisKelamin == null) return;
+    setState(() => _saving = true);
+    try {
+      await ResidentsApi().updatePenghuni(widget.userId, widget.item.id, nama, tahun, _jenisKelamin!);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  Future<void> _delete() async {
+    setState(() => _saving = true);
+    try {
+      await ResidentsApi().deletePenghuni(widget.userId, widget.item.id);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 
   @override
@@ -665,7 +783,6 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title with edit icon
             Row(
               children: const [
                 Icon(Icons.edit_outlined, size: 20, color: Color(0xFF1A1A1A)),
@@ -677,50 +794,36 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
               ],
             ),
             const SizedBox(height: 18),
-
             _buildLabel('Nama Lengkap'),
             const SizedBox(height: 8),
             _buildInputField(controller: _namaController, hint: 'Nama Lengkap'),
             const SizedBox(height: 14),
-
             _buildLabel('Tahun Lahir'),
             const SizedBox(height: 8),
-            _buildInputField(
-              controller: _tahunLahirController,
-              hint: 'Tahun Lahir',
-              inputType: TextInputType.number,
-            ),
+            _buildInputField(controller: _tahunLahirController, hint: 'Tahun Lahir', inputType: TextInputType.number),
             const SizedBox(height: 14),
-
             _buildLabel('Jenis Kelamin'),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F2),
-                borderRadius: BorderRadius.circular(30),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(30)),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   isExpanded: true,
                   value: _jenisKelamin,
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF1A1A1A)),
                   style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
-                  items: ['Laki-laki', 'Perempuan']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
+                  items: ['Laki-laki', 'Perempuan'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                   onChanged: (v) => setState(() => _jenisKelamin = v),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-
-            // Buttons row: Batal | Simpan | Delete icon
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _saving ? null : () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF1A1A1A),
                       side: const BorderSide(color: Color(0xFFDDDDDD)),
@@ -733,7 +836,7 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _saving ? null : _save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPink,
                       foregroundColor: Colors.white,
@@ -741,19 +844,18 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w700)),
+                    child: _saving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
                 const SizedBox(width: 10),
                 GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: _saving ? null : _delete,
                   child: Container(
                     width: 44,
                     height: 44,
-                    decoration: BoxDecoration(
-                      color: kRed.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    decoration: BoxDecoration(color: kRed.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                     child: const Icon(Icons.delete_outline_rounded, color: kRed, size: 22),
                   ),
                 ),
@@ -766,8 +868,11 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
   }
 }
 
+// ─── Tambah Penghuni Dialog ───────────────────────────────────────────────────
+
 class _TambahPenghuniDialog extends StatefulWidget {
-  const _TambahPenghuniDialog();
+  final int userId;
+  const _TambahPenghuniDialog({required this.userId});
 
   @override
   State<_TambahPenghuniDialog> createState() => _TambahPenghuniDialogState();
@@ -777,12 +882,29 @@ class _TambahPenghuniDialogState extends State<_TambahPenghuniDialog> {
   final _namaController = TextEditingController();
   final _tahunLahirController = TextEditingController();
   String? _jenisKelamin;
+  bool _saving = false;
 
   @override
   void dispose() {
     _namaController.dispose();
     _tahunLahirController.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    final nama = _namaController.text.trim();
+    final tahun = int.tryParse(_tahunLahirController.text.trim());
+    if (nama.isEmpty || tahun == null || _jenisKelamin == null) return;
+    setState(() => _saving = true);
+    try {
+      await ResidentsApi().addPenghuni(widget.userId, nama, tahun, _jenisKelamin!);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 
   @override
@@ -800,50 +922,33 @@ class _TambahPenghuniDialogState extends State<_TambahPenghuniDialog> {
             const SizedBox(height: 8),
             _buildInputField(controller: _namaController, hint: 'Ketik Nama Penghuni'),
             const SizedBox(height: 14),
-
             _buildLabel('Tahun Lahir'),
             const SizedBox(height: 8),
-            _buildInputField(
-              controller: _tahunLahirController,
-              hint: 'Ketik Tahun Lahir',
-              inputType: TextInputType.number,
-            ),
+            _buildInputField(controller: _tahunLahirController, hint: 'Ketik Tahun Lahir', inputType: TextInputType.number),
             const SizedBox(height: 14),
-
             _buildLabel('Jenis Kelamin'),
             const SizedBox(height: 8),
-            // Dropdown instead of text field
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F2),
-                borderRadius: BorderRadius.circular(30),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(30)),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   isExpanded: true,
-                  hint: const Text(
-                    'Ketik Jenis Kelamin',
-                    style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
-                  ),
+                  hint: const Text('Pilih Jenis Kelamin', style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14)),
                   value: _jenisKelamin,
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF1A1A1A)),
                   style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
-                  items: ['Laki-laki', 'Perempuan']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
+                  items: ['Laki-laki', 'Perempuan'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                   onChanged: (v) => setState(() => _jenisKelamin = v),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-
-            // Buttons
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _saving ? null : () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF1A1A1A),
                       side: const BorderSide(color: Color(0xFFDDDDDD)),
@@ -856,7 +961,7 @@ class _TambahPenghuniDialogState extends State<_TambahPenghuniDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _saving ? null : _save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPink,
                       foregroundColor: Colors.white,
@@ -864,7 +969,9 @@ class _TambahPenghuniDialogState extends State<_TambahPenghuniDialog> {
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: const Text('Unggah', style: TextStyle(fontWeight: FontWeight.w700)),
+                    child: _saving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Unggah', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
               ],
