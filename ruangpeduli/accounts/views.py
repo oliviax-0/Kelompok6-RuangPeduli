@@ -7,7 +7,6 @@ from django.conf import settings
 from django.core.mail import send_mail
 import random
 import string
-import resend
 from django.db import transaction, IntegrityError
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -40,23 +39,7 @@ OTP_HTML = """
 """
 
 
-def _send_via_resend(email: str, otp: str) -> bool:
-    resend.api_key = settings.RESEND_API_KEY
-    try:
-        resend.Emails.send({
-            "from": settings.DEFAULT_FROM_EMAIL,
-            "to": [email],
-            "subject": "Kode OTP RuangPeduli",
-            "html": OTP_HTML.format(otp=otp),
-        })
-        print(f"✅ Email terkirim via Resend ke {email}")
-        return True
-    except Exception as e:
-        print(f"⚠️ Resend error: {e}")
-        return False
-
-
-def _send_via_gmail(email: str, otp: str) -> bool:
+def _send_otp_email(email: str, otp: str) -> bool:
     try:
         send_mail(
             subject="Kode OTP RuangPeduli",
@@ -71,17 +54,6 @@ def _send_via_gmail(email: str, otp: str) -> bool:
     except Exception as e:
         print(f"⚠️ Gmail SMTP error: {e}")
         return False
-
-
-def _send_otp_email(email: str, otp: str) -> bool:
-    """
-    Coba Resend dulu, kalau gagal fallback ke Gmail SMTP.
-    Return True kalau salah satu berhasil.
-    """
-    if _send_via_resend(email, otp):
-        return True
-    print("⚠️ Resend gagal, mencoba Gmail SMTP sebagai fallback...")
-    return _send_via_gmail(email, otp)
 
 class RegisterStartView(generics.CreateAPIView):
     queryset = PendingRegistration.objects.all()
