@@ -7,7 +7,6 @@ import 'package:ruangpeduliapp/panti/profile_panti/profile_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_berita_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_beritabaru.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_ai.dart';
-import 'package:ruangpeduliapp/panti/inventory_panti/inventory_panti_produkbaru.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 
@@ -190,7 +189,7 @@ class _HomePantiState extends State<HomePanti> {
       case 1:
         return KeuanganPanti(userId: widget.userId);
       case 2:
-        return InventarisPanti(userId: widget.userId);
+        return InventarisPanti(userId: widget.userId, pantiId: widget.pantiId);
       case 3:
         return ProfilePanti(pantiId: widget.pantiId, userId: widget.userId);
       default:
@@ -318,8 +317,8 @@ class _HomePantiState extends State<HomePanti> {
               context,
               MaterialPageRoute(
                 builder: (_) => _selectedIndex == 3
-                    ? const TambahProdukScreen()
-                    : const HomeAIPanti(),
+                    ? BeritaBaruPanti(userId: widget.userId, pantiId: widget.pantiId)
+                    : HomeAIPanti(userId: widget.userId, pantiId: widget.pantiId),
               ),
             );
           },

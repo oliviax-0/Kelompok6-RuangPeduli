@@ -7,7 +7,9 @@ const Color kPink = Color(0xFFF28C9F);
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 class BeritaBaruPanti extends StatefulWidget {
-  const BeritaBaruPanti({super.key});
+  final int? userId;
+  final int? pantiId;
+  const BeritaBaruPanti({super.key, this.userId, this.pantiId});
 
   @override
   State<BeritaBaruPanti> createState() => _BeritaBaruPantiState();
