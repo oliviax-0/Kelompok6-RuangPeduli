@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/transaksi_sukses_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/transaksi/transaksi_sukses_screen.dart';
 
 class KonfirmasiMetodeScreen extends StatefulWidget {
   final String namaPanti;

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/edit_profil_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/konfirmasi_pembayaran_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/search_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/profile/edit_profil_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/transaksi/konfirmasi_pembayaran_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/notification_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/lokasi_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/notification/notification_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/transaksi/lokasi_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});

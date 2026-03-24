@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/profile_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
 class TransaksiSuksesScreen extends StatefulWidget {
   final String namaPanti;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/notification_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/notification/notification_screen.dart';
 
 class LokasiScreen extends StatelessWidget {
   final String namaPanti;
