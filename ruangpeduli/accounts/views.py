@@ -39,6 +39,22 @@ OTP_HTML = """
 """
 
 
+def _verify_google_token(token: str):
+    """Try verifying against all registered client IDs."""
+    client_ids = [c for c in [
+        settings.GOOGLE_CLIENT_ID,
+        settings.GOOGLE_CLIENT_ID_ANDROID,
+        settings.GOOGLE_CLIENT_ID_ANDROID_2,
+    ] if c]
+    last_error = None
+    for client_id in client_ids:
+        try:
+            return id_token.verify_oauth2_token(token, google_requests.Request(), client_id)
+        except ValueError as e:
+            last_error = e
+    raise ValueError(last_error)
+
+
 def _send_otp_email(email: str, otp: str) -> bool:
     try:
         send_mail(
@@ -558,15 +574,11 @@ class GoogleAuthView(APIView):
         if not token or not role:
             return Response({'error': 'id_token dan role wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not settings.GOOGLE_CLIENT_ID:
+        if not settings.GOOGLE_CLIENT_ID and not settings.GOOGLE_CLIENT_ID_ANDROID:
             return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
-            idinfo = id_token.verify_oauth2_token(
-                token,
-                google_requests.Request(),
-                settings.GOOGLE_CLIENT_ID,
-            )
+            idinfo = _verify_google_token(token)
         except ValueError as e:
             return Response({'error': f'Token Google tidak valid: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -615,15 +627,11 @@ class GoogleRegisterView(APIView):
         if not token or not role or not username:
             return Response({'error': 'id_token, role, dan username wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not settings.GOOGLE_CLIENT_ID:
+        if not settings.GOOGLE_CLIENT_ID and not settings.GOOGLE_CLIENT_ID_ANDROID:
             return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
-            idinfo = id_token.verify_oauth2_token(
-                token,
-                google_requests.Request(),
-                settings.GOOGLE_CLIENT_ID,
-            )
+            idinfo = _verify_google_token(token)
         except ValueError as e:
             return Response({'error': f'Token Google tidak valid: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 

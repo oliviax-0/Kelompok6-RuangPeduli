@@ -95,18 +95,14 @@ MEDIA_ROOT = BASE_DIR / 'media'
 CORS_ALLOW_ALL_ORIGINS = True
 
 # ============================================================
-# GOOGLE OAUTH — Web Client ID dari Google Cloud Console
+# GOOGLE OAUTH
 # ============================================================
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_ID           = os.getenv('GOOGLE_CLIENT_ID', '')            # iOS (Oliv)
+GOOGLE_CLIENT_ID_ANDROID   = os.getenv('GOOGLE_CLIENT_ID_ANDROID', '')    # Android (Andre)
+GOOGLE_CLIENT_ID_ANDROID_2 = os.getenv('GOOGLE_CLIENT_ID_ANDROID_2', '')  # Android (Ricci)
 
 # ============================================================
-# RESEND — loaded from .env
-# ============================================================
-RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
-
-# ============================================================
-# GMAIL SMTP — fallback jika Resend gagal
+# GMAIL SMTP 
 # ============================================================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
