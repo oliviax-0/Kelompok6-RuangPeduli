@@ -1,0 +1,481 @@
+import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/masyarakat/profile/edit_profil_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/transaksi/konfirmasi_pembayaran_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  int _selectedIndex = 3;
+
+  // ── Data dummy panti ──
+  final List<Map<String, dynamic>> _pantiList = [
+    {
+      'nama': 'Yayasan Sayap Ibu',
+      'terkumpul': 'Rp12.520.000 Terkumpul',
+      'image': 'assets/images/panti1.png',
+    },
+    {
+      'nama': 'Griya Yatim Dhuafa',
+      'terkumpul': 'Rp8.500.000 Terkumpul',
+      'image': 'assets/images/panti2.png',
+    },
+    {
+      'nama': 'Panti Asuhan Mekar Lestari',
+      'terkumpul': 'Rp5.200.000 Terkumpul',
+      'image': 'assets/images/panti3.png',
+    },
+    {
+      'nama': 'Panti Asuhan Kasih Sesama',
+      'terkumpul': 'Rp3.750.000 Terkumpul',
+      'image': 'assets/images/panti4.png',
+    },
+    {
+      'nama': 'Rumah Yatim Indonesia',
+      'terkumpul': 'Rp9.100.000 Terkumpul',
+      'image': 'assets/images/panti5.png',
+    },
+    {
+      'nama': 'Panti Asuhan Al-Ikhlas',
+      'terkumpul': 'Rp4.300.000 Terkumpul',
+      'image': 'assets/images/panti6.png',
+    },
+    {
+      'nama': 'Yayasan Peduli Anak',
+      'terkumpul': 'Rp6.800.000 Terkumpul',
+      'image': 'assets/images/panti7.png',
+    },
+    {
+      'nama': 'Panti Asuhan Bina Insani',
+      'terkumpul': 'Rp2.950.000 Terkumpul',
+      'image': 'assets/images/panti8.png',
+    },
+  ];
+
+  void _onNavTap(int index) {
+    if (index == _selectedIndex) return;
+    if (index == 0) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeMasyarakatScreen()),
+      );
+    } else if (index == 1) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const SearchScreen()),
+      );
+    }
+    setState(() => _selectedIndex = index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── App Bar ──
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Center(
+                child: Text(
+                  'Profil',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+              ),
+            ),
+
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Profile header ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: [
+                          // Avatar
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: const Color(0xFFF43D5E), width: 2),
+                              color: Colors.grey.shade200,
+                            ),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'assets/images/profile_photo.png',
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Icon(
+                                    Icons.person_rounded,
+                                    size: 40,
+                                    color: Colors.grey.shade400),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+
+                          // Name + username + edit button
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Sienna Malik',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1A1A1A),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '@sunshinebecomesy0u',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade500),
+                                ),
+                                const SizedBox(height: 10),
+                                GestureDetector(
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const EditProfilScreen()),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 20, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF47B8C),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Text(
+                                      'Edit Profil',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    const Divider(height: 1, color: Color(0xFFEEEEEE)),
+                    const SizedBox(height: 16),
+
+                    // ── Aktivitas Anda ──
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'Aktivitas Anda',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Total Donasi card
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF0F2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            // Heart icon circle
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.favorite_rounded,
+                                  color: Color(0xFFF47B8C), size: 28),
+                            ),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Total Donasi',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1A1A1A),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Rp15.520.000',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    const Divider(height: 1, color: Color(0xFFEEEEEE)),
+                    const SizedBox(height: 16),
+
+                    // ── Pilih Panti Untuk Donasi Lagi ──
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'Pilih Panti Untuk Donasi Lagi',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Panti list
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: _pantiList.length,
+                      itemBuilder: (context, i) {
+                        final panti = _pantiList[i];
+                        return _PantiDonasCard(
+                          nama: panti['nama'],
+                          terkumpul: panti['terkumpul'],
+                          imagePath: panti['image'],
+                          onDonasi: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => KonfirmasiPembayaranScreen(
+                                namaPanti: panti['nama'],
+                                terkumpul: panti['terkumpul'],
+                                imagePath: panti['image'],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 80),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _buildNavBar(),
+    );
+  }
+
+  Widget _buildNavBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF47B8C),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 12,
+              offset: const Offset(0, -3)),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                  icon: Icons.home_rounded,
+                  selected: _selectedIndex == 0,
+                  onTap: () => _onNavTap(0)),
+              _NavItem(
+                  icon: Icons.search_rounded,
+                  selected: _selectedIndex == 1,
+                  onTap: () => _onNavTap(1)),
+              _NavItem(
+                  icon: Icons.history_rounded,
+                  selected: _selectedIndex == 2,
+                  onTap: () => _onNavTap(2)),
+              _NavItem(
+                  icon: Icons.person_rounded,
+                  selected: _selectedIndex == 3,
+                  onTap: () => _onNavTap(3)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Panti Donasi Card ──
+class _PantiDonasCard extends StatelessWidget {
+  final String nama;
+  final String terkumpul;
+  final String imagePath;
+  final VoidCallback onDonasi;
+
+  const _PantiDonasCard({
+    required this.nama,
+    required this.terkumpul,
+    required this.imagePath,
+    required this.onDonasi,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.asset(
+              imagePath,
+              width: 72,
+              height: 72,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 72,
+                height: 72,
+                color: const Color(0xFFDDCDD0),
+                child: Icon(Icons.image_rounded,
+                    size: 32, color: Colors.grey.shade400),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nama,
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1A1A)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  terkumpul,
+                  style:
+                      TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: onDonasi,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF47B8C),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Donasi',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _NavItem(
+      {required this.icon, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 60,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 28,
+                color: selected
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.60)),
+            if (selected)
+              Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  width: 5,
+                  height: 5,
+                  decoration: const BoxDecoration(
+                      color: Colors.white, shape: BoxShape.circle)),
+          ],
+        ),
+      ),
+    );
+  }
+}

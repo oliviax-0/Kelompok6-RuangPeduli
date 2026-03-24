@@ -7,7 +7,6 @@ from django.conf import settings
 from django.core.mail import send_mail
 import random
 import string
-import resend
 from django.db import transaction, IntegrityError
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -40,23 +39,23 @@ OTP_HTML = """
 """
 
 
-def _send_via_resend(email: str, otp: str) -> bool:
-    resend.api_key = settings.RESEND_API_KEY
-    try:
-        resend.Emails.send({
-            "from": settings.DEFAULT_FROM_EMAIL,
-            "to": [email],
-            "subject": "Kode OTP RuangPeduli",
-            "html": OTP_HTML.format(otp=otp),
-        })
-        print(f"✅ Email terkirim via Resend ke {email}")
-        return True
-    except Exception as e:
-        print(f"⚠️ Resend error: {e}")
-        return False
+def _verify_google_token(token: str):
+    """Try verifying against all registered client IDs."""
+    client_ids = [c for c in [
+        settings.GOOGLE_CLIENT_ID,
+        settings.GOOGLE_CLIENT_ID_ANDROID,
+        settings.GOOGLE_CLIENT_ID_ANDROID_2,
+    ] if c]
+    last_error = None
+    for client_id in client_ids:
+        try:
+            return id_token.verify_oauth2_token(token, google_requests.Request(), client_id)
+        except ValueError as e:
+            last_error = e
+    raise ValueError(last_error)
 
 
-def _send_via_gmail(email: str, otp: str) -> bool:
+def _send_otp_email(email: str, otp: str) -> bool:
     try:
         send_mail(
             subject="Kode OTP RuangPeduli",
@@ -71,17 +70,6 @@ def _send_via_gmail(email: str, otp: str) -> bool:
     except Exception as e:
         print(f"⚠️ Gmail SMTP error: {e}")
         return False
-
-
-def _send_otp_email(email: str, otp: str) -> bool:
-    """
-    Coba Resend dulu, kalau gagal fallback ke Gmail SMTP.
-    Return True kalau salah satu berhasil.
-    """
-    if _send_via_resend(email, otp):
-        return True
-    print("⚠️ Resend gagal, mencoba Gmail SMTP sebagai fallback...")
-    return _send_via_gmail(email, otp)
 
 class RegisterStartView(generics.CreateAPIView):
     queryset = PendingRegistration.objects.all()
@@ -586,15 +574,11 @@ class GoogleAuthView(APIView):
         if not token or not role:
             return Response({'error': 'id_token dan role wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not settings.GOOGLE_CLIENT_ID:
+        if not settings.GOOGLE_CLIENT_ID and not settings.GOOGLE_CLIENT_ID_ANDROID:
             return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
-            idinfo = id_token.verify_oauth2_token(
-                token,
-                google_requests.Request(),
-                settings.GOOGLE_CLIENT_ID,
-            )
+            idinfo = _verify_google_token(token)
         except ValueError as e:
             return Response({'error': f'Token Google tidak valid: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -643,15 +627,11 @@ class GoogleRegisterView(APIView):
         if not token or not role or not username:
             return Response({'error': 'id_token, role, dan username wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not settings.GOOGLE_CLIENT_ID:
+        if not settings.GOOGLE_CLIENT_ID and not settings.GOOGLE_CLIENT_ID_ANDROID:
             return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
-            idinfo = id_token.verify_oauth2_token(
-                token,
-                google_requests.Request(),
-                settings.GOOGLE_CLIENT_ID,
-            )
+            idinfo = _verify_google_token(token)
         except ValueError as e:
             return Response({'error': f'Token Google tidak valid: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 

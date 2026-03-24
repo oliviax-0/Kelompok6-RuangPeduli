@@ -53,6 +53,31 @@ class InventoryItemModel {
       );
 }
 
+class OutOfStockItemModel {
+  final int id;
+  final String name;
+  final String unit;
+  final int categoryId;
+  final String categoryName;
+
+  const OutOfStockItemModel({
+    required this.id,
+    required this.name,
+    required this.unit,
+    required this.categoryId,
+    required this.categoryName,
+  });
+
+  factory OutOfStockItemModel.fromJson(Map<String, dynamic> json, {required int categoryId, required String categoryName}) =>
+      OutOfStockItemModel(
+        id: json['id'],
+        name: json['name'],
+        unit: json['unit'] ?? 'pcs',
+        categoryId: categoryId,
+        categoryName: categoryName,
+      );
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 class InventoryApi {
@@ -125,6 +150,22 @@ class InventoryApi {
         .put(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) throw Exception('Gagal mengubah produk');
+  }
+
+  Future<List<OutOfStockItemModel>> fetchOutOfStockItems(int pantiId) async {
+    final cats = await fetchCategories(pantiId);
+    final futures = cats.map((cat) async {
+      final uri = Uri.parse('$_base/inventory/categories/${cat.id}/items/').replace(
+        queryParameters: {'status': 'out_of_stock'},
+      );
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) return <OutOfStockItemModel>[];
+      return (jsonDecode(res.body) as List)
+          .map((e) => OutOfStockItemModel.fromJson(e, categoryId: cat.id, categoryName: cat.name))
+          .toList();
+    });
+    final results = await Future.wait(futures);
+    return results.expand((e) => e).toList();
   }
 
   Future<void> deleteItem(int userId, int itemId) async {

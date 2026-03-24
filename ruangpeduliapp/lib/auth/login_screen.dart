@@ -4,7 +4,7 @@ import 'package:ruangpeduliapp/auth/forgot_password_screen.dart';
 import 'package:ruangpeduliapp/auth/fill_data_masyarakat_screen.dart';
 import 'package:ruangpeduliapp/auth/fill_data_panti_screen.dart';
 import 'package:ruangpeduliapp/data/data.dart';
-import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_panti.dart';
 
 class LoginScreen extends StatefulWidget {

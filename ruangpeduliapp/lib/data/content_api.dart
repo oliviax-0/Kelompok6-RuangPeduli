@@ -58,6 +58,45 @@ class BeritaModel {
       return createdAt;
     }
   }
+
+}
+
+// ─── VIDEO MODEL ──────────────────────────────────────────────────────────────
+
+class VideoModel {
+  final int id;
+  final String title;
+  final String description;
+  final String videoUrl;
+  final String? thumbnail;
+  final String pantiName;
+  final String authorName;
+  final String createdAt;
+
+  VideoModel({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.videoUrl,
+    this.thumbnail,
+    required this.pantiName,
+    required this.authorName,
+    required this.createdAt,
+  });
+
+  factory VideoModel.fromJson(Map<String, dynamic> json) {
+    return VideoModel(
+      id: json['id'],
+      title: json['title'],
+      description: json['description'] ?? '',
+      videoUrl: json['video_url'],
+      thumbnail: json['thumbnail'],
+      pantiName: json['panti_name'] ?? '',
+      authorName: json['author_name'] ?? '',
+      createdAt: json['created_at'] ?? '',
+    );
+  }
+
 }
 
 // ─── CONTENT API ──────────────────────────────────────────────────────────────
@@ -82,6 +121,27 @@ class ContentApi {
       final List data = jsonDecode(res.body);
       return data
           .map((e) => BeritaModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  /// Fetch published videos. Pass [pantiId] to filter by panti.
+  Future<List<VideoModel>> fetchVideos({int? pantiId}) async {
+    final params = <String, String>{};
+    if (pantiId != null) params['panti'] = '$pantiId';
+    final uri = Uri.parse('$_base/content/video/').replace(queryParameters: params.isEmpty ? null : params);
+
+    try {
+      final res = await http.get(uri).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Koneksi timeout'),
+      );
+      if (res.statusCode != 200) throw Exception('Gagal memuat video');
+      final List data = jsonDecode(res.body);
+      return data
+          .map((e) => VideoModel.fromJson(e as Map<String, dynamic>))
           .toList();
     } on SocketException {
       throw Exception('Tidak bisa konek ke server');
