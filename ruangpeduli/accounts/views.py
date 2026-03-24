@@ -4,55 +4,84 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
+from django.core.mail import send_mail
 import random
 import string
 import resend
 from django.db import transaction, IntegrityError
 from accounts.models import User, PendingRegistration
 from .serializers import RegisterStartSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
+
+OTP_HTML = """
+    <div style="font-family: Arial, sans-serif; max-width: 420px;
+                margin: auto; padding: 24px;">
+        <h2 style="color: #F43D5E; margin-bottom: 4px;">RuangPeduli</h2>
+        <p style="color: #555; margin-bottom: 24px;">
+            Halo! Berikut kode OTP untuk verifikasi akun kamu:
+        </p>
+        <div style="font-size: 38px; font-weight: bold;
+                    letter-spacing: 10px; color: #F43D5E;
+                    text-align: center; padding: 20px 0;
+                    background: #FFF0F2;
+                    border-radius: 10px; margin-bottom: 20px;">
+            {otp}
+        </div>
+        <p style="color: #888; font-size: 13px; line-height: 1.6;">
+            Kode ini berlaku selama <b>10 menit</b>.<br>
+            Jangan bagikan kode ini kepada siapapun.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #bbb; font-size: 11px;">
+            Jika kamu tidak merasa mendaftar di RuangPeduli, abaikan email ini.
+        </p>
+    </div>
+"""
 
 
-def _send_otp_email(email: str, otp: str) -> bool:
-    """
-    Kirim OTP ke email menggunakan Resend.
-    Return True kalau berhasil, False kalau gagal.
-    """
+def _send_via_resend(email: str, otp: str) -> bool:
     resend.api_key = settings.RESEND_API_KEY
-
     try:
         resend.Emails.send({
             "from": settings.DEFAULT_FROM_EMAIL,
             "to": [email],
             "subject": "Kode OTP RuangPeduli",
-            "html": f"""
-                <div style="font-family: Arial, sans-serif; max-width: 420px;
-                            margin: auto; padding: 24px;">
-                    <h2 style="color: #F43D5E; margin-bottom: 4px;">RuangPeduli</h2>
-                    <p style="color: #555; margin-bottom: 24px;">
-                        Halo! Berikut kode OTP untuk verifikasi akun kamu:
-                    </p>
-                    <div style="font-size: 38px; font-weight: bold;
-                                letter-spacing: 10px; color: #F43D5E;
-                                text-align: center; padding: 20px 0;
-                                background: #FFF0F2;
-                                border-radius: 10px; margin-bottom: 20px;">
-                        {otp}
-                    </div>
-                    <p style="color: #888; font-size: 13px; line-height: 1.6;">
-                        Kode ini berlaku selama <b>10 menit</b>.<br>
-                        Jangan bagikan kode ini kepada siapapun.
-                    </p>
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                    <p style="color: #bbb; font-size: 11px;">
-                        Jika kamu tidak merasa mendaftar di RuangPeduli, abaikan email ini.
-                    </p>
-                </div>
-            """,
+            "html": OTP_HTML.format(otp=otp),
         })
+        print(f"✅ Email terkirim via Resend ke {email}")
         return True
     except Exception as e:
         print(f"⚠️ Resend error: {e}")
         return False
+
+
+def _send_via_gmail(email: str, otp: str) -> bool:
+    try:
+        send_mail(
+            subject="Kode OTP RuangPeduli",
+            message=f"Kode OTP kamu: {otp}\nBerlaku selama 10 menit.",
+            from_email=f"RuangPeduli <{settings.EMAIL_HOST_USER}>",
+            recipient_list=[email],
+            fail_silently=False,
+            html_message=OTP_HTML.format(otp=otp),
+        )
+        print(f"✅ Email terkirim via Gmail SMTP ke {email}")
+        return True
+    except Exception as e:
+        print(f"⚠️ Gmail SMTP error: {e}")
+        return False
+
+
+def _send_otp_email(email: str, otp: str) -> bool:
+    """
+    Coba Resend dulu, kalau gagal fallback ke Gmail SMTP.
+    Return True kalau salah satu berhasil.
+    """
+    if _send_via_resend(email, otp):
+        return True
+    print("⚠️ Resend gagal, mencoba Gmail SMTP sebagai fallback...")
+    return _send_via_gmail(email, otp)
 
 class RegisterStartView(generics.CreateAPIView):
     queryset = PendingRegistration.objects.all()
@@ -238,3 +267,24 @@ class ResendOtpView(APIView):
             {'message': 'OTP baru telah dikirim ke email kamu'},
             status=status.HTTP_200_OK
         )
+    
+
+class LoginView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+        
+        if not email or not password:
+            return Response({'error': 'Email dan password wajib diisi'}, status=400)
+        
+        user = authenticate(request, username=email, password=password)
+        if user is None:
+            return Response({'error': 'Email atau password salah'}, status=401)
+        
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'role': user.role,
+            'email': user.email,
+        })
