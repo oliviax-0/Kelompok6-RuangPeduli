@@ -431,7 +431,6 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
                 icon: Icons.person_rounded,
                 selected: _selectedIndex == 3,
                 onTap: () => _onNavTap(3),
->>>>>>> 7fbd21712ab345f196e63e4a61be266b4299e543
               ),
             ],
           ),
@@ -439,8 +438,6 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
       ),
     );
   }
-<<<<<<< HEAD
-=======
 }
 
 // ─────────────────────────────────────────────
@@ -538,5 +535,4 @@ class _PlaceholderPage extends StatelessWidget {
       ),
     );
   }
->>>>>>> 7fbd21712ab345f196e63e4a61be266b4299e543
 }
