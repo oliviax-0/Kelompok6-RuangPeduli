@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});

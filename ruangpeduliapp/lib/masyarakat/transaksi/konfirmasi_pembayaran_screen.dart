@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:ruangpeduliapp/masyarakat/konfirmasi_metode_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/transaksi/konfirmasi_metode_screen.dart';
 
 class KonfirmasiPembayaranScreen extends StatefulWidget {
   final String namaPanti;

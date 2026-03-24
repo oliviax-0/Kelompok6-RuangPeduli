@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/search_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/profile_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/notification_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
 // ─────────────────────────────────────────────
 //  HOME MASYARAKAT SCREEN
