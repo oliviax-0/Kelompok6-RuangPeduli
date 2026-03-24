@@ -48,6 +48,14 @@ class TransactionModel {
   }
 }
 
+class JenisPemasukanModel {
+  final int id;
+  final String nama;
+  const JenisPemasukanModel({required this.id, required this.nama});
+  factory JenisPemasukanModel.fromJson(Map<String, dynamic> json) =>
+      JenisPemasukanModel(id: json['id'], nama: json['nama']);
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 class FinanceApi {
@@ -97,5 +105,62 @@ class FinanceApi {
     final all = [...incomes, ...expenses];
     all.sort((a, b) => b.tanggal.compareTo(a.tanggal));
     return all;
+  }
+
+  Future<List<JenisPemasukanModel>> fetchJenisPemasukan(int userId) async {
+    final uri = Uri.parse('$_base/finance/jenis-pemasukan/').replace(
+      queryParameters: {'user_id': userId.toString()},
+    );
+    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 200) {
+      return (jsonDecode(res.body) as List).map((e) => JenisPemasukanModel.fromJson(e)).toList();
+    }
+    throw Exception('Gagal memuat jenis pemasukan');
+  }
+
+  Future<void> addPemasukan(int userId, int jenisId, double jumlah, String catatan, String tanggal) async {
+    final uri = Uri.parse('$_base/finance/pemasukan/');
+    final res = await http
+        .post(uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': userId, 'jenis_pemasukan': jenisId, 'jumlah': jumlah, 'catatan': catatan, 'tanggal': tanggal}))
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 201) {
+      final body = jsonDecode(res.body);
+      throw Exception(body['error'] ?? 'Gagal menambah pemasukan');
+    }
+  }
+
+  Future<void> deletePemasukan(int userId, int id) async {
+    final uri = Uri.parse('$_base/finance/pemasukan/$id/');
+    final res = await http
+        .delete(uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': userId}))
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 204) throw Exception('Gagal menghapus pemasukan');
+  }
+
+  Future<void> addPengeluaran(int userId, int kategoriId, double jumlah, String catatan, String tanggal) async {
+    final uri = Uri.parse('$_base/finance/pengeluaran/');
+    final res = await http
+        .post(uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': userId, 'kategori': kategoriId, 'jumlah': jumlah, 'catatan': catatan, 'tanggal': tanggal}))
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 201) {
+      final body = jsonDecode(res.body);
+      throw Exception(body['error'] ?? 'Gagal menambah pengeluaran');
+    }
+  }
+
+  Future<void> deletePengeluaran(int userId, int id) async {
+    final uri = Uri.parse('$_base/finance/pengeluaran/$id/');
+    final res = await http
+        .delete(uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': userId}))
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 204) throw Exception('Gagal menghapus pengeluaran');
   }
 }

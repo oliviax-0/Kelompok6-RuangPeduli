@@ -100,7 +100,7 @@ class _InventarisPantiState extends State<InventarisPanti> {
           GestureDetector(
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const InventarisNotifikasiScreen()),
+              MaterialPageRoute(builder: (_) => InventarisNotifikasiScreen(pantiId: widget.pantiId)),
             ),
             child: Stack(
             clipBehavior: Clip.none,
@@ -178,7 +178,7 @@ class _InventarisPantiState extends State<InventarisPanti> {
                   icon: _BoxArrowIcon(arrowColor: kGreen, arrowUp: true),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const StokMasukScreen()),
+                    MaterialPageRoute(builder: (_) => StokMasukScreen(userId: widget.userId, pantiId: widget.pantiId)),
                   ),
                 ),
               ),
@@ -189,7 +189,7 @@ class _InventarisPantiState extends State<InventarisPanti> {
                   icon: _BoxArrowIcon(arrowColor: kRed, arrowUp: false),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const StokKeluarScreen()),
+                    MaterialPageRoute(builder: (_) => StokKeluarScreen(userId: widget.userId, pantiId: widget.pantiId)),
                   ),
                 ),
               ),

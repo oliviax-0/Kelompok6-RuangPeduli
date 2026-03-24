@@ -4,6 +4,7 @@ import 'package:ruangpeduliapp/panti/profile_panti/popup_panti.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
 import 'package:ruangpeduliapp/auth/role_selection_screen.dart';
+import 'package:ruangpeduliapp/panti/home_panti/home_beritabaru.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -220,7 +221,17 @@ class _ProfilePantiState extends State<ProfilePanti> {
           const SizedBox(height: 20),
 
           // Postingan
-          const _SectionHeader(title: 'Postingan', onAdd: null),
+          _SectionHeader(
+            title: 'Postingan',
+            onAdd: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => BeritaBaruPanti(userId: widget.userId, pantiId: widget.pantiId),
+              ),
+            ).then((_) {
+              if (widget.pantiId != null) _loadAll(widget.pantiId!);
+            }),
+          ),
           const SizedBox(height: 12),
           _buildPostFeed(),
 

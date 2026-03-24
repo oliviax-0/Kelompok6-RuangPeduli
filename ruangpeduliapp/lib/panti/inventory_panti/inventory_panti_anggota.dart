@@ -533,11 +533,11 @@ class _DaftarPenghuniScreenState extends State<DaftarPenghuniScreen> {
   String? _error;
   String? _filterValue;
 
-  final List<String> _filterOptions = ['Semua', 'Laki-laki', 'Perempuan'];
+  final List<String> _filterOptions = ['Semua', 'laki-laki', 'perempuan'];
 
   List<PenghuniModel> get _filtered {
     if (_filterValue == null || _filterValue == 'Semua') return _penghuniData;
-    return _penghuniData.where((e) => e.jenisKelamin == _filterValue).toList();
+    return _penghuniData.where((e) => e.jenisKelamin.toLowerCase() == _filterValue!.toLowerCase()).toList();
   }
 
   @override
@@ -605,7 +605,7 @@ class _DaftarPenghuniScreenState extends State<DaftarPenghuniScreen> {
                       isDense: true,
                       icon: const Icon(Icons.tune_rounded, size: 18, color: Color(0xFF1A1A1A)),
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
-                      items: _filterOptions.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                      items: _filterOptions.map((e) => DropdownMenuItem(value: e, child: Text(e == 'laki-laki' ? 'Laki-laki' : e == 'perempuan' ? 'Perempuan' : e))).toList(),
                       onChanged: (v) => setState(() => _filterValue = v),
                     ),
                   ),
@@ -813,7 +813,7 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
                   value: _jenisKelamin,
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF1A1A1A)),
                   style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
-                  items: ['Laki-laki', 'Perempuan'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  items: [('laki-laki', 'Laki-laki'), ('perempuan', 'Perempuan')].map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2))).toList(),
                   onChanged: (v) => setState(() => _jenisKelamin = v),
                 ),
               ),
@@ -938,7 +938,7 @@ class _TambahPenghuniDialogState extends State<_TambahPenghuniDialog> {
                   value: _jenisKelamin,
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF1A1A1A)),
                   style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
-                  items: ['Laki-laki', 'Perempuan'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  items: [('laki-laki', 'Laki-laki'), ('perempuan', 'Perempuan')].map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2))).toList(),
                   onChanged: (v) => setState(() => _jenisKelamin = v),
                 ),
               ),
