@@ -37,10 +37,7 @@ class RegisterData {
   final String role;
   final String? namaPengguna;
   final String? alamat;
-<<<<<<< HEAD
-=======
   final String? nomorTelepon;
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
   final String? namaPanti;
   final String? alamatPanti;
   final String? nomorPanti;
@@ -74,39 +71,6 @@ class RegisterData {
   }
 }
 
-<<<<<<< HEAD
-class LoginResult {
-  final String accessToken;
-  final String refreshToken;
-  final String role;
-  final String email;
-
-  LoginResult({
-    required this.accessToken,
-    required this.refreshToken,
-    required this.role,
-    required this.email,
-  });
-}
-
-class AppConfig {
-  static const String localhostRunUrl = '';
-  static const String devIp = '192.168.18.138';
-
-  static String get baseUrl {
-    try {
-      if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8000/api';
-      }
-      if (Platform.isIOS) {
-        if (localhostRunUrl.isNotEmpty) {
-          return '$localhostRunUrl/api';
-        }
-        return 'http://localhost:8000/api';
-      }
-    } catch (_) {}
-    return 'http://localhost:8000/api';
-=======
 class AppConfig {
   // ✏️ Kalau testing di iPhone FISIK, isi URL localhost.run kamu di sini
   // Kalau pakai Simulator, biarkan kosong
@@ -123,16 +87,11 @@ class AppConfig {
       return '$localhostRunUrl/api';
     }
     return 'http://localhost:8000/api'; // iOS Simulator
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
   }
 }
 
 class AuthApi {
-<<<<<<< HEAD
-  String get baseUrl => AppConfig.baseUrl;
-=======
   final String baseUrl = AppConfig.baseUrl;
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 
   // ─── REGISTER START ───────────────────────────────────────────────
   Future<String> startRegister(RegisterData data) async {
@@ -156,10 +115,7 @@ class AuthApi {
       print('📥 Body: ${res.body}');
 
       if (res.statusCode != 200 && res.statusCode != 201) {
-<<<<<<< HEAD
-=======
         // ✅ Ambil pesan error spesifik dari backend
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
         final error = jsonDecode(res.body);
         throw Exception(error['error'] ?? 'Registrasi gagal');
       }
@@ -173,11 +129,7 @@ class AuthApi {
   }
 
   // ─── VERIFY OTP ───────────────────────────────────────────────────
-<<<<<<< HEAD
-  Future<void> verifyOtp(String pendingId, String otp) async {
-=======
   Future<Map<String, dynamic>> verifyOtp(String pendingId, String otp) async {
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
     final url = Uri.parse('$baseUrl/verify/');
     print('📤 POST $url');
     print('📦 Body: pending_id=$pendingId, otp=$otp');
@@ -201,19 +153,14 @@ class AuthApi {
         final body = jsonDecode(res.body);
         throw Exception(body['error'] ?? 'Verifikasi gagal');
       }
-<<<<<<< HEAD
-=======
 
       return jsonDecode(res.body) as Map<String, dynamic>;
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
     } on SocketException catch (e) {
       print('❌ SocketException: $e');
       throw Exception('Tidak bisa konek ke server');
     }
   }
 
-<<<<<<< HEAD
-=======
   // ─── LOGIN ────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> login(String email, String password, String role) async {
     final url = Uri.parse('$baseUrl/login/');
@@ -393,7 +340,6 @@ class AuthApi {
     }
   }
 
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
   // ─── RESEND OTP ───────────────────────────────────────────────────
   Future<void> resendOtp(String email) async {
     final url = Uri.parse('$baseUrl/resend-otp/');
@@ -424,43 +370,6 @@ class AuthApi {
     }
   }
 
-<<<<<<< HEAD
-  // ─── LOGIN ────────────────────────────────────────────────────────
-  Future<LoginResult> login(String email, String password) async {
-    final url = Uri.parse('$baseUrl/login/');
-    print('📤 POST $url');
-    print('📦 Body: email=$email');
-
-    try {
-      final res = await http
-          .post(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': email, 'password': password}),
-          )
-          .timeout(
-            const Duration(seconds: 15),
-            onTimeout: () => throw Exception('Koneksi timeout, cek jaringan'),
-          );
-
-      print('📥 Status: ${res.statusCode}');
-      print('📥 Body: ${res.body}');
-
-      if (res.statusCode != 200) {
-        final body = jsonDecode(res.body);
-        throw Exception(body['error'] ?? 'Login gagal');
-      }
-
-      final json = jsonDecode(res.body);
-      return LoginResult(
-        accessToken: json['access'],
-        refreshToken: json['refresh'],
-        role: json['role'],
-        email: json['email'],
-      );
-    } on SocketException catch (e) {
-      print('❌ SocketException: $e');
-=======
   // ─── CHANGE PASSWORD ──────────────────────────────────────────────
   Future<void> changePassword(int userId, String currentPassword, String newPassword) async {
     final url = Uri.parse('$baseUrl/change-password/');
@@ -526,7 +435,6 @@ class AuthApi {
       if (res.statusCode != 200) throw Exception(body['error'] ?? 'Gagal mengubah email');
       return body['new_email'] as String;
     } on SocketException {
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
       throw Exception('Tidak bisa konek ke server');
     }
   }

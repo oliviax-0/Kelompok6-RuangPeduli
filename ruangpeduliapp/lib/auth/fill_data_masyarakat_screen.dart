@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/auth/verification_screen.dart';
-<<<<<<< HEAD
-=======
 import 'package:ruangpeduliapp/auth/success_screen.dart';
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 
 class FillDataMasyarakatScreen extends StatefulWidget {
   final String email;
@@ -453,3 +450,4 @@ class _MasyarakatWavePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

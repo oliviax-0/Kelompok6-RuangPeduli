@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
-<<<<<<< HEAD
-=======
 import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/auth/verification_screen.dart';
 import 'package:ruangpeduliapp/auth/success_screen.dart';
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 
 class FillDataPantiScreen extends StatefulWidget {
   final String email;
@@ -479,3 +476,4 @@ class _FillDataWavePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

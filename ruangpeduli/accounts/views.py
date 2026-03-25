@@ -444,7 +444,7 @@ class ResendOtpView(APIView):
             {'message': 'OTP baru telah dikirim ke email kamu'},
             status=status.HTTP_200_OK
         )
-<<<<<<< HEAD
+
     
 
 class LoginView(APIView):
@@ -466,7 +466,7 @@ class LoginView(APIView):
             'role': user.role,
             'email': user.email,
         })
-=======
+
 
 class ChangePasswordView(APIView):
     """
@@ -753,4 +753,4 @@ class GoogleRegisterView(APIView):
             return Response({'error': 'Username atau email sudah digunakan'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': f'Terjadi kesalahan: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
+

@@ -12,3 +12,7 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+echo "venv/" >> .gitignore
+echo "**/__pycache__/" >> .gitignore
+echo "*.pyc" >> .gitignore

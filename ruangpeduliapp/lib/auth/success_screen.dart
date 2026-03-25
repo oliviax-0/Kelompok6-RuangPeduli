@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
-<<<<<<< HEAD
-import 'package:ruangpeduliapp/panti/home_panti_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
-=======
 import 'package:ruangpeduliapp/panti/home_panti/home_panti.dart';
 import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 
 class SuccessScreen extends StatefulWidget {
   final String role;

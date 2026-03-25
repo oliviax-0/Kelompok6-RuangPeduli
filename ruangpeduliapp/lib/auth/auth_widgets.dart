@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-<<<<<<< HEAD
-=======
 // ── Custom overlay popup ──
 void showCustomPopup(
   BuildContext context,
@@ -159,7 +157,6 @@ class InlineMessage extends StatelessWidget {
   }
 }
 
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 // ── Shared gradient + wave background ──
 class AuthBackground extends StatelessWidget {
   final Widget child;
@@ -319,20 +316,13 @@ class AuthBackButton extends StatelessWidget {
 }
 
 // ── Shared underline text field ──
-<<<<<<< HEAD
-class UnderlineField extends StatelessWidget {
-=======
 class UnderlineField extends StatefulWidget {
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
   final String label;
   final String hint;
   final bool obscure;
   final TextEditingController? controller;
-<<<<<<< HEAD
-=======
   final String? errorText;
   final ValueChanged<String>? onChanged;
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 
   const UnderlineField({
     super.key,
@@ -340,16 +330,6 @@ class UnderlineField extends StatefulWidget {
     required this.hint,
     this.obscure = false,
     this.controller,
-<<<<<<< HEAD
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-=======
     this.errorText,
     this.onChanged,
   });
@@ -369,29 +349,12 @@ class _UnderlineFieldState extends State<UnderlineField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(widget.label,
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
             style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF1A1A1A))),
         const SizedBox(height: 10),
         TextField(
-<<<<<<< HEAD
-          controller: controller,
-          obscureText: obscure,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey.shade300)),
-            focusedBorder: const UnderlineInputBorder(
-                borderSide:
-                    BorderSide(color: Color(0xFFF43D5E), width: 1.5)),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 10),
-          ),
-        ),
-=======
           controller: widget.controller,
           obscureText: isObscured,
           onChanged: widget.onChanged,
@@ -436,7 +399,6 @@ class _UnderlineFieldState extends State<UnderlineField> {
             ],
           ),
         ],
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
       ],
     );
   }

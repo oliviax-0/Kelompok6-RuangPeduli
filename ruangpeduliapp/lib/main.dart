@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-<<<<<<< HEAD
-=======
 import 'package:flutter_dotenv/flutter_dotenv.dart';
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 import 'package:ruangpeduliapp/auth/splash_screen.dart';
 
 Future<void> main() async {

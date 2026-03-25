@@ -75,16 +75,6 @@ class _VerificationScreenState extends State<VerificationScreen>
     super.dispose();
   }
 
-<<<<<<< HEAD
-  void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red.shade400 : Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-=======
   String? _otpError;
   String? _otpSuccess;
 
@@ -93,7 +83,6 @@ class _VerificationScreenState extends State<VerificationScreen>
       if (isError) { _otpError = message; _otpSuccess = null; }
       else { _otpSuccess = message; _otpError = null; }
     });
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
   }
 
   // ─── VERIFY OTP ────────────────────────────────────────────────────
@@ -108,11 +97,7 @@ class _VerificationScreenState extends State<VerificationScreen>
     setState(() => _loading = true);
 
     try {
-<<<<<<< HEAD
-      await _authApi.verifyOtp(widget.pendingId, otp);
-=======
       final result = await _authApi.verifyOtp(widget.pendingId, otp);
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
       if (!mounted) return;
 
       // ✅ Berhasil → ke SuccessScreen
@@ -129,24 +114,11 @@ class _VerificationScreenState extends State<VerificationScreen>
     } catch (e) {
       if (!mounted) return;
       print('❌ Verify OTP error: $e');
-<<<<<<< HEAD
-
-      // ❌ Gagal → pending sudah dihapus di backend
-      // Tampilkan error lalu kembali ke halaman signup
-      _showSnackBar('$e', isError: true);
-
-      await Future.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-
-      // Balik ke halaman pertama (SignUpScreen)
-      Navigator.popUntil(context, (route) => route.isFirst);
-=======
       _showSnackBar('$e', isError: true);
 
       // Kosongkan kotak OTP agar user bisa coba lagi
       for (var c in _otpControllers) { c.clear(); }
       _focusNodes[0].requestFocus();
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -266,14 +238,10 @@ class _VerificationScreenState extends State<VerificationScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: List.generate(5, (i) => _buildOtpBox(i)),
                             ),
-<<<<<<< HEAD
-                            const SizedBox(height: 32),
-=======
                             const SizedBox(height: 8),
                             InlineMessage(message: _otpError),
                             InlineMessage(message: _otpSuccess, isError: false),
                             const SizedBox(height: 24),
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 
                             // Resend OTP
                             Center(

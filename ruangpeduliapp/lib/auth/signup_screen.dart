@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
-<<<<<<< HEAD
-import 'package:ruangpeduliapp/auth/verification_screen.dart';
-import 'package:ruangpeduliapp/auth/fill_data_masyarakat_screen.dart';
-=======
 import 'package:ruangpeduliapp/auth/fill_data_masyarakat_screen.dart';
 import 'package:ruangpeduliapp/auth/fill_data_panti_screen.dart';
 
 // ignore_for_file: use_build_context_synchronously
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 
 class SignUpScreen extends StatefulWidget {
   final String role;
@@ -27,10 +22,7 @@ class _SignUpScreenState extends State<SignUpScreen>
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-<<<<<<< HEAD
-=======
   final _confirmPasswordController = TextEditingController();
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
   final _usernameController = TextEditingController();
   final _namaPenggunaController = TextEditingController();
   final _alamatController = TextEditingController();
@@ -38,15 +30,12 @@ class _SignUpScreenState extends State<SignUpScreen>
   final _alamatPantiController = TextEditingController();
   final _nomorPantiController = TextEditingController();
 
-<<<<<<< HEAD
-=======
   String? _emailError;
   String? _passwordError;
   String? _confirmPasswordError;
   String? _googleError;
   bool _googleLoading = false;
 
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
   final api = AuthApi();
 
   @override
@@ -69,10 +58,7 @@ class _SignUpScreenState extends State<SignUpScreen>
     _controller.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-<<<<<<< HEAD
-=======
     _confirmPasswordController.dispose();
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
     _usernameController.dispose();
     _namaPenggunaController.dispose();
     _alamatController.dispose();
@@ -82,52 +68,6 @@ class _SignUpScreenState extends State<SignUpScreen>
     super.dispose();
   }
 
-<<<<<<< HEAD
-  Future<void> _handleSignUp() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email dan sandi wajib diisi')),
-      );
-      return;
-    }
-
-    // mapping ke role yang dipakai backend
-    final backendRole =
-        widget.role.toLowerCase().contains('panti') ? 'panti' : 'masyarakat';
-
-    final data = RegisterData(
-      username: _emailController.text, // sementara pakai email sebagai username
-      email: _emailController.text,
-      password: _passwordController.text,
-      role: backendRole,
-    );
-
-    try {
-      final pendingId = await api.startRegister(data);
-      if (!mounted) return;
-
-      // pindah ke layar verifikasi OTP
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VerificationScreen(
-            pendingId: pendingId,
-            email: data.email,
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal daftar: $e')),
-      );
-    }
-  }
-
-  void _onSignUp() {
-    if (widget.role == 'Panti Sosial') {
-      // ...existing code untuk panti...
-=======
   Future<void> _onGoogleSignUp() async {
     final backendRole = widget.role == 'Panti Sosial' ? 'panti' : 'masyarakat';
     setState(() { _googleLoading = true; _googleError = null; });
@@ -205,16 +145,11 @@ class _SignUpScreenState extends State<SignUpScreen>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 350),
       ));
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
     } else {
       Navigator.of(context).push(PageRouteBuilder(
         pageBuilder: (_, __, ___) => FillDataMasyarakatScreen(
           email: _emailController.text,
-<<<<<<< HEAD
-          password: _passwordController.text, // <-- kirim password
-=======
           password: _passwordController.text,
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
         ),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
@@ -264,20 +199,12 @@ class _SignUpScreenState extends State<SignUpScreen>
                             label: 'Email',
                             hint: 'Masukan Email',
                             controller: _emailController,
-<<<<<<< HEAD
-=======
                             errorText: _emailError,
                             onChanged: (_) => setState(() => _emailError = null),
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
                           ),
                           const SizedBox(height: 24),
                           UnderlineField(
                             label: 'Sandi',
-<<<<<<< HEAD
-                            hint: 'Masukan Sandi',
-                            obscure: true,
-                            controller: _passwordController,
-=======
                             hint: 'Min. 6 karakter, 1 kapital, 1 angka',
                             obscure: true,
                             controller: _passwordController,
@@ -292,7 +219,6 @@ class _SignUpScreenState extends State<SignUpScreen>
                             controller: _confirmPasswordController,
                             errorText: _confirmPasswordError,
                             onChanged: (_) => setState(() => _confirmPasswordError = null),
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
                           ),
                           const SizedBox(height: 40),
                           Center(
@@ -300,12 +226,6 @@ class _SignUpScreenState extends State<SignUpScreen>
                               width: size.width * 0.58,
                               child: DarkButton(
                                 label: 'Selanjutnya',
-<<<<<<< HEAD
-                                onTap: _onSignUp, // <-- panggil backend
-                              ),
-                            ),
-                          ),
-=======
                                 onTap: _googleLoading ? () {} : _onSignUp,
                               ),
                             ),
@@ -339,7 +259,6 @@ class _SignUpScreenState extends State<SignUpScreen>
                               ],
                             ),
                           ),
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
                           const SizedBox(height: 40),
                         ],
                       ),
@@ -354,3 +273,4 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 }
+
