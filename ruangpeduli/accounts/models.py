@@ -43,6 +43,7 @@ class PendingRegistration(models.Model):
     # Masyarakat
     nama_pengguna = models.CharField(max_length=255, null=True, blank=True)
     alamat = models.TextField(null=True, blank=True)
+    nomor_telepon = models.CharField(max_length=20, null=True, blank=True)
 
     # Panti
     nama_panti = models.CharField(max_length=255, null=True, blank=True)

@@ -30,6 +30,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
   final _namaPenggunaController = TextEditingController();
   final _alamatController = TextEditingController();
   final _usernameController = TextEditingController();
+  final _nomorTeleponController = TextEditingController();
   bool _agreeTnC = true;
   String? _namaPenggunaError;
   String? _alamatError;
@@ -61,6 +62,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
     _namaPenggunaController.dispose();
     _alamatController.dispose();
     _usernameController.dispose();
+    _nomorTeleponController.dispose();
     super.dispose();
   }
 
@@ -95,6 +97,9 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         username: username,
         namaPengguna: _namaPenggunaController.text.trim(),
         alamat: _alamatController.text.trim(),
+        nomorTelepon: _nomorTeleponController.text.trim().isNotEmpty
+            ? _nomorTeleponController.text.trim()
+            : null,
       ).then((_) {
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
@@ -116,6 +121,9 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         role: 'masyarakat',
         namaPengguna: _namaPenggunaController.text.trim(),
         alamat: _alamatController.text.trim(),
+        nomorTelepon: _nomorTeleponController.text.trim().isNotEmpty
+            ? _nomorTeleponController.text.trim()
+            : null,
       )).then((pendingId) {
         if (!mounted) return;
         Navigator.push(
@@ -230,6 +238,16 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                               errorText: _usernameError,
                               onChanged: (_) => setState(() => _usernameError = null),
                             ),
+                            const SizedBox(height: 20),
+
+                            // Nomor Telepon (opsional)
+                            _FieldLabel('Nomor Telepon (Opsional)'),
+                            const SizedBox(height: 8),
+                            _RoundedInput(
+                              controller: _nomorTeleponController,
+                              hint: 'Contoh: +62812-3456-7890',
+                              keyboardType: TextInputType.phone,
+                            ),
                             const SizedBox(height: 28),
 
                             // Syarat dan Ketentuan
@@ -330,12 +348,14 @@ class _RoundedInput extends StatelessWidget {
   final String hint;
   final String? errorText;
   final ValueChanged<String>? onChanged;
+  final TextInputType keyboardType;
 
   const _RoundedInput({
     required this.controller,
     required this.hint,
     this.errorText,
     this.onChanged,
+    this.keyboardType = TextInputType.text,
   });
 
   @override
@@ -347,6 +367,7 @@ class _RoundedInput extends StatelessWidget {
         TextField(
           controller: controller,
           onChanged: onChanged,
+          keyboardType: keyboardType,
           style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
           decoration: InputDecoration(
             hintText: hint,
@@ -396,7 +417,7 @@ class _MasyarakatWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paintBack = Paint()
-      ..color = Colors.white.withOpacity(0.40)
+      ..color = Colors.white.withValues(alpha: 0.40)
       ..style = PaintingStyle.fill;
 
     final pathBack = Path()

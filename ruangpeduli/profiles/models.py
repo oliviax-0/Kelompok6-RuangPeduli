@@ -11,6 +11,8 @@ class SocietyProfile(models.Model):
     )
     nama_pengguna = models.CharField(max_length=255)
     alamat = models.TextField()
+    nomor_telepon = models.CharField(max_length=20, blank=True)
+    jenis_kelamin = models.CharField(max_length=20, blank=True)
 
     def __str__(self):
         return f"{self.nama_pengguna} ({self.user.email})"

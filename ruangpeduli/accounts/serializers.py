@@ -14,6 +14,7 @@ class RegisterStartSerializer(serializers.ModelSerializer):
             'role',
             'nama_pengguna',
             'alamat',
+            'nomor_telepon',
             'nama_panti',
             'alamat_panti',
             'nomor_panti',

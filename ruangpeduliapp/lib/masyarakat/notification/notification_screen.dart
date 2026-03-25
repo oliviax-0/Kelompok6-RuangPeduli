@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
 
 class NotificationScreen extends StatelessWidget {
-  const NotificationScreen({super.key});
+  final int? userId;
+  const NotificationScreen({super.key, this.userId});
 
   final List<Map<String, String>> _notifList = const [
     {'pesan': 'Selamat bergabung! Terima kasih sudah peduli sesama 💛', 'waktu': '1 hari yang lalu'},
@@ -94,7 +95,7 @@ class NotificationScreen extends StatelessWidget {
                 selected: false,
                 onTap: () => Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(
-                      builder: (_) => const HomeMasyarakatScreen()),
+                      builder: (_) => HomeMasyarakatScreen(userId: userId)),
                   (route) => false,
                 ),
               ),
