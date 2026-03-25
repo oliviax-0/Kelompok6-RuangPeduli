@@ -109,7 +109,10 @@ class _StokOpsiDialog extends StatelessWidget {
               label: 'Lihat Laporan',
               onTap: () {
                 Navigator.pop(context);
-                // TODO: navigate to LaporanStokScreen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LaporanStokScreen()),
+                );
               },
             ),
           ],
@@ -171,6 +174,7 @@ class TambahProdukScreen extends StatefulWidget {
 
 class _TambahProdukScreenState extends State<TambahProdukScreen> {
   final _namaController = TextEditingController();
+  final _satuanController = TextEditingController();
   final _pemakaianController = TextEditingController();
   final _waktuTungguController = TextEditingController();
 
@@ -187,6 +191,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
   @override
   void dispose() {
     _namaController.dispose();
+    _satuanController.dispose();
     _pemakaianController.dispose();
     _waktuTungguController.dispose();
     super.dispose();
@@ -195,9 +200,9 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kPinkLight,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -220,6 +225,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Kategori Produk
             _buildLabel('Kategori Produk'),
             const SizedBox(height: 8),
             _buildDropdown(
@@ -228,13 +234,15 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
               items: _kategoriOptions,
               onChanged: (v) => setState(() => _selectedKategori = v),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
 
+            // Nama Produk
             _buildLabel('Nama Produk'),
             const SizedBox(height: 8),
             _buildTextField(controller: _namaController, hint: 'Ketik Nama Produk'),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
 
+            // Satuan
             _buildLabel('Satuan'),
             const SizedBox(height: 8),
             _buildDropdown(
@@ -243,22 +251,28 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
               items: _satuanOptions,
               onChanged: (v) => setState(() => _selectedSatuan = v),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
 
-            Row(children: [
-              _buildLabel('Pemakaian Harian Rata-Rata'),
-              const SizedBox(width: 6),
-              Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
-            ]),
+            // Pemakaian Harian Rata-Rata
+            Row(
+              children: [
+                _buildLabel('Pemakaian Harian Rata-Rata'),
+                const SizedBox(width: 6),
+                Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
+              ],
+            ),
             const SizedBox(height: 8),
             _buildAITextField(controller: _pemakaianController, hint: 'Ketik atau gunakan Rekomendasi AI'),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
 
-            Row(children: [
-              _buildLabel('Waktu Tunggu Produk'),
-              const SizedBox(width: 6),
-              Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
-            ]),
+            // Waktu Tunggu Produk
+            Row(
+              children: [
+                _buildLabel('Waktu Tunggu Produk'),
+                const SizedBox(width: 6),
+                Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
+              ],
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -319,7 +333,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
         filled: true,
-        fillColor: const Color(0xFFF2F2F2),
+        fillColor: Colors.white.withOpacity(0.7),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
@@ -338,7 +352,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
         filled: true,
-        fillColor: const Color(0xFFF2F2F2),
+        fillColor: Colors.white.withOpacity(0.7),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         suffixIcon: Padding(
           padding: const EdgeInsets.only(right: 8),
@@ -368,7 +382,10 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(30)),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(30),
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           isExpanded: true,
@@ -642,6 +659,157 @@ class _LaporanTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Call this from stock detail screens to show the FAB selection menu
+void showStokDetailFabMenu(BuildContext context) {
+  showDialog(
+    context: context,
+    barrierColor: Colors.black.withOpacity(0.35),
+    builder: (_) => const _StokDetailFabMenu(),
+  );
+}
+
+class _StokDetailFabMenu extends StatelessWidget {
+  const _StokDetailFabMenu();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+      backgroundColor: kPink,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 60),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Tambahkan Produk option
+            _FabMenuOption(
+              icon: Icons.inventory_2_outlined,
+              label: 'Tambahkan Produk',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TambahProdukScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            // Lihat Laporan option
+            _FabMenuOption(
+              icon: Icons.description_outlined,
+              label: 'Lihat Laporan',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LaporanStokScreen()),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FabMenuOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _FabMenuOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: kPink, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            Icon(Icons.arrow_forward_rounded, color: kPink, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// WRAPPER — Stock Detail Screen with FAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Wrap your stock detail screen content with this to add FAB functionality
+class StockDetailWithFab extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const StockDetailWithFab({
+    required this.title,
+    required this.children,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+        child: Column(children: children),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => showStokDetailFabMenu(context),
+        backgroundColor: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 4,
+        child: const Icon(Icons.add, color: kPink, size: 28),
       ),
     );
   }

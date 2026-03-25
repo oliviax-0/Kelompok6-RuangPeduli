@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/finance_api.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
+import 'keuangan_panti_baru.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -28,6 +29,14 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
   List<TransactionModel> _transactions = [];
   bool _loading = true;
   String? _error;
+
+  String _formatRp(double amount) {
+    final formatted = amount.toInt().toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]}.',
+        );
+    return 'Rp $formatted';
+  }
 
   @override
   void initState() {
@@ -69,92 +78,36 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
     }
   }
 
-  void _showTambahDialog() {
-    showModalBottomSheet(
-      context: context,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      body: Stack(
+        children: [
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Tambah Transaksi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              _buildHeader(),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ChoiceButton(
-                      icon: Icons.arrow_downward_rounded,
-                      label: 'Pemasukan',
-                      color: kGreen,
-                      onTap: () {
-                        Navigator.pop(context);
-                        showDialog(
-                          context: context,
-                          builder: (_) => _TambahPemasukanDialog(
-                            userId: widget.userId!,
-                            onSaved: _fetchData,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ChoiceButton(
-                      icon: Icons.arrow_upward_rounded,
-                      label: 'Pengeluaran',
-                      color: kRed,
-                      onTap: () {
-                        Navigator.pop(context);
-                        showDialog(
-                          context: context,
-                          builder: (_) => _TambahPengeluaranDialog(
-                            userId: widget.userId!,
-                            pantiId: widget.pantiId,
-                            onSaved: _fetchData,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildDashboardCard(),
               ),
             ],
           ),
-        ),
+          _buildTransactionSection(),
+        ],
       ),
-    );
-  }
-
-  String _formatRp(double amount) {
-    final formatted = amount.toInt().toString().replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (m) => '${m[1]}.',
-        );
-    return 'Rp $formatted';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildDashboardCard(),
-            ),
-          ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const KeuanganPantiBaru()),
         ),
-        _buildTransactionSection(),
-      ],
+        backgroundColor: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 4,
+        child: const Icon(Icons.add, color: kPink, size: 28),
+      ),
     );
   }
 
@@ -315,29 +268,16 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
                   ),
                 ),
               ),
-              // ── Header row ──────────────────────────────────────────────
+              // ── Header row (hanya text, tanpa icon) ──────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: const [
+                    Text(
                       'Riwayat Transaksi',
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
-                    if (widget.userId != null)
-                      GestureDetector(
-                        onTap: _showTambahDialog,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.25),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.add, color: Colors.white, size: 20),
-                        ),
-                      ),
                   ],
                 ),
               ),

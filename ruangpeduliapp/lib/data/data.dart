@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -77,6 +78,9 @@ class AppConfig {
   static const String devIp = '192.168.18.138';
 
   static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000/api'; // Web
+    }
     if (Platform.isAndroid) {
       return 'http://10.0.2.2:8000/api';
     }

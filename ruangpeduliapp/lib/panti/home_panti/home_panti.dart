@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:ruangpeduliapp/panti/keuangan_panti.dart';
+import 'package:ruangpeduliapp/panti/keuangan_panti/keuangan_panti.dart';
 import 'package:ruangpeduliapp/panti/inventory_panti/inventory_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/profile_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_berita_panti.dart';
