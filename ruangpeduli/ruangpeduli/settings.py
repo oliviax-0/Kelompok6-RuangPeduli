@@ -97,18 +97,17 @@ CORS_ALLOW_ALL_ORIGINS = True
 # ============================================================
 # GOOGLE OAUTH
 # ============================================================
-<<<<<<< HEAD
-RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
 
 # ============================================================
 # GMAIL SMTP — fallback jika Resend gagal
-=======
+
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')            # iOS (Oliv)
 
 # ============================================================
 # GMAIL SMTP 
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
+
 # ============================================================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'

@@ -1,13 +1,5 @@
 from django.urls import path
-<<<<<<< HEAD
-from .views import RegisterStartView, VerifyOtpView, ResendOtpView, LoginView
 
-urlpatterns = [
-    path('pending/',    RegisterStartView.as_view(), name='register-start'),
-    path('verify/',     VerifyOtpView.as_view(),     name='register-verify'),
-    path('resend-otp/', ResendOtpView.as_view(),     name='resend-otp'),
-    path('login/',      LoginView.as_view(),          name='login'),
-=======
 from .views import (
     RegisterStartView, VerifyOtpView, ResendOtpView, LoginView,
     ForgotPasswordRequestView, ForgotPasswordResetView,
@@ -29,5 +21,4 @@ urlpatterns = [
     path('request-email-change/',      RequestEmailChangeView.as_view(),     name='request-email-change'),
     path('request-new-email-verify/',  RequestNewEmailVerifyView.as_view(),  name='request-new-email-verify'),
     path('confirm-email-change/',      ConfirmEmailChangeView.as_view(),     name='confirm-email-change'),
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 ]

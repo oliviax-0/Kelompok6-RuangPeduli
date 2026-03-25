@@ -80,18 +80,7 @@ def _verify_google_token(token: str):
     raise ValueError(last_error)
 
 
-<<<<<<< HEAD
-def _send_via_resend(email: str, otp: str) -> bool:
-    resend.api_key = settings.RESEND_API_KEY
-    try:
-        resend.Emails.send({
-            "from": settings.DEFAULT_FROM_EMAIL,
-            "to": [email],
-            "subject": "Kode OTP RuangPeduli",
-            "html": OTP_HTML.format(otp=otp),
-        })
-        print(f"✅ Email terkirim via Resend ke {email}")
-=======
+
 def _send_otp_email(email: str, otp: str) -> bool:
     try:
         send_mail(
@@ -103,7 +92,7 @@ def _send_otp_email(email: str, otp: str) -> bool:
             html_message=OTP_HTML.format(otp=otp),
         )
         print(f"✅ Email terkirim via Gmail SMTP ke {email}")
->>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
+
         return True
     except Exception as e:
         print(f"⚠️ Gmail SMTP error: {e}")
@@ -126,16 +115,6 @@ def _send_via_gmail(email: str, otp: str) -> bool:
         print(f"⚠️ Gmail SMTP error: {e}")
         return False
 
-
-def _send_otp_email(email: str, otp: str) -> bool:
-    """
-    Coba Resend dulu, kalau gagal fallback ke Gmail SMTP.
-    Return True kalau salah satu berhasil.
-    """
-    if _send_via_resend(email, otp):
-        return True
-    print("⚠️ Resend gagal, mencoba Gmail SMTP sebagai fallback...")
-    return _send_via_gmail(email, otp)
 
 class RegisterStartView(generics.CreateAPIView):
     queryset = PendingRegistration.objects.all()
