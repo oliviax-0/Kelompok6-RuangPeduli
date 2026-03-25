@@ -8,11 +8,13 @@ import 'package:ruangpeduliapp/data/data.dart';
 class VerificationScreen extends StatefulWidget {
   final String pendingId;
   final String email;
+  final String role;
 
   const VerificationScreen({
     super.key,
     required this.pendingId,
     required this.email,
+    this.role = 'masyarakat',
   });
 
   @override
@@ -73,6 +75,7 @@ class _VerificationScreenState extends State<VerificationScreen>
     super.dispose();
   }
 
+<<<<<<< HEAD
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -81,6 +84,16 @@ class _VerificationScreenState extends State<VerificationScreen>
         behavior: SnackBarBehavior.floating,
       ),
     );
+=======
+  String? _otpError;
+  String? _otpSuccess;
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    setState(() {
+      if (isError) { _otpError = message; _otpSuccess = null; }
+      else { _otpSuccess = message; _otpError = null; }
+    });
+>>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
   }
 
   // ─── VERIFY OTP ────────────────────────────────────────────────────
@@ -95,17 +108,28 @@ class _VerificationScreenState extends State<VerificationScreen>
     setState(() => _loading = true);
 
     try {
+<<<<<<< HEAD
       await _authApi.verifyOtp(widget.pendingId, otp);
+=======
+      final result = await _authApi.verifyOtp(widget.pendingId, otp);
+>>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
       if (!mounted) return;
 
       // ✅ Berhasil → ke SuccessScreen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const SuccessScreen(role: 'user')),
+        MaterialPageRoute(
+          builder: (_) => SuccessScreen(
+            role: widget.role,
+            userId: result['user_id'] as int?,
+            pantiId: result['panti_id'] as int?,
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       print('❌ Verify OTP error: $e');
+<<<<<<< HEAD
 
       // ❌ Gagal → pending sudah dihapus di backend
       // Tampilkan error lalu kembali ke halaman signup
@@ -116,6 +140,13 @@ class _VerificationScreenState extends State<VerificationScreen>
 
       // Balik ke halaman pertama (SignUpScreen)
       Navigator.popUntil(context, (route) => route.isFirst);
+=======
+      _showSnackBar('$e', isError: true);
+
+      // Kosongkan kotak OTP agar user bisa coba lagi
+      for (var c in _otpControllers) { c.clear(); }
+      _focusNodes[0].requestFocus();
+>>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -235,7 +266,14 @@ class _VerificationScreenState extends State<VerificationScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: List.generate(5, (i) => _buildOtpBox(i)),
                             ),
+<<<<<<< HEAD
                             const SizedBox(height: 32),
+=======
+                            const SizedBox(height: 8),
+                            InlineMessage(message: _otpError),
+                            InlineMessage(message: _otpSuccess, isError: false),
+                            const SizedBox(height: 24),
+>>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 
                             // Resend OTP
                             Center(

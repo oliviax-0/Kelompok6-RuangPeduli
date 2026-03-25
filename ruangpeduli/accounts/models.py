@@ -43,6 +43,7 @@ class PendingRegistration(models.Model):
     # Masyarakat
     nama_pengguna = models.CharField(max_length=255, null=True, blank=True)
     alamat = models.TextField(null=True, blank=True)
+    nomor_telepon = models.CharField(max_length=20, null=True, blank=True)
 
     # Panti
     nama_panti = models.CharField(max_length=255, null=True, blank=True)
@@ -56,3 +57,14 @@ class PendingRegistration(models.Model):
 
     def __str__(self):
         return f"{self.email} - {self.role} (pending)"
+
+
+class PasswordResetPending(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField()
+    otp_code = models.CharField(max_length=5)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.email} (reset pending)"

@@ -2,15 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/auth/verification_screen.dart';
+<<<<<<< HEAD
+=======
+import 'package:ruangpeduliapp/auth/success_screen.dart';
+>>>>>>> 1fafb9b0f0707a41060aad0efc7f798faaee26f8
 
 class FillDataMasyarakatScreen extends StatefulWidget {
   final String email;
-  final String password; // <-- tambah
+  final String password;
+  final String? googleIdToken; // non-null → Google mode (skip OTP)
 
   const FillDataMasyarakatScreen({
     super.key,
     required this.email,
-    required this.password, // <-- tambah
+    required this.password,
+    this.googleIdToken,
   });
 
   @override
@@ -27,10 +33,16 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
   final _namaPenggunaController = TextEditingController();
   final _alamatController = TextEditingController();
   final _usernameController = TextEditingController();
+  final _nomorTeleponController = TextEditingController();
   bool _agreeTnC = true;
+  String? _namaPenggunaError;
+  String? _alamatError;
+  String? _usernameError;
+  String? _tncError;
+  String? _generalError;
 
-  final _api = AuthApi(); // <-- tambah
-  bool _loading = false; // <-- tambah
+  final _api = AuthApi();
+  bool _loading = false;
 
   @override
   void initState() {
@@ -53,78 +65,86 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
     _namaPenggunaController.dispose();
     _alamatController.dispose();
     _usernameController.dispose();
+    _nomorTeleponController.dispose();
     super.dispose();
   }
 
   void _onSelanjutnya() {
-    print("=== TOMBOL DITEKAN ==="); // Debug 1
+    final namaErr = _namaPenggunaController.text.isEmpty ? 'Wajib diisi' : null;
+    final alamatErr = _alamatController.text.isEmpty ? 'Wajib diisi' : null;
+    final username = _usernameController.text.trim();
+    final usernameErr = username.isEmpty
+        ? 'Wajib diisi'
+        : (!RegExp(r'[a-zA-Z]').hasMatch(username) || !RegExp(r'\d').hasMatch(username))
+            ? 'Username harus mengandung huruf dan angka'
+            : null;
+    final tncErr = !_agreeTnC ? 'Anda harus menyetujui S&K terlebih dahulu' : null;
 
-    if (!_agreeTnC) {
-      print("❌ S&K belum dicentang");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Anda harus menyetujui S&K terlebih dahulu')),
-      );
-      return;
-    }
-    print("✓ S&K sudah dicentang");
+    setState(() {
+      _namaPenggunaError = namaErr;
+      _alamatError = alamatErr;
+      _usernameError = usernameErr;
+      _tncError = tncErr;
+      _generalError = null;
+    });
 
-    if (_namaPenggunaController.text.isEmpty ||
-        _alamatController.text.isEmpty ||
-        _usernameController.text.isEmpty) {
-      print("❌ Ada field kosong:");
-      print("  - Nama: ${_namaPenggunaController.text}");
-      print("  - Alamat: ${_alamatController.text}");
-      print("  - Username: ${_usernameController.text}");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Semua field wajib diisi')),
-      );
-      return;
-    }
-    print("✓ Semua field terisi");
-
-    final data = RegisterData(
-      username: _usernameController.text.trim(),
-      email: widget.email,
-      password: widget.password,
-      role: 'masyarakat',
-      namaPengguna: _namaPenggunaController.text.trim(),
-      alamat: _alamatController.text.trim(),
-    );
-
-    print("=== MULAI REGISTER ==="); // Debug 2
-    print("Email: ${data.email}");
-    print("Username: ${data.username}");
+    if (namaErr != null || alamatErr != null || usernameErr != null || tncErr != null) return;
 
     setState(() => _loading = true);
 
-    _api.startRegister(data).then((pendingId) {
-      print("✓ REGISTER BERHASIL, pendingId: $pendingId"); // Debug 3
-      if (!mounted) {
-        print("❌ Widget tidak mounted, tidak bisa navigate");
-        return;
-      }
-      print("✓ Widget mounted, navigasi ke VerificationScreen");
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VerificationScreen(
-            pendingId: pendingId,
-            email: widget.email,
+    if (widget.googleIdToken != null) {
+      // Google mode — register directly, no OTP
+      _api.googleRegister(
+        idToken: widget.googleIdToken!,
+        role: 'masyarakat',
+        username: username,
+        namaPengguna: _namaPenggunaController.text.trim(),
+        alamat: _alamatController.text.trim(),
+        nomorTelepon: _nomorTeleponController.text.trim().isNotEmpty
+            ? _nomorTeleponController.text.trim()
+            : null,
+      ).then((_) {
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const SuccessScreen(role: 'masyarakat')),
+          (route) => false,
+        );
+      }).catchError((e) {
+        if (!mounted) return;
+        setState(() => _generalError = '$e');
+      }).whenComplete(() {
+        if (mounted) setState(() => _loading = false);
+      });
+    } else {
+      _api.startRegister(RegisterData(
+        username: username,
+        email: widget.email,
+        password: widget.password,
+        role: 'masyarakat',
+        namaPengguna: _namaPenggunaController.text.trim(),
+        alamat: _alamatController.text.trim(),
+        nomorTelepon: _nomorTeleponController.text.trim().isNotEmpty
+            ? _nomorTeleponController.text.trim()
+            : null,
+      )).then((pendingId) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerificationScreen(
+              pendingId: pendingId,
+              email: widget.email,
+            ),
           ),
-        ),
-      );
-    }).catchError((e) {
-      print("❌ REGISTER GAGAL: $e"); // Debug 4
-      print("Error type: ${e.runtimeType}");
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mendaftar: $e')),
-      );
-    }).whenComplete(() {
-      print("=== REGISTER SELESAI ===");
-      if (mounted) setState(() => _loading = false);
-    });
+        );
+      }).catchError((e) {
+        if (!mounted) return;
+        setState(() => _generalError = '$e');
+      }).whenComplete(() {
+        if (mounted) setState(() => _loading = false);
+      });
+    }
   }
 
   @override
@@ -196,6 +216,8 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                             _RoundedInput(
                               controller: _namaPenggunaController,
                               hint: 'Contoh: Sienna Malik',
+                              errorText: _namaPenggunaError,
+                              onChanged: (_) => setState(() => _namaPenggunaError = null),
                             ),
                             const SizedBox(height: 20),
 
@@ -205,6 +227,8 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                             _RoundedInput(
                               controller: _alamatController,
                               hint: 'Contoh: Jalan Sudirman 123',
+                              errorText: _alamatError,
+                              onChanged: (_) => setState(() => _alamatError = null),
                             ),
                             const SizedBox(height: 20),
 
@@ -214,6 +238,18 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                             _RoundedInput(
                               controller: _usernameController,
                               hint: 'Contoh: sunshinebecomesyou14',
+                              errorText: _usernameError,
+                              onChanged: (_) => setState(() => _usernameError = null),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Nomor Telepon (opsional)
+                            _FieldLabel('Nomor Telepon (Opsional)'),
+                            const SizedBox(height: 8),
+                            _RoundedInput(
+                              controller: _nomorTeleponController,
+                              hint: 'Contoh: +62812-3456-7890',
+                              keyboardType: TextInputType.phone,
                             ),
                             const SizedBox(height: 28),
 
@@ -264,7 +300,12 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 40),
+                            if (_tncError != null)
+                              InlineMessage(message: _tncError),
+                            const SizedBox(height: 24),
+
+                            InlineMessage(message: _generalError),
+                            if (_generalError != null) const SizedBox(height: 8),
 
                             Center(
                               child: SizedBox(
@@ -308,30 +349,69 @@ class _FieldLabel extends StatelessWidget {
 class _RoundedInput extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
+  final TextInputType keyboardType;
 
-  const _RoundedInput({required this.controller, required this.hint});
+  const _RoundedInput({
+    required this.controller,
+    required this.hint,
+    this.errorText,
+    this.onChanged,
+    this.keyboardType = TextInputType.text,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-        filled: true,
-        fillColor: const Color(0xFFF0E8EA),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+    final hasError = errorText != null && errorText!.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          onChanged: onChanged,
+          keyboardType: keyboardType,
+          style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            filled: true,
+            fillColor: const Color(0xFFF0E8EA),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: hasError ? const Color(0xFFF43D5E) : const Color(0xFFF43D5E),
+                width: 1.5,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: hasError
+                  ? const BorderSide(color: Color(0xFFF43D5E), width: 1.5)
+                  : BorderSide.none,
+            ),
+          ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
-        ),
-      ),
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFFF43D5E)),
+              const SizedBox(width: 4),
+              Text(
+                errorText!,
+                style: const TextStyle(fontSize: 12, color: Color(0xFFF43D5E)),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -340,7 +420,7 @@ class _MasyarakatWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paintBack = Paint()
-      ..color = Colors.white.withOpacity(0.40)
+      ..color = Colors.white.withValues(alpha: 0.40)
       ..style = PaintingStyle.fill;
 
     final pathBack = Path()
