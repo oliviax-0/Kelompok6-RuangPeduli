@@ -4,7 +4,8 @@ import 'package:ruangpeduliapp/masyarakat/transaksi/lokasi_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final int? userId;
+  const SearchScreen({super.key, this.userId});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -51,7 +52,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (index == _selectedIndex) return;
     if (index == 0) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeMasyarakatScreen()),
+        MaterialPageRoute(builder: (_) => HomeMasyarakatScreen(userId: widget.userId)),
       );
     }
     setState(() => _selectedIndex = index);
@@ -108,7 +109,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const NotificationScreen()),
+                          builder: (_) => NotificationScreen(userId: widget.userId)),
                     ),
                     child: Image.asset(
                       'assets/images/bell_notification.png',

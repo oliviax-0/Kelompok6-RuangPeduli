@@ -43,8 +43,6 @@ def _verify_google_token(token: str):
     """Try verifying against all registered client IDs."""
     client_ids = [c for c in [
         settings.GOOGLE_CLIENT_ID,
-        settings.GOOGLE_CLIENT_ID_ANDROID,
-        settings.GOOGLE_CLIENT_ID_ANDROID_2,
     ] if c]
     last_error = None
     for client_id in client_ids:
@@ -176,6 +174,7 @@ class VerifyOtpView(APIView):
                         user=user,
                         nama_pengguna=pending.nama_pengguna,
                         alamat=pending.alamat,
+                        nomor_telepon=pending.nomor_telepon or '',
                     )
                 elif pending.role == 'panti':
                     from profiles.models import OrphanageProfile
@@ -659,6 +658,7 @@ class GoogleRegisterView(APIView):
                         user=user,
                         nama_pengguna=request.data.get('nama_pengguna', ''),
                         alamat=request.data.get('alamat', ''),
+                        nomor_telepon=request.data.get('nomor_telepon', ''),
                     )
                 elif role == 'panti':
                     from profiles.models import OrphanageProfile

@@ -8,8 +8,15 @@ from .serializers import SocietyProfileSerializer, OrphanageProfileSerializer, P
 
 
 class SocietyProfileViewSet(viewsets.ModelViewSet):
-    queryset = SocietyProfile.objects.all()
     serializer_class = SocietyProfileSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        queryset = SocietyProfile.objects.all()
+        user_id = self.request.query_params.get('user_id')
+        if user_id is not None:
+            queryset = queryset.filter(user_id=user_id)
+        return queryset
 
 
 class OrphanageProfileViewSet(viewsets.ModelViewSet):

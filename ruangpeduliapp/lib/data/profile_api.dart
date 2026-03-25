@@ -5,6 +5,38 @@ import 'package:ruangpeduliapp/data/data.dart';
 
 // ─── MODELS ──────────────────────────────────────────────────────────────────
 
+class SocietyProfileModel {
+  final int id;
+  final String username;
+  final String email;
+  final String namaPengguna;
+  final String alamat;
+  final String nomorTelepon;
+  final String jenisKelamin;
+
+  SocietyProfileModel({
+    required this.id,
+    required this.username,
+    required this.email,
+    required this.namaPengguna,
+    required this.alamat,
+    this.nomorTelepon = '',
+    this.jenisKelamin = '',
+  });
+
+  factory SocietyProfileModel.fromJson(Map<String, dynamic> json) {
+    return SocietyProfileModel(
+      id: json['id'],
+      username: json['username'] ?? '',
+      email: json['email'] ?? '',
+      namaPengguna: json['nama_pengguna'] ?? '',
+      alamat: json['alamat'] ?? '',
+      nomorTelepon: json['nomor_telepon'] ?? '',
+      jenisKelamin: json['jenis_kelamin'] ?? '',
+    );
+  }
+}
+
 class PantiProfileModel {
   final int id;
   final String username;
@@ -14,6 +46,7 @@ class PantiProfileModel {
   final String nomorPanti;
   final String? profilePicture;
   final String description;
+  final int totalTerkumpul;
 
   PantiProfileModel({
     required this.id,
@@ -24,6 +57,7 @@ class PantiProfileModel {
     required this.nomorPanti,
     this.profilePicture,
     required this.description,
+    this.totalTerkumpul = 0,
   });
 
   factory PantiProfileModel.fromJson(Map<String, dynamic> json) {
@@ -36,7 +70,19 @@ class PantiProfileModel {
       nomorPanti: json['nomor_panti'] ?? '',
       profilePicture: json['profile_picture'],
       description: json['description'] ?? '',
+      totalTerkumpul: json['total_terkumpul'] ?? 0,
     );
+  }
+
+  String get formattedTotalTerkumpul {
+    if (totalTerkumpul == 0) return 'Belum ada donasi';
+    final s = totalTerkumpul.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(s[i]);
+    }
+    return 'Rp${buffer.toString()} Terkumpul';
   }
 
   PantiProfileModel copyWith({
@@ -48,6 +94,7 @@ class PantiProfileModel {
     String? profilePicture,
     bool clearProfilePicture = false,
     String? description,
+    int? totalTerkumpul,
   }) {
     return PantiProfileModel(
       id: id,
@@ -58,6 +105,7 @@ class PantiProfileModel {
       nomorPanti: nomorPanti ?? this.nomorPanti,
       profilePicture: clearProfilePicture ? null : (profilePicture ?? this.profilePicture),
       description: description ?? this.description,
+      totalTerkumpul: totalTerkumpul ?? this.totalTerkumpul,
     );
   }
 }
@@ -94,6 +142,72 @@ class PantiMediaModel {
 
 class ProfileApi {
   String get _base => AppConfig.baseUrl;
+
+  Future<SocietyProfileModel?> fetchMasyarakatProfile(int userId) async {
+    final uri = Uri.parse('$_base/profiles/masyarakat/?user_id=$userId');
+    try {
+      final res = await http.get(uri).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Koneksi timeout'),
+      );
+      if (res.statusCode != 200) return null;
+      final List data = jsonDecode(res.body);
+      if (data.isEmpty) return null;
+      return SocietyProfileModel.fromJson(data[0] as Map<String, dynamic>);
+    } on SocketException {
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<SocietyProfileModel> updateMasyarakatProfile(
+    int profileId, {
+    String? namaPengguna,
+    String? alamat,
+    String? username,
+    String? email,
+    String? nomorTelepon,
+    String? jenisKelamin,
+  }) async {
+    final uri = Uri.parse('$_base/profiles/masyarakat/$profileId/');
+    try {
+      final body = <String, String>{};
+      if (namaPengguna != null) body['nama_pengguna'] = namaPengguna;
+      if (alamat != null) body['alamat'] = alamat;
+      if (username != null) body['username'] = username;
+      if (email != null) body['email'] = email;
+      if (nomorTelepon != null) body['nomor_telepon'] = nomorTelepon;
+      if (jenisKelamin != null) body['jenis_kelamin'] = jenisKelamin;
+      final res = await http.patch(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) throw Exception('Gagal memperbarui profil');
+      return SocietyProfileModel.fromJson(
+          jsonDecode(res.body) as Map<String, dynamic>);
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  Future<List<PantiProfileModel>> fetchAllPanti() async {
+    final uri = Uri.parse('$_base/profiles/panti/');
+    try {
+      final res = await http.get(uri).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Koneksi timeout'),
+      );
+      if (res.statusCode != 200) throw Exception('Gagal memuat daftar panti');
+      final List data = jsonDecode(res.body);
+      return data
+          .map((e) => PantiProfileModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
 
   Future<PantiProfileModel> fetchPantiProfile(int pantiId) async {
     final uri = Uri.parse('$_base/profiles/panti/$pantiId/');

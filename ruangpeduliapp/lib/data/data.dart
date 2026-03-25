@@ -37,6 +37,7 @@ class RegisterData {
   final String role;
   final String? namaPengguna;
   final String? alamat;
+  final String? nomorTelepon;
   final String? namaPanti;
   final String? alamatPanti;
   final String? nomorPanti;
@@ -48,6 +49,7 @@ class RegisterData {
     required this.role,
     this.namaPengguna,
     this.alamat,
+    this.nomorTelepon,
     this.namaPanti,
     this.alamatPanti,
     this.nomorPanti,
@@ -61,6 +63,7 @@ class RegisterData {
       'role': role,
       'nama_pengguna': namaPengguna,
       'alamat': alamat,
+      'nomor_telepon': nomorTelepon,
       'nama_panti': namaPanti,
       'alamat_panti': alamatPanti,
       'nomor_panti': nomorPanti,
@@ -292,6 +295,7 @@ class AuthApi {
     required String username,
     String? namaPengguna,
     String? alamat,
+    String? nomorTelepon,
     String? namaPanti,
     String? alamatPanti,
     String? nomorPanti,
@@ -305,6 +309,7 @@ class AuthApi {
       'username': username,
       if (namaPengguna != null) 'nama_pengguna': namaPengguna,
       if (alamat != null) 'alamat': alamat,
+      if (nomorTelepon != null) 'nomor_telepon': nomorTelepon,
       if (namaPanti != null) 'nama_panti': namaPanti,
       if (alamatPanti != null) 'alamat_panti': alamatPanti,
       if (nomorPanti != null) 'nomor_panti': nomorPanti,

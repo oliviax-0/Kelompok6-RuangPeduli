@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
 class TransaksiSuksesScreen extends StatefulWidget {
   final String namaPanti;
@@ -56,10 +55,8 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
   }
 
   void _onSelesai() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-      (route) => false,
-    );
+    // Pop back through KonfirmasiMetode + KonfirmasiPembayaran to ProfileScreen
+    Navigator.of(context).popUntil((route) => route.isFirst || route.settings.name != null);
   }
 
   @override

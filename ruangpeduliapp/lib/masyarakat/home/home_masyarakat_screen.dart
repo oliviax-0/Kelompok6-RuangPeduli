@@ -10,7 +10,8 @@ import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 //  HOME MASYARAKAT SCREEN
 // ─────────────────────────────────────────────
 class HomeMasyarakatScreen extends StatefulWidget {
-  const HomeMasyarakatScreen({super.key});
+  final int? userId;
+  const HomeMasyarakatScreen({super.key, this.userId});
 
   @override
   State<HomeMasyarakatScreen> createState() => _HomeMasyarakatScreenState();
@@ -49,11 +50,11 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
     setState(() => _selectedIndex = index);
     if (index == 0) return;
     if (index == 1) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen()));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)));
       return;
     }
     if (index == 3) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)));
       return;
     }
     Navigator.push(
@@ -136,7 +137,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
           GestureDetector(
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)),
             ),
             child: Container(
               width: 46,
@@ -156,7 +157,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
             child: GestureDetector(
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SearchScreen()),
+                MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)),
               ),
               child: Container(
                 height: 42,
