@@ -4,7 +4,7 @@ import certifi
 from dotenv import load_dotenv
 
 # Load .env file
-load_dotenv(dotenv_path=Path(__file__).resolve().parent / '.env')
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -21,10 +21,6 @@ AUTH_USER_MODEL = 'accounts.User'
 INSTALLED_APPS = [
     'accounts',
     'profiles',
-    'content',
-    'inventory',
-    'residents',
-    'finance',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -86,21 +82,19 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
 # ============================================================
 # CORS
 # ============================================================
 CORS_ALLOW_ALL_ORIGINS = True
 
 # ============================================================
-# GOOGLE OAUTH
+# RESEND — loaded from .env
 # ============================================================
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')            # iOS (Oliv)
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
 
 # ============================================================
-# GMAIL SMTP 
+# GMAIL SMTP — fallback jika Resend gagal
 # ============================================================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
