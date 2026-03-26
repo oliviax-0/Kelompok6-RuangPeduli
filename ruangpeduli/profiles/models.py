@@ -30,6 +30,13 @@ class OrphanageProfile(models.Model):
     nomor_panti = models.CharField(max_length=20)
     profile_picture = models.ImageField(upload_to='panti/profile/', blank=True, null=True)
     description = models.TextField(blank=True)
+    provinsi = models.CharField(max_length=100, blank=True)
+    kabupaten_kota = models.CharField(max_length=100, blank=True)
+    kecamatan = models.CharField(max_length=100, blank=True)
+    kelurahan = models.CharField(max_length=100, blank=True)
+    kode_pos = models.CharField(max_length=10, blank=True)
+    lat = models.FloatField(null=True, blank=True)
+    lng = models.FloatField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.nama_panti} ({self.user.email})"

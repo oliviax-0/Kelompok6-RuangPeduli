@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'inventory',
     'residents',
     'finance',
+    'donations',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

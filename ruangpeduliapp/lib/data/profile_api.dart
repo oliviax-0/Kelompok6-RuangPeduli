@@ -47,6 +47,13 @@ class PantiProfileModel {
   final String? profilePicture;
   final String description;
   final int totalTerkumpul;
+  final String provinsi;
+  final String kabupatenKota;
+  final String kecamatan;
+  final String kelurahan;
+  final String kodePos;
+  final double? lat;
+  final double? lng;
 
   PantiProfileModel({
     required this.id,
@@ -58,7 +65,27 @@ class PantiProfileModel {
     this.profilePicture,
     required this.description,
     this.totalTerkumpul = 0,
+    this.provinsi = '',
+    this.kabupatenKota = '',
+    this.kecamatan = '',
+    this.kelurahan = '',
+    this.kodePos = '',
+    this.lat,
+    this.lng,
   });
+
+  /// Full address composed from all address parts
+  String get fullAddress {
+    final parts = [
+      alamatPanti,
+      if (kelurahan.isNotEmpty) 'Kel. $kelurahan',
+      if (kecamatan.isNotEmpty) 'Kec. $kecamatan',
+      if (kabupatenKota.isNotEmpty) kabupatenKota,
+      if (provinsi.isNotEmpty) provinsi,
+      if (kodePos.isNotEmpty) kodePos,
+    ].where((s) => s.isNotEmpty).toList();
+    return parts.join(', ');
+  }
 
   factory PantiProfileModel.fromJson(Map<String, dynamic> json) {
     return PantiProfileModel(
@@ -71,6 +98,13 @@ class PantiProfileModel {
       profilePicture: json['profile_picture'],
       description: json['description'] ?? '',
       totalTerkumpul: json['total_terkumpul'] ?? 0,
+      provinsi: json['provinsi'] ?? '',
+      kabupatenKota: json['kabupaten_kota'] ?? '',
+      kecamatan: json['kecamatan'] ?? '',
+      kelurahan: json['kelurahan'] ?? '',
+      kodePos: json['kode_pos'] ?? '',
+      lat: (json['lat'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble(),
     );
   }
 

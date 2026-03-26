@@ -6,12 +6,16 @@ class KonfirmasiPembayaranScreen extends StatefulWidget {
   final String namaPanti;
   final String terkumpul;
   final String imagePath;
+  final int? pantiId;
+  final int? userId;
 
   const KonfirmasiPembayaranScreen({
     super.key,
     required this.namaPanti,
     required this.terkumpul,
     required this.imagePath,
+    this.pantiId,
+    this.userId,
   });
 
   @override
@@ -52,6 +56,8 @@ class _KonfirmasiPembayaranScreenState
           terkumpul: widget.terkumpul,
           imagePath: widget.imagePath,
           nominal: _nominalCtrl.text,
+          pantiId: widget.pantiId,
+          userId: widget.userId,
         ),
       ),
     );

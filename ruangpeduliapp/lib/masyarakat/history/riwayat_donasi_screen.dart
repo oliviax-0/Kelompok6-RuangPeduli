@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/home_masyarakat_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/search_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/profile_screen.dart';
+import 'package:ruangpeduliapp/data/donation_api.dart';
+import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
 // ─────────────────────────────────────────────────────────────
 //  RIWAYAT DONASI SCREEN
 // ─────────────────────────────────────────────────────────────
 class RiwayatDonasiScreen extends StatefulWidget {
-  const RiwayatDonasiScreen({super.key});
+  final int? userId;
+  const RiwayatDonasiScreen({super.key, this.userId});
 
   @override
   State<RiwayatDonasiScreen> createState() => _RiwayatDonasiScreenState();
@@ -16,86 +18,41 @@ class RiwayatDonasiScreen extends StatefulWidget {
 class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
   // ── Color palette dari Figma ──
   static const Color bgPink = Color(0xFFF1BFB4);
-  static const Color cardPink = Color(0xFFF1BFB4);
   static const Color primaryPink = Color(0xFFF28695);
   static const Color navPink = Color(0xFFF47B8C);
   static const Color darkText = Color(0xFF1A1A1A);
 
   // ── Filter state ──
-  DateTime? _filterDate; // null = tampil semua
+  DateTime? _filterDate;
 
-  // ── 8 riwayat donasi dummy ──
-  final List<Map<String, dynamic>> _allRiwayat = [
-    {
-      'nama': 'Griya Yatim Dhuafa',
-      'tanggal': DateTime(2026, 12, 14),
-      'tanggalLabel': '14 Desember 2026',
-      'jenis': 'Sedekah',
-      'nominal': 'Rp1.000.000',
-      'image': 'assets/images/panti2.png',
-    },
-    {
-      'nama': 'Yayasan Sayap Ibu',
-      'tanggal': DateTime(2026, 11, 28),
-      'tanggalLabel': '28 November 2026',
-      'jenis': 'Sedekah',
-      'nominal': 'Rp2.000.000',
-      'image': 'assets/images/panti1.png',
-    },
-    {
-      'nama': 'Panti Asuhan Kasih Sesama Umat',
-      'tanggal': DateTime(2026, 10, 13),
-      'tanggalLabel': '13 Oktober 2026',
-      'jenis': 'Sedekah',
-      'nominal': 'Rp740.000',
-      'image': 'assets/images/panti4.png',
-    },
-    {
-      'nama': 'Rumah Yatim Indonesia',
-      'tanggal': DateTime(2026, 9, 5),
-      'tanggalLabel': '5 September 2026',
-      'jenis': 'Sedekah',
-      'nominal': 'Rp500.000',
-      'image': 'assets/images/panti5.png',
-    },
-    {
-      'nama': 'Panti Asuhan Mekar Lestari',
-      'tanggal': DateTime(2026, 8, 20),
-      'tanggalLabel': '20 Agustus 2026',
-      'jenis': 'Sedekah',
-      'nominal': 'Rp1.500.000',
-      'image': 'assets/images/panti3.png',
-    },
-    {
-      'nama': 'Panti Asuhan Al-Ikhlas',
-      'tanggal': DateTime(2026, 7, 3),
-      'tanggalLabel': '3 Juli 2026',
-      'jenis': 'Sedekah',
-      'nominal': 'Rp300.000',
-      'image': 'assets/images/panti6.png',
-    },
-    {
-      'nama': 'Yayasan Peduli Anak',
-      'tanggal': DateTime(2026, 5, 17),
-      'tanggalLabel': '17 Mei 2026',
-      'jenis': 'Sedekah',
-      'nominal': 'Rp850.000',
-      'image': 'assets/images/panti7.png',
-    },
-    {
-      'nama': 'Panti Asuhan Bina Insani',
-      'tanggal': DateTime(2026, 3, 9),
-      'tanggalLabel': '9 Maret 2026',
-      'jenis': 'Sedekah',
-      'nominal': 'Rp450.000',
-      'image': 'assets/images/panti8.png',
-    },
-  ];
+  // ── Data state ──
+  List<DonasiModel> _allRiwayat = [];
+  bool _isLoading = true;
+  String? _error;
 
-  List<Map<String, dynamic>> get _filtered {
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    if (widget.userId == null) {
+      setState(() { _isLoading = false; });
+      return;
+    }
+    try {
+      final data = await DonationApi().fetchDonations(widget.userId!);
+      if (mounted) setState(() { _allRiwayat = data; _isLoading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = '$e'; _isLoading = false; });
+    }
+  }
+
+  List<DonasiModel> get _filtered {
     if (_filterDate == null) return _allRiwayat;
     return _allRiwayat.where((r) {
-      final d = r['tanggal'] as DateTime;
+      final d = r.tanggalDateTime;
       return d.year == _filterDate!.year && d.month == _filterDate!.month;
     }).toList();
   }
@@ -132,15 +89,15 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
     if (index == 2) return; // already here
     if (index == 0) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeMasyarakatScreen()),
+        MaterialPageRoute(builder: (_) => HomeMasyarakatScreen(userId: widget.userId)),
       );
     } else if (index == 1) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SearchScreen()),
+        MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)),
       );
     } else if (index == 3) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+        MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)),
       );
     }
   }
@@ -194,7 +151,7 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: primaryPink.withOpacity(0.15),
+                                color: primaryPink.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Row(
@@ -226,7 +183,7 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
                                   color: const Color(0xFFDDDDDD)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.06),
+                                  color: Colors.black.withValues(alpha: 0.06),
                                   blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
@@ -254,44 +211,87 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
 
                   // ── List ──
                   Expanded(
-                    child: items.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.history_rounded,
-                                    size: 60,
-                                    color: Colors.grey.shade300),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Tidak ada riwayat di bulan ini',
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade400),
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _filterDate = null),
-                                  child: const Text(
-                                    'Lihat semua riwayat',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: primaryPink,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                    child: _isLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                                color: Color(0xFFF47B8C)),
                           )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 4),
-                            itemCount: items.length,
-                            itemBuilder: (context, i) =>
-                                _RiwayatCard(data: items[i]),
-                          ),
+                        : _error != null
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.error_outline_rounded,
+                                        size: 48, color: Colors.grey.shade300),
+                                    const SizedBox(height: 12),
+                                    Text('Gagal memuat data',
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey.shade400)),
+                                    const SizedBox(height: 8),
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _isLoading = true;
+                                          _error = null;
+                                        });
+                                        _loadData();
+                                      },
+                                      child: const Text('Coba lagi',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: primaryPink,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          )),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : items.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.history_rounded,
+                                            size: 60,
+                                            color: Colors.grey.shade300),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          _filterDate != null
+                                              ? 'Tidak ada riwayat di bulan ini'
+                                              : 'Belum ada riwayat donasi',
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey.shade400),
+                                        ),
+                                        if (_filterDate != null) ...[
+                                          const SizedBox(height: 8),
+                                          GestureDetector(
+                                            onTap: () => setState(
+                                                () => _filterDate = null),
+                                            child: const Text(
+                                              'Lihat semua riwayat',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: primaryPink,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 4),
+                                    itemCount: items.length,
+                                    itemBuilder: (context, i) =>
+                                        _RiwayatCard(donasi: items[i]),
+                                  ),
                   ),
                 ],
               ),
@@ -309,7 +309,7 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
         color: navPink,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 12,
             offset: const Offset(0, -3),
           ),
@@ -350,8 +350,8 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
 //  RIWAYAT CARD
 // ─────────────────────────────────────────────────────────────
 class _RiwayatCard extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const _RiwayatCard({required this.data});
+  final DonasiModel donasi;
+  const _RiwayatCard({required this.donasi});
 
   @override
   Widget build(BuildContext context) {
@@ -367,19 +367,15 @@ class _RiwayatCard extends StatelessWidget {
         children: [
           // Foto panti bulat
           ClipOval(
-            child: Image.asset(
-              data['image'] as String,
-              width: 64,
-              height: 64,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                width: 64,
-                height: 64,
-                color: const Color(0xFFDDCDD0),
-                child: Icon(Icons.image_rounded,
-                    size: 28, color: Colors.grey.shade400),
-              ),
-            ),
+            child: donasi.pantiImage != null && donasi.pantiImage!.isNotEmpty
+                ? Image.network(
+                    donasi.pantiImage!,
+                    width: 64,
+                    height: 64,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholder(),
+                  )
+                : _placeholder(),
           ),
           const SizedBox(width: 14),
 
@@ -389,7 +385,7 @@ class _RiwayatCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  data['nama'] as String,
+                  donasi.namaPanti,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -398,12 +394,12 @@ class _RiwayatCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  data['tanggalLabel'] as String,
+                  donasi.tanggalLabel,
                   style: const TextStyle(
                       fontSize: 12, color: Color(0xFF5A5A5A)),
                 ),
                 const SizedBox(height: 6),
-                // Badge jenis
+                // Badge metode
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 3),
@@ -412,7 +408,7 @@ class _RiwayatCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    data['jenis'] as String,
+                    donasi.metodePembayaran,
                     style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -423,20 +419,26 @@ class _RiwayatCard extends StatelessWidget {
             ),
           ),
 
-          // Nominal (kanan bawah)
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Text(
-              data['nominal'] as String,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1A1A1A),
-              ),
+          // Nominal
+          Text(
+            donasi.formattedJumlah,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1A1A1A),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: 64,
+      height: 64,
+      color: const Color(0xFFDDCDD0),
+      child: Icon(Icons.home_work_rounded, size: 28, color: Colors.grey.shade400),
     );
   }
 }
@@ -648,7 +650,7 @@ class _InlineCalendarState extends State<_InlineCalendar> {
         border: Border.all(color: const Color(0xFFEEEEEE)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.07),
+            color: Colors.black.withValues(alpha: 0.07),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -945,7 +947,7 @@ class _NavItem extends StatelessWidget {
                 size: 28,
                 color: selected
                     ? Colors.white
-                    : Colors.white.withOpacity(0.60)),
+                    : Colors.white.withValues(alpha: 0.60)),
             if (selected)
               Container(
                 margin: const EdgeInsets.only(top: 4),

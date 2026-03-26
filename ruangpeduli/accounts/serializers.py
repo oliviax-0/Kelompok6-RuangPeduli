@@ -18,6 +18,13 @@ class RegisterStartSerializer(serializers.ModelSerializer):
             'nama_panti',
             'alamat_panti',
             'nomor_panti',
+            'provinsi_panti',
+            'kabupaten_kota_panti',
+            'kecamatan_panti',
+            'kelurahan_panti',
+            'kode_pos_panti',
+            'lat_panti',
+            'lng_panti',
         ]
 
     def validate_password(self, value):
