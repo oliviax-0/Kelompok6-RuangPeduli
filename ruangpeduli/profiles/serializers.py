@@ -60,7 +60,8 @@ class OrphanageProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'nama_panti', 'alamat_panti',
             'nomor_panti', 'profile_picture', 'description', 'password',
-            'total_terkumpul',
+            'total_terkumpul', 'provinsi', 'kabupaten_kota',
+            'kecamatan', 'kelurahan', 'kode_pos', 'lat', 'lng',
         ]
         extra_kwargs = {
             'nama_panti': {'required': False},

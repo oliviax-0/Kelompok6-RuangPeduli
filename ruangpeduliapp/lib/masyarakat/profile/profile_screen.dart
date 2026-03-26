@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/data/donation_api.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/masyarakat/profile/edit_profil_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/transaksi/konfirmasi_pembayaran_screen.dart';
@@ -18,17 +19,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<PantiProfileModel> _pantiList = [];
   bool _isLoading = true;
   SocietyProfileModel? _userProfile;
+  int _totalDonasi = 0;
 
   @override
   void initState() {
     super.initState();
     _loadPanti();
-    if (widget.userId != null) _loadUserProfile();
+    if (widget.userId != null) {
+      _loadUserProfile();
+      _loadTotalDonasi();
+    }
   }
 
   Future<void> _loadUserProfile() async {
     final profile = await ProfileApi().fetchMasyarakatProfile(widget.userId!);
     if (mounted) setState(() => _userProfile = profile);
+  }
+
+  Future<void> _loadTotalDonasi() async {
+    try {
+      final list = await DonationApi().fetchDonations(widget.userId!);
+      final total = list.fold<int>(0, (sum, d) => sum + d.jumlah);
+      if (mounted) setState(() => _totalDonasi = total);
+    } catch (_) {}
+  }
+
+  String get _formattedTotalDonasi {
+    if (_totalDonasi == 0) return 'Rp0';
+    final s = _totalDonasi.toString();
+    final buffer = StringBuffer('Rp');
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(s[i]);
+    }
+    return buffer.toString();
   }
 
   Future<void> _loadPanti() async {
@@ -229,7 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Rp15.520.000',
+                                  _formattedTotalDonasi,
                                   style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.grey.shade600),
@@ -282,8 +306,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               MaterialPageRoute(
                                 builder: (_) => KonfirmasiPembayaranScreen(
                                   namaPanti: panti.namaPanti,
-                                  terkumpul: '',
-                                  imagePath: '',
+                                  terkumpul: panti.formattedTotalTerkumpul,
+                                  imagePath: panti.profilePicture ?? '',
+                                  pantiId: panti.id,
+                                  userId: widget.userId,
                                 ),
                               ),
                             ),

@@ -5,6 +5,7 @@ import 'package:ruangpeduliapp/masyarakat/home/berita_detail_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/home/video_player_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/history/riwayat_donasi_screen.dart';
 
 // ─────────────────────────────────────────────
 //  HOME MASYARAKAT SCREEN
@@ -53,16 +54,14 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
       Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)));
       return;
     }
+    if (index == 2) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => RiwayatDonasiScreen(userId: widget.userId)));
+      return;
+    }
     if (index == 3) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)));
       return;
     }
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _PlaceholderPage(title: ['Home', 'Search', 'History', 'Profile'][index]),
-      ),
-    );
   }
 
   @override

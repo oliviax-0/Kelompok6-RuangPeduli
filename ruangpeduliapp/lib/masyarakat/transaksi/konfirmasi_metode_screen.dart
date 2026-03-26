@@ -6,6 +6,8 @@ class KonfirmasiMetodeScreen extends StatefulWidget {
   final String terkumpul;
   final String imagePath;
   final String nominal;
+  final int? pantiId;
+  final int? userId;
 
   const KonfirmasiMetodeScreen({
     super.key,
@@ -13,6 +15,8 @@ class KonfirmasiMetodeScreen extends StatefulWidget {
     required this.terkumpul,
     required this.imagePath,
     required this.nominal,
+    this.pantiId,
+    this.userId,
   });
 
   @override
@@ -52,12 +56,18 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
   }
 
   void _onKonfirmasi() {
+    final noRef = 'REF${DateTime.now().millisecondsSinceEpoch % 100000}';
     Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => TransaksiSuksesScreen(
           namaPanti: widget.namaPanti,
           total: _formatRupiah(_totalPembayaran),
+          jumlahDonasi: _nominalInt,
+          metodePembayaran: _selectedMetode,
+          noReferensi: noRef,
+          pantiId: widget.pantiId,
+          userId: widget.userId,
         ),
         transitionsBuilder: (_, anim, __, child) {
           return SlideTransition(

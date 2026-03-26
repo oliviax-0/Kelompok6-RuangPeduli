@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/data/donation_api.dart';
 
 class TransaksiSuksesScreen extends StatefulWidget {
   final String namaPanti;
   final String total;
+  final int jumlahDonasi;
+  final String metodePembayaran;
+  final String noReferensi;
+  final int? pantiId;
+  final int? userId;
 
   const TransaksiSuksesScreen({
     super.key,
     required this.namaPanti,
     required this.total,
+    required this.jumlahDonasi,
+    required this.metodePembayaran,
+    required this.noReferensi,
+    this.pantiId,
+    this.userId,
   });
 
   @override
@@ -43,6 +54,22 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
   }
 
   Future<void> _runSequence() async {
+    // Save donation to backend (fire-and-forget, don't block UI)
+    if (widget.userId != null) {
+      DonationApi().createDonation(
+        userId: widget.userId!,
+        pantiId: widget.pantiId,
+        namaPanti: widget.namaPanti,
+        jumlah: widget.jumlahDonasi,
+        metodePembayaran: widget.metodePembayaran,
+        noReferensi: widget.noReferensi,
+      ).catchError((_) => DonasiModel(
+            id: 0, namaPanti: '', jumlah: 0,
+            metodePembayaran: '', noReferensi: '',
+            tanggal: '', tanggalLabel: '',
+          )); // silently ignore errors — UI already shows success
+    }
+
     // Centang slide masuk dari kanan
     await Future.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;

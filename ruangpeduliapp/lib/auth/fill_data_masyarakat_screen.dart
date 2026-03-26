@@ -35,6 +35,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
   String? _namaPenggunaError;
   String? _alamatError;
   String? _usernameError;
+  String? _nomorTeleponError;
   String? _tncError;
   String? _generalError;
 
@@ -75,17 +76,19 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         : (!RegExp(r'[a-zA-Z]').hasMatch(username) || !RegExp(r'\d').hasMatch(username))
             ? 'Username harus mengandung huruf dan angka'
             : null;
+    final teleponErr = _nomorTeleponController.text.trim().isEmpty ? 'Wajib diisi' : null;
     final tncErr = !_agreeTnC ? 'Anda harus menyetujui S&K terlebih dahulu' : null;
 
     setState(() {
       _namaPenggunaError = namaErr;
       _alamatError = alamatErr;
       _usernameError = usernameErr;
+      _nomorTeleponError = teleponErr;
       _tncError = tncErr;
       _generalError = null;
     });
 
-    if (namaErr != null || alamatErr != null || usernameErr != null || tncErr != null) return;
+    if (namaErr != null || alamatErr != null || usernameErr != null || teleponErr != null || tncErr != null) return;
 
     setState(() => _loading = true);
 
@@ -97,9 +100,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         username: username,
         namaPengguna: _namaPenggunaController.text.trim(),
         alamat: _alamatController.text.trim(),
-        nomorTelepon: _nomorTeleponController.text.trim().isNotEmpty
-            ? _nomorTeleponController.text.trim()
-            : null,
+        nomorTelepon: _nomorTeleponController.text.trim(),
       ).then((_) {
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
@@ -121,9 +122,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         role: 'masyarakat',
         namaPengguna: _namaPenggunaController.text.trim(),
         alamat: _alamatController.text.trim(),
-        nomorTelepon: _nomorTeleponController.text.trim().isNotEmpty
-            ? _nomorTeleponController.text.trim()
-            : null,
+        nomorTelepon: _nomorTeleponController.text.trim(),
       )).then((pendingId) {
         if (!mounted) return;
         Navigator.push(
@@ -240,13 +239,15 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                             ),
                             const SizedBox(height: 20),
 
-                            // Nomor Telepon (opsional)
-                            _FieldLabel('Nomor Telepon (Opsional)'),
+                            // Nomor Telepon
+                            _FieldLabel('Nomor Telepon'),
                             const SizedBox(height: 8),
                             _RoundedInput(
                               controller: _nomorTeleponController,
-                              hint: 'Contoh: +62812-3456-7890',
+                              hint: 'Contoh: 0810395306464',
                               keyboardType: TextInputType.phone,
+                              errorText: _nomorTeleponError,
+                              onChanged: (_) => setState(() => _nomorTeleponError = null),
                             ),
                             const SizedBox(height: 28),
 
