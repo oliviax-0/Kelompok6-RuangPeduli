@@ -6,6 +6,7 @@ import 'package:ruangpeduliapp/masyarakat/home/video_player_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/history/riwayat_donasi_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/chatbot/chatbot_masyarakat_screen.dart';
 
 // ─────────────────────────────────────────────
 //  HOME MASYARAKAT SCREEN
@@ -102,7 +103,9 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
               child: GestureDetector(
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const _PlaceholderPage(title: 'Chat AI')),
+                  MaterialPageRoute(
+                    builder: (_) => ChatbotMasyarakatScreen(userId: widget.userId),
+                  ),
                 ),
                 child: Image.asset(
                   'assets/images/chatbot_ai.png',
@@ -534,42 +537,3 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-//  PLACEHOLDER PAGE
-// ─────────────────────────────────────────────
-class _PlaceholderPage extends StatelessWidget {
-  final String title;
-  const _PlaceholderPage({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF0F2),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF47B8C),
-        elevation: 0,
-        title: Text(title,
-            style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.construction_rounded, size: 60, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A))),
-            const SizedBox(height: 8),
-            Text('Halaman dalam pengembangan',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
-          ],
-        ),
-      ),
-    );
-  }
-}
