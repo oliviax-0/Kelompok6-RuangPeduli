@@ -82,8 +82,7 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
   }
 
   void _onSelesai() {
-    // Pop back through KonfirmasiMetode + KonfirmasiPembayaran to ProfileScreen
-    Navigator.of(context).popUntil((route) => route.isFirst || route.settings.name != null);
+    Navigator.of(context).pop(true); // signals donation completed
   }
 
   @override

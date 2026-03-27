@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/auth/role_selection_screen.dart';
 import 'package:ruangpeduliapp/data/donation_api.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/masyarakat/profile/edit_profil_screen.dart';
@@ -62,6 +63,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Keluar',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text('Apakah Anda yakin ingin keluar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Batal',
+                style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+                (_) => false,
+              );
+            },
+            child: const Text('Keluar',
+                style: TextStyle(
+                    color: Color(0xFFF43D5E),
+                    fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onNavTap(int index) {
@@ -138,15 +170,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  _userProfile?.namaPengguna.isNotEmpty == true
-                                      ? _userProfile!.namaPengguna
-                                      : (_userProfile?.username ?? 'Pengguna'),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1A1A1A),
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _userProfile?.namaPengguna.isNotEmpty == true
+                                            ? _userProfile!.namaPengguna
+                                            : (_userProfile?.username ?? 'Pengguna'),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => _confirmLogout(),
+                                      child: const Icon(
+                                        Icons.logout_rounded,
+                                        size: 20,
+                                        color: Color(0xFFF43D5E),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -301,18 +347,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             nama: panti.namaPanti,
                             terkumpul: panti.formattedTotalTerkumpul,
                             profilePicture: panti.profilePicture,
-                            onDonasi: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => KonfirmasiPembayaranScreen(
-                                  namaPanti: panti.namaPanti,
-                                  terkumpul: panti.formattedTotalTerkumpul,
-                                  imagePath: panti.profilePicture ?? '',
-                                  pantiId: panti.id,
-                                  userId: widget.userId,
+                            onDonasi: () async {
+                              final result = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => KonfirmasiPembayaranScreen(
+                                    namaPanti: panti.namaPanti,
+                                    terkumpul: panti.formattedTotalTerkumpul,
+                                    imagePath: panti.profilePicture ?? '',
+                                    pantiId: panti.id,
+                                    userId: widget.userId,
+                                  ),
                                 ),
-                              ),
-                            ),
+                              );
+                              if (result == true && mounted) {
+                                _loadTotalDonasi();
+                                _loadPanti();
+                              }
+                            },
                           );
                         },
                       ),
