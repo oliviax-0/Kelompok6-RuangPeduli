@@ -24,12 +24,10 @@ class LokasiScreen extends StatelessWidget {
     return '${(distanceMeters! / 1000).toStringAsFixed(1)} km dari lokasi Anda';
   }
 
-  Future<void> _openGoogleMaps() async {
+  Future<void> _openMaps() async {
     final uri = Uri.parse(
         'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    await launchUrl(uri, mode: LaunchMode.inAppWebView);
   }
 
   @override
@@ -205,7 +203,7 @@ class LokasiScreen extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: _openGoogleMaps,
+                        onPressed: _openMaps,
                         icon: const Icon(Icons.map_rounded, size: 18),
                         label: const Text('Buka di Google Maps'),
                         style: ElevatedButton.styleFrom(

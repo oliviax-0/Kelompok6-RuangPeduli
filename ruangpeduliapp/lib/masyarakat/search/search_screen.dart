@@ -26,8 +26,6 @@ class _SearchScreenState extends State<SearchScreen> {
   List<PantiProfileModel> _pantiList = [];
   bool _loadingPanti = true;
   String? _errorPanti;
-  String? _selectedProvinsi;
-
   double _distanceTo(PantiProfileModel panti) {
     if (_userPosition == null || panti.lat == null || panti.lng == null) {
       return double.infinity;
@@ -46,25 +44,12 @@ class _SearchScreenState extends State<SearchScreen> {
     return '${(meters / 1000).toStringAsFixed(1)} km';
   }
 
-  List<String> get _availableProvinsi {
-    final set = _pantiList
-        .map((p) => p.provinsi)
-        .where((p) => p.isNotEmpty)
-        .toSet()
-        .toList();
-    set.sort();
-    return set;
-  }
-
   List<PantiProfileModel> get _filtered {
     final q = _searchController.text.toLowerCase();
     var list = _pantiList.where((p) {
-      final matchQuery = q.isEmpty ||
+      return q.isEmpty ||
           p.namaPanti.toLowerCase().contains(q) ||
           p.alamatPanti.toLowerCase().contains(q);
-      final matchProvinsi =
-          _selectedProvinsi == null || p.provinsi == _selectedProvinsi;
-      return matchQuery && matchProvinsi;
     }).toList();
     list.sort((a, b) => _distanceTo(a).compareTo(_distanceTo(b)));
     return list;
@@ -77,15 +62,30 @@ class _SearchScreenState extends State<SearchScreen> {
         if (mounted) setState(() => _loadingLocation = false);
         return;
       }
+
       LocationPermission permission = await Geolocator.checkPermission();
+
+      // Show rationale dialog only when permission hasn't been asked yet
       if (permission == LocationPermission.denied) {
+        if (!mounted) return;
+        final agreed = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const _LocationRationaleDialog(),
+        );
+        if (agreed != true) {
+          if (mounted) setState(() => _loadingLocation = false);
+          return;
+        }
         permission = await Geolocator.requestPermission();
       }
+
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (mounted) setState(() => _loadingLocation = false);
         return;
       }
+
       final pos = await Geolocator.getCurrentPosition(
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.medium),
@@ -191,39 +191,39 @@ class _SearchScreenState extends State<SearchScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
-                height: 44,
+                height: 48,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF0F0F0),
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: Row(
                   children: [
-                    const SizedBox(width: 14),
-                    Icon(Icons.search_rounded,
-                        size: 18, color: Colors.grey.shade500),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 16),
+                    Icon(Icons.mic_rounded,
+                        size: 20, color: Colors.grey.shade500),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
                         controller: _searchController,
                         focusNode: _focusNode,
                         decoration: InputDecoration(
-                          hintText: 'Cari nama panti...',
+                          hintText: 'Search',
                           hintStyle: TextStyle(
-                              fontSize: 14, color: Colors.grey.shade400),
+                              fontSize: 15, color: Colors.grey.shade400),
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding:
-                              const EdgeInsets.symmetric(vertical: 10),
+                              const EdgeInsets.symmetric(vertical: 11),
                         ),
                         style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF1A1A1A)),
+                            fontSize: 15, color: Color(0xFF1A1A1A)),
                       ),
                     ),
                     if (_searchController.text.isNotEmpty)
                       GestureDetector(
                         onTap: () => _searchController.clear(),
                         child: Padding(
-                          padding: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.only(right: 14),
                           child: Icon(Icons.close_rounded,
                               size: 18, color: Colors.grey.shade500),
                         ),
@@ -269,36 +269,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 4),
-
-            // ── Province filter chips ──
-            if (_availableProvinsi.isNotEmpty)
-              SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    // "Semua" chip
-                    _FilterChip(
-                      label: 'Semua',
-                      selected: _selectedProvinsi == null,
-                      onTap: () => setState(() => _selectedProvinsi = null),
-                    ),
-                    const SizedBox(width: 8),
-                    ..._availableProvinsi.map((p) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _FilterChip(
-                            label: p,
-                            selected: _selectedProvinsi == p,
-                            onTap: () => setState(() =>
-                                _selectedProvinsi =
-                                    _selectedProvinsi == p ? null : p),
-                          ),
-                        )),
-                  ],
-                ),
-              ),
             const SizedBox(height: 8),
 
             // ── Results list ──
@@ -356,7 +326,7 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       itemCount: items.length,
       itemBuilder: (context, i) {
         final panti = items[i];
@@ -429,109 +399,114 @@ class _PantiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final address = panti.fullAddress.isNotEmpty
+        ? panti.fullAddress
+        : panti.alamatPanti;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF0F2),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: const Color(0xFFFDE8EA),
+          borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header: nama + badge + jarak ──
+            // ── Nama + jarak ──
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
                     panti.namaPanti,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
                         color: Color(0xFF1A1A1A)),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (isNearest)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF43D5E),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text('Terdekat',
-                            style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                    if (distanceLabel.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.near_me_rounded,
-                              size: 12, color: Color(0xFFF47B8C)),
-                          const SizedBox(width: 3),
-                          Text(distanceLabel,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFFF47B8C),
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
+                if (distanceLabel.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.near_me_rounded,
+                          size: 12, color: Color(0xFFF47B8C)),
+                      const SizedBox(width: 3),
+                      Text(distanceLabel,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFF47B8C),
+                              fontWeight: FontWeight.w600)),
                     ],
-                  ],
-                ),
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 8),
+            if (isNearest) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF43D5E),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('Terdekat',
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ],
+            const SizedBox(height: 12),
 
             // ── Alamat ──
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.location_on_rounded,
-                    size: 14, color: Color(0xFFF43D5E)),
-                const SizedBox(width: 4),
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(Icons.location_on_rounded,
+                      size: 15, color: Color(0xFFE03050)),
+                ),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    panti.fullAddress.isNotEmpty
-                        ? panti.fullAddress
-                        : panti.alamatPanti,
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        height: 1.5)),
+                    address,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF1A1A1A),
+                        height: 1.55),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
 
             // ── Telepon ──
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.phone_rounded,
-                    size: 14, color: Color(0xFFF43D5E)),
-                const SizedBox(width: 4),
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(Icons.phone_rounded,
+                      size: 15, color: Color(0xFF1A1A1A)),
+                ),
+                const SizedBox(width: 6),
                 Expanded(
-                  child: Text(panti.nomorPanti,
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600)),
+                  child: Text(
+                    '${panti.nomorPanti} (hubungi untuk jam kunjungan)',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                        height: 1.4),
+                  ),
                 ),
               ],
             ),
@@ -542,35 +517,74 @@ class _PantiCard extends StatelessWidget {
   }
 }
 
-// ── Filter Chip ──
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+// ── Location Rationale Dialog ──
+class _LocationRationaleDialog extends StatelessWidget {
+  const _LocationRationaleDialog();
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF43D5E) : const Color(0xFFF0F0F0),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : Colors.grey.shade600,
-          ),
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFDE8EA),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.location_on_rounded,
+                  size: 32, color: Color(0xFFF43D5E)),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Izinkan Akses Lokasi',
+              style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'RuangPeduli membutuhkan lokasi Anda untuk menampilkan panti asuhan terdekat dan mengurutkan berdasarkan jarak.',
+              style: TextStyle(
+                  fontSize: 13, color: Colors.grey.shade600, height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF43D5E),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Izinkan',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('Nanti saja',
+                    style: TextStyle(
+                        fontSize: 14, color: Colors.grey.shade500)),
+              ),
+            ),
+          ],
         ),
       ),
     );
