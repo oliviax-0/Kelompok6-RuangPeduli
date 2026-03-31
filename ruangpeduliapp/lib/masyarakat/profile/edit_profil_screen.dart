@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 
@@ -21,6 +23,7 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
   late final TextEditingController _jenisKelaminCtrl;
   late String _currentEmail;
   bool _saving = false;
+  File? _pickedImage;
 
   @override
   void initState() {
@@ -40,6 +43,16 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
     _teleponCtrl.dispose();
     _jenisKelaminCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (picked != null && mounted) {
+      setState(() => _pickedImage = File(picked.path));
+    }
   }
 
   void _showError(String msg) {
@@ -115,6 +128,7 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
         username: _usernameCtrl.text.trim().isNotEmpty ? _usernameCtrl.text.trim() : null,
         nomorTelepon: _teleponCtrl.text.trim(),
         jenisKelamin: _jenisKelaminCtrl.text.trim(),
+        profilePicture: _pickedImage,
       );
 
       if (!mounted) return;
@@ -171,43 +185,54 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
           children: [
             // ── Avatar ──
             Center(
-              child: Stack(
-                children: [
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _kPink, width: 2),
-                      color: Colors.grey.shade200,
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/profile_photo.png',
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.person_rounded,
-                          size: 44,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF1A1A1A),
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
+                        border: Border.all(color: _kPink, width: 2),
+                        color: Colors.grey.shade200,
                       ),
-                      child: const Icon(Icons.camera_alt_rounded,
-                          color: Colors.white, size: 14),
+                      child: ClipOval(
+                        child: _pickedImage != null
+                            ? Image.file(_pickedImage!, fit: BoxFit.cover)
+                            : (widget.profile?.profilePicture != null
+                                ? Image.network(
+                                    widget.profile!.profilePicture!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      Icons.person_rounded,
+                                      size: 44,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.person_rounded,
+                                    size: 44,
+                                    color: Colors.grey.shade400,
+                                  )),
+                      ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF1A1A1A),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.camera_alt_rounded,
+                            color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 28),

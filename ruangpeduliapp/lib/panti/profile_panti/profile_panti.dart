@@ -115,13 +115,27 @@ class _ProfilePantiState extends State<ProfilePanti> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _profile?.namaPanti ?? '...',
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A1A1A),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _profile?.namaPanti ?? '...',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _logout,
+                          child: const Icon(
+                            Icons.logout_rounded,
+                            size: 20,
+                            color: Color(0xFFF43D5E),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -236,24 +250,6 @@ class _ProfilePantiState extends State<ProfilePanti> {
           _buildPostFeed(),
 
           const SizedBox(height: 32),
-
-          // Logout
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _logout,
-              icon: const Icon(Icons.logout_rounded, size: 18, color: Colors.red),
-              label: const Text(
-                'Keluar',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.red),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: Colors.red),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-              ),
-            ),
-          ),
         ],
       ),
     );

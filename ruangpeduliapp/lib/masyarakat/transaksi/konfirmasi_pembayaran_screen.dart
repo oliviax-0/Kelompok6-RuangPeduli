@@ -25,28 +25,64 @@ class KonfirmasiPembayaranScreen extends StatefulWidget {
 
 class _KonfirmasiPembayaranScreenState
     extends State<KonfirmasiPembayaranScreen> {
-  final _nominalCtrl = TextEditingController(text: '567.500');
+  final _nominalCtrl = TextEditingController(text: '');
+  String? _nominalError;
+
+  @override
+  void initState() {
+    super.initState();
+    _nominalCtrl.addListener(_formatNominal);
+  }
+
+  // Auto-format: keeps only digits, inserts thousand-separator dots
+  void _formatNominal() {
+    final raw = _nominalCtrl.text.replaceAll('.', '');
+    if (raw.isEmpty) return;
+    final buffer = StringBuffer();
+    for (int i = 0; i < raw.length; i++) {
+      if (i > 0 && (raw.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(raw[i]);
+    }
+    final formatted = buffer.toString();
+    if (_nominalCtrl.text != formatted) {
+      _nominalCtrl.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+  }
 
   @override
   void dispose() {
+    _nominalCtrl.removeListener(_formatNominal);
     _nominalCtrl.dispose();
     super.dispose();
   }
 
+  void _showError(String msg) {
+    if (mounted) setState(() => _nominalError = msg);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
   Future<void> _onKonfirmasi() async {
-    final nominal = _nominalCtrl.text.replaceAll('.', '');
-    if (nominal.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Masukkan nominal donasi'),
-          backgroundColor: Colors.red.shade400,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+    final raw = _nominalCtrl.text.replaceAll('.', '');
+    if (raw.isEmpty) {
+      _showError('Masukkan nominal donasi');
       return;
     }
+    final nominal = int.tryParse(raw) ?? 0;
+    if (nominal < 1000) {
+      _showError('Nominal minimal Rp1.000');
+      return;
+    }
+    if (mounted) setState(() => _nominalError = null);
 
     final result = await Navigator.push<bool>(
       context,
@@ -196,6 +232,16 @@ class _KonfirmasiPembayaranScreenState
                           ),
                           const Divider(
                               height: 16, color: Color(0xFFEEEEEE)),
+                          if (_nominalError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                _nominalError!,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red.shade400),
+                              ),
+                            ),
                         ],
                       ),
                     ),

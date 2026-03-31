@@ -1,11 +1,14 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:ruangpeduliapp/data/inventory_api.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -39,7 +42,10 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
   final _scrollCtrl = ScrollController();
   bool _isLoading = false;
   bool _loadingContext = true;
+  bool _loadingNearest = false;
+  bool _loadingUrgent = false;
 
+  List<PantiProfileModel> _pantiList = [];
   final List<Map<String, String>> _history = [];
 
   final _picker = ImagePicker();
@@ -84,15 +90,105 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
     try {
       final pantiList = await ProfileApi().fetchAllPanti();
       if (pantiList.isNotEmpty) {
+        _pantiList = pantiList;
         buffer.writeln('\n=== DATA PANTI ASUHAN YANG TERDAFTAR ===');
         for (final p in pantiList) {
-          buffer.writeln('- ${p.namaPanti} | Lokasi: ${p.alamatPanti} | Telp: ${p.nomorPanti} | Dana terkumpul: ${p.formattedTotalTerkumpul}');
+          buffer.writeln('- ${p.namaPanti} | Lokasi: ${p.alamatPanti} | Telp: ${p.nomorPanti} | Dana terkumpul: ${p.formattedTotalTerkumpul} | Koordinat: ${p.lat ?? "-"},${p.lng ?? "-"}');
         }
       }
     } catch (_) {}
 
     _history.add({'role': 'system', 'content': buffer.toString()});
     if (mounted) setState(() => _loadingContext = false);
+  }
+
+  // ── Suggestion: nearest panti ──────────────────────────────────────────────
+
+  Future<void> _onSuggestNearest() async {
+    if (_loadingNearest || _isLoading || _loadingContext) return;
+    setState(() => _loadingNearest = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _sendWithText('Panti mana yang paling dekat dengan saya?');
+        return;
+      }
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        _sendWithText('Panti mana yang paling dekat dengan saya?');
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+      ).timeout(const Duration(seconds: 10));
+
+      // sort panti by distance
+      final withDist = <MapEntry<PantiProfileModel, double>>[];
+      for (final p in _pantiList) {
+        if (p.lat != null && p.lng != null) {
+          final d = Geolocator.distanceBetween(pos.latitude, pos.longitude, p.lat!, p.lng!);
+          withDist.add(MapEntry(p, d));
+        }
+      }
+      withDist.sort((a, b) => a.value.compareTo(b.value));
+
+      String msg;
+      if (withDist.isEmpty) {
+        msg = 'Panti mana yang paling dekat dengan saya?';
+      } else {
+        final top = withDist.take(3).toList();
+        final buf = StringBuffer('Lokasi saya saat ini: ${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}.\n'
+            'Berdasarkan koordinat ini, berikut panti terdekat:\n');
+        for (final e in top) {
+          final km = (e.value / 1000).toStringAsFixed(1);
+          buf.writeln('- ${e.key.namaPanti}: ${km} km');
+        }
+        buf.write('Tolong rekomendasikan panti mana yang sebaiknya saya kunjungi atau donasikan dan berikan informasi lebih lanjut.');
+        msg = buf.toString();
+      }
+      _sendWithText(msg);
+    } catch (_) {
+      _sendWithText('Panti mana yang paling dekat dengan lokasi saya?');
+    } finally {
+      if (mounted) setState(() => _loadingNearest = false);
+    }
+  }
+
+  // ── Suggestion: urgent needs ────────────────────────────────────────────────
+
+  Future<void> _onSuggestUrgent() async {
+    if (_loadingUrgent || _isLoading || _loadingContext) return;
+    setState(() => _loadingUrgent = true);
+    try {
+      final buf = StringBuffer('Berikut data kebutuhan mendesak (stok habis) dari setiap panti:\n');
+      bool hasData = false;
+      for (final p in _pantiList) {
+        try {
+          final categories = await InventoryApi().fetchCategories(p.id);
+          final urgent = categories.where((c) => c.hasAlert).toList();
+          if (urgent.isNotEmpty) {
+            hasData = true;
+            buf.writeln('- ${p.namaPanti}: ${urgent.map((c) => c.name).join(", ")}');
+          }
+        } catch (_) {}
+      }
+      if (!hasData) buf.writeln('(tidak ada data kebutuhan mendesak saat ini)');
+      buf.write('\nPanti mana yang paling membutuhkan bantuan segera dan apa yang bisa saya donasikan?');
+      _sendWithText(buf.toString());
+    } catch (_) {
+      _sendWithText('Panti mana yang paling membutuhkan bantuan segera saat ini?');
+    } finally {
+      if (mounted) setState(() => _loadingUrgent = false);
+    }
+  }
+
+  void _sendWithText(String text) {
+    if (!mounted) return;
+    _inputCtrl.text = text;
+    _sendMessage();
   }
 
   Future<void> _pickImage() async {
@@ -261,6 +357,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
           children: [
             _buildHeader(),
             _buildInfoBanner(),
+            _buildSuggestionChips(),
             Expanded(
               child: SelectionArea(
                 child: ListView.builder(
@@ -343,6 +440,38 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
               style: TextStyle(
                   fontSize: 11.5, color: Colors.grey[700], height: 1.5),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Suggestion chips ───────────────────────────────────────────────────────
+
+  Widget _buildSuggestionChips() {
+    final disabled = _isLoading || _loadingContext;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Row(
+        children: [
+          _SuggestionChip(
+            icon: _loadingNearest
+                ? Icons.hourglass_top_rounded
+                : Icons.location_on_rounded,
+            label: 'Panti terdekat',
+            loading: _loadingNearest,
+            disabled: disabled,
+            onTap: _onSuggestNearest,
+          ),
+          const SizedBox(width: 10),
+          _SuggestionChip(
+            icon: _loadingUrgent
+                ? Icons.hourglass_top_rounded
+                : Icons.priority_high_rounded,
+            label: 'Kebutuhan mendesak',
+            loading: _loadingUrgent,
+            disabled: disabled,
+            onTap: _onSuggestUrgent,
           ),
         ],
       ),
@@ -550,6 +679,74 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
                   onTap: _toggleMic,
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Suggestion Chip ──────────────────────────────────────────────────────────
+
+class _SuggestionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool loading;
+  final bool disabled;
+  final VoidCallback onTap;
+
+  const _SuggestionChip({
+    required this.icon,
+    required this.label,
+    required this.loading,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = !disabled && !loading;
+    return GestureDetector(
+      onTap: active ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? Colors.white : Colors.white.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: active ? _kPink : _kPink.withValues(alpha: 0.3),
+          ),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: _kPink.withValues(alpha: 0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : [],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            loading
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: _kPink),
+                  )
+                : Icon(icon, size: 14, color: _kPink),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: active ? _kPink : _kPink.withValues(alpha: 0.5),
+              ),
             ),
           ],
         ),

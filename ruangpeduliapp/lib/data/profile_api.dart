@@ -13,6 +13,7 @@ class SocietyProfileModel {
   final String alamat;
   final String nomorTelepon;
   final String jenisKelamin;
+  final String? profilePicture;
 
   SocietyProfileModel({
     required this.id,
@@ -22,6 +23,7 @@ class SocietyProfileModel {
     required this.alamat,
     this.nomorTelepon = '',
     this.jenisKelamin = '',
+    this.profilePicture,
   });
 
   factory SocietyProfileModel.fromJson(Map<String, dynamic> json) {
@@ -33,6 +35,7 @@ class SocietyProfileModel {
       alamat: json['alamat'] ?? '',
       nomorTelepon: json['nomor_telepon'] ?? '',
       jenisKelamin: json['jenis_kelamin'] ?? '',
+      profilePicture: json['profile_picture'],
     );
   }
 }
@@ -203,21 +206,23 @@ class ProfileApi {
     String? email,
     String? nomorTelepon,
     String? jenisKelamin,
+    File? profilePicture,
   }) async {
     final uri = Uri.parse('$_base/profiles/masyarakat/$profileId/');
     try {
-      final body = <String, String>{};
-      if (namaPengguna != null) body['nama_pengguna'] = namaPengguna;
-      if (alamat != null) body['alamat'] = alamat;
-      if (username != null) body['username'] = username;
-      if (email != null) body['email'] = email;
-      if (nomorTelepon != null) body['nomor_telepon'] = nomorTelepon;
-      if (jenisKelamin != null) body['jenis_kelamin'] = jenisKelamin;
-      final res = await http.patch(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 15));
+      final req = http.MultipartRequest('PATCH', uri);
+      if (namaPengguna != null) req.fields['nama_pengguna'] = namaPengguna;
+      if (alamat != null) req.fields['alamat'] = alamat;
+      if (username != null) req.fields['username'] = username;
+      if (email != null) req.fields['email'] = email;
+      if (nomorTelepon != null) req.fields['nomor_telepon'] = nomorTelepon;
+      if (jenisKelamin != null) req.fields['jenis_kelamin'] = jenisKelamin;
+      if (profilePicture != null) {
+        req.files.add(await http.MultipartFile.fromPath(
+            'profile_picture', profilePicture.path));
+      }
+      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      final res = await http.Response.fromStream(streamed);
       if (res.statusCode != 200) throw Exception('Gagal memperbarui profil');
       return SocietyProfileModel.fromJson(
           jsonDecode(res.body) as Map<String, dynamic>);
