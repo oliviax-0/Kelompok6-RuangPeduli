@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/data/regional_api.dart';
@@ -52,11 +51,6 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
   bool _loadingCities = false;
   bool _loadingDistricts = false;
   bool _loadingVillages = false;
-
-  // ── GPS state ──
-  double? _capturedLat;
-  double? _capturedLng;
-  bool _loadingGps = false;
 
   // ── Validation errors ──
   String? _namaPantiError;
@@ -172,47 +166,6 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
     }
   }
 
-  // ── GPS capture ──
-  Future<void> _captureLocation() async {
-    setState(() => _loadingGps = true);
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showSnack('Aktifkan layanan lokasi terlebih dahulu');
-        return;
-      }
-      LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) {
-        _showSnack('Izin lokasi ditolak');
-        return;
-      }
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.high),
-      );
-      if (mounted) {
-        setState(() {
-          _capturedLat = pos.latitude;
-          _capturedLng = pos.longitude;
-        });
-      }
-    } catch (_) {
-      _showSnack('Gagal mendapatkan lokasi');
-    } finally {
-      if (mounted) setState(() => _loadingGps = false);
-    }
-  }
-
-  void _showSnack(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
-  }
-
   // ── Submit ──
   void _onSelanjutnya() {
     final username = _usernameController.text.trim();
@@ -281,8 +234,6 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
         kodePosPanti: _kodePosController.text.trim().isNotEmpty
             ? _kodePosController.text.trim()
             : null,
-        latPanti: _capturedLat,
-        lngPanti: _capturedLng,
       ).then((result) {
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
@@ -317,8 +268,6 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
         kodePosPanti: _kodePosController.text.trim().isNotEmpty
             ? _kodePosController.text.trim()
             : null,
-        latPanti: _capturedLat,
-        lngPanti: _capturedLng,
       )).then((pendingId) {
         if (!mounted) return;
         Navigator.push(
@@ -406,6 +355,17 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                             ),
                             const SizedBox(height: 28),
 
+                            // ── Username ──
+                            const _SectionLabel('Username'),
+                            const SizedBox(height: 8),
+                            _RoundedField(
+                              controller: _usernameController,
+                              hint: 'Contoh: panti_sayapibu1',
+                              errorText: _usernameError,
+                              onChanged: (_) => setState(() => _usernameError = null),
+                            ),
+                            const SizedBox(height: 20),
+
                             // ── Nama Panti ──
                             const _SectionLabel('Nama Panti'),
                             const SizedBox(height: 8),
@@ -418,7 +378,7 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                             const SizedBox(height: 20),
 
                             // ── Jalan & Nomor ──
-                            const _SectionLabel('Nama Jalan & Nomor'),
+                            const _SectionLabel('Alamat'),
                             const SizedBox(height: 8),
                             _RoundedField(
                               controller: _jalanController,
@@ -507,29 +467,6 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                                 FilteringTextInputFormatter.digitsOnly,
                                 LengthLimitingTextInputFormatter(5),
                               ],
-                            ),
-                            const SizedBox(height: 20),
-
-                            // ── GPS Button ──
-                            const _SectionLabel('Lokasi Panti'),
-                            const SizedBox(height: 8),
-                            _GpsButton(
-                              loading: _loadingGps,
-                              captured: _capturedLat != null,
-                              lat: _capturedLat,
-                              lng: _capturedLng,
-                              onTap: _captureLocation,
-                            ),
-                            const SizedBox(height: 20),
-
-                            // ── Username ──
-                            const _SectionLabel('Username'),
-                            const SizedBox(height: 8),
-                            _RoundedField(
-                              controller: _usernameController,
-                              hint: 'Contoh: panti_sayapibu1',
-                              errorText: _usernameError,
-                              onChanged: (_) => setState(() => _usernameError = null),
                             ),
                             const SizedBox(height: 20),
 
@@ -723,104 +660,6 @@ class _CascadeDropdown<T> extends StatelessWidget {
             ],
           ),
         ],
-      ],
-    );
-  }
-}
-
-// ── GPS Button ──
-class _GpsButton extends StatelessWidget {
-  final bool loading;
-  final bool captured;
-  final double? lat;
-  final double? lng;
-  final VoidCallback onTap;
-
-  const _GpsButton({
-    required this.loading,
-    required this.captured,
-    required this.onTap,
-    this.lat,
-    this.lng,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: loading ? null : onTap,
-          child: Container(
-            width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-            decoration: BoxDecoration(
-              color: captured
-                  ? const Color(0xFFE8F5E9)
-                  : const Color(0xFFF0E8EA),
-              borderRadius: BorderRadius.circular(12),
-              border: captured
-                  ? Border.all(color: const Color(0xFF43A047), width: 1.5)
-                  : null,
-            ),
-            child: Row(
-              children: [
-                if (loading)
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Color(0xFFF47B8C)),
-                  )
-                else
-                  Icon(
-                    captured
-                        ? Icons.check_circle_rounded
-                        : Icons.my_location_rounded,
-                    size: 18,
-                    color: captured
-                        ? const Color(0xFF43A047)
-                        : const Color(0xFFF43D5E),
-                  ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    loading
-                        ? 'Mendapatkan lokasi...'
-                        : captured
-                            ? 'Lokasi berhasil disimpan'
-                            : 'Gunakan Lokasi Saat Ini',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: captured
-                          ? const Color(0xFF43A047)
-                          : const Color(0xFF1A1A1A),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (captured && lat != null && lng != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text(
-              '${lat!.toStringAsFixed(6)}, ${lng!.toStringAsFixed(6)}',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-            ),
-          ),
-        Padding(
-          padding: const EdgeInsets.only(top: 6, left: 4),
-          child: Text(
-            captured
-                ? 'Ketuk lagi untuk memperbarui lokasi'
-                : 'Pastikan Anda berada di lokasi panti saat mengetuk tombol ini',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-          ),
-        ),
       ],
     );
   }

@@ -13,12 +13,14 @@ class SocietyProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'password',
             'nama_pengguna', 'alamat', 'nomor_telepon', 'jenis_kelamin',
+            'profile_picture',
         ]
         extra_kwargs = {
             'nama_pengguna': {'required': False},
             'alamat': {'required': False},
             'nomor_telepon': {'required': False},
             'jenis_kelamin': {'required': False},
+            'profile_picture': {'required': False},
         }
 
     def update(self, instance, validated_data):

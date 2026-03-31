@@ -6,6 +6,7 @@ import 'package:ruangpeduliapp/masyarakat/profile/edit_profil_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/transaksi/konfirmasi_pembayaran_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/history/riwayat_donasi_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final int? userId;
@@ -106,6 +107,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)),
       );
+    } else if (index == 2) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => RiwayatDonasiScreen(userId: widget.userId)),
+      );
     }
     setState(() => _selectedIndex = index);
   }
@@ -153,14 +158,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: Colors.grey.shade200,
                             ),
                             child: ClipOval(
-                              child: Image.asset(
-                                'assets/images/profile_photo.png',
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(
-                                    Icons.person_rounded,
-                                    size: 40,
-                                    color: Colors.grey.shade400),
-                              ),
+                              child: _userProfile?.profilePicture != null
+                                  ? Image.network(
+                                      _userProfile!.profilePicture!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Icon(
+                                          Icons.person_rounded,
+                                          size: 40,
+                                          color: Colors.grey.shade400),
+                                    )
+                                  : Icon(
+                                      Icons.person_rounded,
+                                      size: 40,
+                                      color: Colors.grey.shade400),
                             ),
                           ),
                           const SizedBox(width: 16),

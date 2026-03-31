@@ -1,11 +1,63 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
-import 'package:ruangpeduliapp/masyarakat/transaksi/konfirmasi_pembayaran_screen.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
+import 'package:ruangpeduliapp/masyarakat/home/panti_detail_screen.dart';
 
-class BeritaDetailScreen extends StatelessWidget {
+class BeritaDetailScreen extends StatefulWidget {
   final BeritaModel berita;
+  final int? userId;
 
-  const BeritaDetailScreen({super.key, required this.berita});
+  const BeritaDetailScreen({super.key, required this.berita, this.userId});
+
+  @override
+  State<BeritaDetailScreen> createState() => _BeritaDetailScreenState();
+}
+
+class _BeritaDetailScreenState extends State<BeritaDetailScreen> {
+  bool _loadingProfile = false;
+
+  Future<void> _onLihatProfil() async {
+    if (widget.berita.pantiId == null) return;
+    setState(() => _loadingProfile = true);
+    try {
+      final api = ProfileApi();
+      final results = await Future.wait([
+        api.fetchPantiProfile(widget.berita.pantiId!),
+        api.fetchPantiMedia(widget.berita.pantiId!),
+      ]);
+      if (!mounted) return;
+      final profile = results[0] as PantiProfileModel;
+      final media = results[1] as List<PantiMediaModel>;
+      final mediaUrls = media
+          .where((m) => m.file != null && m.file!.isNotEmpty)
+          .map((m) => m.file!)
+          .toList();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PantiDetailScreen(
+            namaPanti: profile.namaPanti,
+            username: '@${profile.username}',
+            nomorPanti: profile.nomorPanti,
+            alamatPanti: profile.alamatPanti,
+            description: profile.description,
+            profilePicture: profile.profilePicture,
+            terkumpul: profile.formattedTotalTerkumpul,
+            userId: widget.userId,
+            mediaUrls: mediaUrls,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memuat profil panti')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +93,7 @@ class BeritaDetailScreen extends StatelessWidget {
                 children: [
                   // ── Title ──
                   Text(
-                    berita.title,
+                    widget.berita.title,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -56,7 +108,7 @@ class BeritaDetailScreen extends StatelessWidget {
                       _pantiAvatar(),
                       const SizedBox(width: 10),
                       Text(
-                        berita.pantiName,
+                        widget.berita.pantiName,
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -69,7 +121,7 @@ class BeritaDetailScreen extends StatelessWidget {
 
                   // ── Content ──
                   Text(
-                    berita.content,
+                    widget.berita.content,
                     textAlign: TextAlign.justify,
                     style: const TextStyle(
                       fontSize: 14,
@@ -79,22 +131,15 @@ class BeritaDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
 
-                  // ── Donasi button ──
+                  // ── Lihat Profil button ──
                   Center(
                     child: SizedBox(
                       width: 200,
                       height: 46,
                       child: ElevatedButton(
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => KonfirmasiPembayaranScreen(
-                              namaPanti: berita.pantiName,
-                              terkumpul: '',
-                              imagePath: berita.pantiProfilePicture ?? '',
-                            ),
-                          ),
-                        ),
+                        onPressed: (widget.berita.pantiId == null || _loadingProfile)
+                            ? null
+                            : _onLihatProfil,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE8848A),
                           foregroundColor: Colors.white,
@@ -103,13 +148,22 @@ class BeritaDetailScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(24),
                           ),
                         ),
-                        child: const Text(
-                          'Donasi',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        child: _loadingProfile
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Lihat Profil',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ),
                   ),
@@ -124,9 +178,9 @@ class BeritaDetailScreen extends StatelessWidget {
   }
 
   Widget _buildThumbnail() {
-    if (berita.thumbnail != null && berita.thumbnail!.isNotEmpty) {
+    if (widget.berita.thumbnail != null && widget.berita.thumbnail!.isNotEmpty) {
       return Image.network(
-        berita.thumbnail!,
+        widget.berita.thumbnail!,
         width: double.infinity,
         height: 220,
         fit: BoxFit.cover,
@@ -148,11 +202,11 @@ class BeritaDetailScreen extends StatelessWidget {
   }
 
   Widget _pantiAvatar() {
-    if (berita.pantiProfilePicture != null &&
-        berita.pantiProfilePicture!.isNotEmpty) {
+    if (widget.berita.pantiProfilePicture != null &&
+        widget.berita.pantiProfilePicture!.isNotEmpty) {
       return ClipOval(
         child: Image.network(
-          berita.pantiProfilePicture!,
+          widget.berita.pantiProfilePicture!,
           width: 36,
           height: 36,
           fit: BoxFit.cover,
