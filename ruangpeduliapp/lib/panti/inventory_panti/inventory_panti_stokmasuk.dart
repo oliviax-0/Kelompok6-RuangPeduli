@@ -1319,7 +1319,7 @@ class _EditItemDialogState extends State<_EditItemDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 15),
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
