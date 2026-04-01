@@ -6,6 +6,8 @@ class KonfirmasiMetodeScreen extends StatefulWidget {
   final String terkumpul;
   final String imagePath;
   final String nominal;
+  final int? pantiId;
+  final int? userId;
 
   const KonfirmasiMetodeScreen({
     super.key,
@@ -13,6 +15,8 @@ class KonfirmasiMetodeScreen extends StatefulWidget {
     required this.terkumpul,
     required this.imagePath,
     required this.nominal,
+    this.pantiId,
+    this.userId,
   });
 
   @override
@@ -51,13 +55,19 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
     return 'Rp${buffer.toString()}';
   }
 
-  void _onKonfirmasi() {
-    Navigator.push(
+  Future<void> _onKonfirmasi() async {
+    final noRef = 'REF${DateTime.now().millisecondsSinceEpoch % 100000}';
+    final result = await Navigator.push<bool>(
       context,
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => TransaksiSuksesScreen(
           namaPanti: widget.namaPanti,
           total: _formatRupiah(_totalPembayaran),
+          jumlahDonasi: _nominalInt,
+          metodePembayaran: _selectedMetode,
+          noReferensi: noRef,
+          pantiId: widget.pantiId,
+          userId: widget.userId,
         ),
         transitionsBuilder: (_, anim, __, child) {
           return SlideTransition(
@@ -71,6 +81,7 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
         transitionDuration: const Duration(milliseconds: 400),
       ),
     );
+    if (result == true && mounted) Navigator.of(context).pop(true);
   }
 
   @override
@@ -133,20 +144,8 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.asset(
-                              widget.imagePath,
-                              width: 80,
-                              height: 70,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 80,
-                                height: 70,
-                                color: const Color(0xFFDDCDD0),
-                                child: Icon(Icons.image_rounded,
-                                    size: 32,
-                                    color: Colors.grey.shade400),
-                              ),
-                            ),
+                            child: _PantiImage(
+                                path: widget.imagePath, width: 80, height: 70),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -319,6 +318,45 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
       ),
     );
   }
+}
+
+class _PantiImage extends StatelessWidget {
+  final String path;
+  final double width;
+  final double height;
+  const _PantiImage(
+      {required this.path, required this.width, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    final isNetwork =
+        path.startsWith('http://') || path.startsWith('https://');
+    if (isNetwork) {
+      return Image.network(
+        path,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _placeholder(),
+      );
+    }
+    if (path.isEmpty) return _placeholder();
+    return Image.asset(
+      path,
+      width: width,
+      height: height,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _placeholder(),
+    );
+  }
+
+  Widget _placeholder() => Container(
+        width: width,
+        height: height,
+        color: const Color(0xFFDDCDD0),
+        child: Icon(Icons.home_work_rounded,
+            size: 32, color: Colors.grey.shade400),
+      );
 }
 
 class _BiayaRow extends StatelessWidget {

@@ -33,6 +33,8 @@ class InventoryItemModel {
   final int quantity;
   final String unit;
   final String status;
+  final String? dailyUsage;
+  final String? description;
 
   const InventoryItemModel({
     required this.id,
@@ -40,6 +42,8 @@ class InventoryItemModel {
     required this.quantity,
     required this.unit,
     required this.status,
+    this.dailyUsage,
+    this.description,
   });
 
   bool get isOutOfStock => status == 'out_of_stock';
@@ -50,6 +54,8 @@ class InventoryItemModel {
         quantity: json['quantity'] ?? 0,
         unit: json['unit'] ?? 'pcs',
         status: json['status'] ?? 'available',
+        dailyUsage: json['daily_usage']?.toString(),
+        description: json['description']?.toString(),
       );
 }
 

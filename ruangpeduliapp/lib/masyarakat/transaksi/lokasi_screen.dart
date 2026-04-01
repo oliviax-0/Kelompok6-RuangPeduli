@@ -1,15 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:ruangpeduliapp/masyarakat/notification/notification_screen.dart';
 
 class LokasiScreen extends StatelessWidget {
   final String namaPanti;
   final String alamat;
+  final double lat;
+  final double lng;
+  final double? distanceMeters;
 
   const LokasiScreen({
     super.key,
     required this.namaPanti,
     required this.alamat,
+    required this.lat,
+    required this.lng,
+    this.distanceMeters,
   });
+
+  String get _distanceLabel {
+    if (distanceMeters == null) return 'Jarak tidak tersedia';
+    if (distanceMeters! < 1000) return '${distanceMeters!.round()} m dari lokasi Anda';
+    return '${(distanceMeters! / 1000).toStringAsFixed(1)} km dari lokasi Anda';
+  }
+
+  Future<void> _openMaps() async {
+    final uri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+    await launchUrl(uri, mode: LaunchMode.inAppWebView);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,37 +70,14 @@ class LokasiScreen extends StatelessWidget {
                       height: 26,
                       color: const Color(0xFF1A1A1A),
                       errorBuilder: (_, __, ___) => const Icon(
-                        Icons.notifications_none_rounded,
-                        size: 26, color: Color(0xFF1A1A1A)),
+                          Icons.notifications_none_rounded,
+                          size: 26,
+                          color: Color(0xFF1A1A1A)),
                     ),
                   ),
                 ],
               ),
             ),
-
-            // ── Search bar (static) ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                height: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0F0F0),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 14),
-                    Icon(Icons.mic_rounded,
-                        size: 16, color: Colors.grey.shade400),
-                    const SizedBox(width: 8),
-                    Text('Search',
-                        style: TextStyle(
-                            fontSize: 14, color: Colors.grey.shade400)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
 
             // ── Map placeholder ──
             Padding(
@@ -94,7 +90,7 @@ class LokasiScreen extends StatelessWidget {
                   color: const Color(0xFFE8F0D8),
                   child: Stack(
                     children: [
-                      // Map grid lines (simplified map look)
+                      // Map grid lines
                       CustomPaint(
                         size: const Size(double.infinity, 220),
                         painter: _MapPainter(),
@@ -148,7 +144,7 @@ class LokasiScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -171,11 +167,11 @@ class LokasiScreen extends StatelessWidget {
                     // Jarak
                     Row(
                       children: [
-                        const Icon(Icons.access_time_rounded,
-                            size: 16, color: Color(0xFF1A1A1A)),
+                        const Icon(Icons.near_me_rounded,
+                            size: 16, color: Color(0xFFF43D5E)),
                         const SizedBox(width: 8),
                         Text(
-                          '±23 menit dari sini',
+                          _distanceLabel,
                           style: TextStyle(
                               fontSize: 13, color: Colors.grey.shade700),
                         ),
@@ -183,33 +179,44 @@ class LokasiScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
 
-                    // Perkiraan tiba
+                    // Alamat
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.location_on_rounded,
-                            size: 16, color: Color(0xFF1A1A1A)),
+                            size: 16, color: Color(0xFFF43D5E)),
                         const SizedBox(width: 8),
-                        Text(
-                          'Perkiraan tiba pukul 14.35',
-                          style: TextStyle(
-                              fontSize: 13, color: Colors.grey.shade700),
+                        Expanded(
+                          child: Text(
+                            alamat,
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade700,
+                                height: 1.5),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
 
-                    // Jam buka
-                    Row(
-                      children: [
-                        const Icon(Icons.store_rounded,
-                            size: 16, color: Color(0xFF1A1A1A)),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Buka hingga pukul 21.00',
-                          style: TextStyle(
-                              fontSize: 13, color: Colors.grey.shade700),
+                    // Google Maps button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _openMaps,
+                        icon: const Icon(Icons.map_rounded, size: 18),
+                        label: const Text('Buka di Google Maps'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF43D5E),
+                          foregroundColor: Colors.white,
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          textStyle: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -230,7 +237,7 @@ class LokasiScreen extends StatelessWidget {
         color: const Color(0xFFF47B8C),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 12,
             offset: const Offset(0, -3),
           ),
@@ -246,9 +253,7 @@ class LokasiScreen extends StatelessWidget {
               _NavItem(
                   icon: Icons.home_rounded, selected: false, onTap: () {}),
               _NavItem(
-                  icon: Icons.search_rounded,
-                  selected: true,
-                  onTap: () {}),
+                  icon: Icons.search_rounded, selected: true, onTap: () {}),
               _NavItem(
                   icon: Icons.history_rounded, selected: false, onTap: () {}),
               _NavItem(
@@ -280,19 +285,18 @@ class _MapPin extends StatelessWidget {
             border: Border.all(color: Colors.white, width: 2),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.4),
+                color: color.withValues(alpha: 0.4),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
             ],
           ),
-          child:
-              const Icon(Icons.location_on, color: Colors.white, size: 16),
+          child: const Icon(Icons.location_on, color: Colors.white, size: 16),
         ),
         Container(
           width: 2,
           height: 8,
-          color: color.withOpacity(0.6),
+          color: color.withValues(alpha: 0.6),
         ),
       ],
     );
@@ -308,33 +312,20 @@ class _MapPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
 
-    // Roads
     final roadPaint = Paint()
       ..color = Colors.white
       ..strokeWidth = 10
       ..style = PaintingStyle.stroke;
 
-    // Horizontal roads
-    canvas.drawLine(
-        Offset(0, size.height * 0.3),
-        Offset(size.width, size.height * 0.3),
-        roadPaint);
-    canvas.drawLine(
-        Offset(0, size.height * 0.6),
-        Offset(size.width, size.height * 0.6),
-        roadPaint);
+    canvas.drawLine(Offset(0, size.height * 0.3),
+        Offset(size.width, size.height * 0.3), roadPaint);
+    canvas.drawLine(Offset(0, size.height * 0.6),
+        Offset(size.width, size.height * 0.6), roadPaint);
+    canvas.drawLine(Offset(size.width * 0.3, 0),
+        Offset(size.width * 0.3, size.height), roadPaint);
+    canvas.drawLine(Offset(size.width * 0.65, 0),
+        Offset(size.width * 0.65, size.height), roadPaint);
 
-    // Vertical roads
-    canvas.drawLine(
-        Offset(size.width * 0.3, 0),
-        Offset(size.width * 0.3, size.height),
-        roadPaint);
-    canvas.drawLine(
-        Offset(size.width * 0.65, 0),
-        Offset(size.width * 0.65, size.height),
-        roadPaint);
-
-    // Buildings (gray blocks)
     final buildingPaint = Paint()
       ..color = const Color(0xFFB8CCAA)
       ..style = PaintingStyle.fill;
@@ -410,7 +401,7 @@ class _NavItem extends StatelessWidget {
                 size: 28,
                 color: selected
                     ? Colors.white
-                    : Colors.white.withOpacity(0.60)),
+                    : Colors.white.withValues(alpha: 0.60)),
             if (selected)
               Container(
                 margin: const EdgeInsets.only(top: 4),

@@ -4,7 +4,7 @@ import 'inventory_panti_anggota.dart';
 import 'inventory_panti_stokmasuk.dart';
 import 'inventory_panti_stokkeluar.dart';
 import 'inventory_panti_notifikasi.dart';
-import 'inventory_panti_stok_plusicon.dart';
+import 'inventory_panti_stok_plusicon.dart' show showStokOpsiDialog;
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -53,31 +53,19 @@ class _InventarisPantiState extends State<InventarisPanti> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        child: Column(
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 16),
-            _buildStokSection(),
-            const SizedBox(height: 16),
-            _buildAnggotaSection(),
-          ],
-        ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: Column(
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 16),
+          _buildStokSection(),
+          const SizedBox(height: 16),
+          _buildAnggotaSection(),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showStokDetailFabMenu(context),
-        backgroundColor: Colors.white,
-        shape: const CircleBorder(),
-        elevation: 4,
-        child: const Icon(Icons.add, color: Color(0xFF1A1A1A), size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
-
   // ─── Header ──────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
@@ -207,6 +195,22 @@ class _InventarisPantiState extends State<InventarisPanti> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: () => showStokOpsiDialog(context),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1A1A1A),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 26),
+              ),
+            ),
           ),
         ],
       ),

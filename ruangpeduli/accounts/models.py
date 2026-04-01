@@ -43,11 +43,19 @@ class PendingRegistration(models.Model):
     # Masyarakat
     nama_pengguna = models.CharField(max_length=255, null=True, blank=True)
     alamat = models.TextField(null=True, blank=True)
+    nomor_telepon = models.CharField(max_length=20, null=True, blank=True)
 
     # Panti
     nama_panti = models.CharField(max_length=255, null=True, blank=True)
     alamat_panti = models.TextField(null=True, blank=True)
     nomor_panti = models.CharField(max_length=20, null=True, blank=True)
+    provinsi_panti = models.CharField(max_length=100, null=True, blank=True)
+    kabupaten_kota_panti = models.CharField(max_length=100, null=True, blank=True)
+    kecamatan_panti = models.CharField(max_length=100, null=True, blank=True)
+    kelurahan_panti = models.CharField(max_length=100, null=True, blank=True)
+    kode_pos_panti = models.CharField(max_length=10, null=True, blank=True)
+    lat_panti = models.FloatField(null=True, blank=True)
+    lng_panti = models.FloatField(null=True, blank=True)
 
     # OTP
     otp_code = models.CharField(max_length=5, null=True, blank=True)

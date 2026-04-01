@@ -71,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen>
         final pantiId = result['panti_id'] as int?;
         final Widget home = role == 'panti'
             ? HomePanti(userId: userId, pantiId: pantiId)
-            : const HomeMasyarakatScreen();
+            : HomeMasyarakatScreen(userId: userId);
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => home),
           (route) => false,
@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen>
       final pantiId = result['panti_id'] as int?;
       final Widget home = role == 'panti'
           ? HomePanti(userId: userId, pantiId: pantiId)
-          : const HomeMasyarakatScreen();
+          : HomeMasyarakatScreen(userId: userId);
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => home),

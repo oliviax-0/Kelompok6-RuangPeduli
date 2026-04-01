@@ -42,12 +42,14 @@ class StokDetailScreen extends StatefulWidget {
   final String title;
   final int? userId;
   final int? pantiId;
+  final bool isKeluar;
 
   const StokDetailScreen({
     super.key,
     required this.title,
     this.userId,
     this.pantiId,
+    this.isKeluar = false,
   });
 
   @override
@@ -228,6 +230,7 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
                                       categoryName: cat.name,
                                       hasAlert: cat.hasAlert,
                                       userId: widget.userId,
+                                      isKeluar: widget.isKeluar,
                                     ),
                                   ),
                                 ).then((_) => _fetchCategories()),
@@ -282,6 +285,7 @@ class StokDetailKategoriScreen extends StatefulWidget {
   final String categoryName;
   final bool hasAlert;
   final int? userId;
+  final bool isKeluar;
 
   const StokDetailKategoriScreen({
     super.key,
@@ -289,6 +293,7 @@ class StokDetailKategoriScreen extends StatefulWidget {
     required this.categoryName,
     required this.hasAlert,
     this.userId,
+    this.isKeluar = false,
   });
 
   @override
@@ -385,6 +390,34 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
     );
   }
 
+  void _showStokMasukSheet(InventoryItemModel item) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (_) => _StokInputSheet(
+        item: item,
+        isKeluar: widget.isKeluar,
+        onSave: (qty) async {
+          if (widget.userId == null) return;
+          try {
+            final newQty = widget.isKeluar
+                ? (item.quantity - qty).clamp(0, item.quantity)
+                : item.quantity + qty;
+            await InventoryApi().updateItem(widget.userId!, item.id, quantity: newQty);
+            _fetchItems();
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+            }
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -435,12 +468,12 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: RichText(
               text: TextSpan(
-                text: 'Produk: ',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
+                text: 'Jenis: ',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF888888)),
                 children: [
                   TextSpan(
                     text: _loading ? '...' : '${_items.length}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF888888)),
                   ),
                 ],
               ),
@@ -469,17 +502,23 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
                               style: TextStyle(color: Colors.grey),
                             ),
                           )
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        : GridView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.95,
+                            ),
                             itemCount: _items.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final item = _items[index];
-                              return _ItemTile(
+                              return _ItemGridCard(
                                 item: item,
                                 isEditMode: _isEditMode,
                                 onDelete: () => _confirmDeleteItem(index),
                                 onEdit: () => _showEditItemDialog(item),
+                                onTap: () => _showStokMasukSheet(item),
                               );
                             },
                           ),
@@ -510,7 +549,7 @@ Widget _buildSearchBar() {
       decoration: InputDecoration(
         hintText: 'Search',
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
+        prefixIcon: Icon(Icons.mic_none_rounded, color: Colors.grey[400], size: 20),
         border: InputBorder.none,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
       ),
@@ -565,7 +604,7 @@ class _KategoriTile extends StatelessWidget {
                       Text(
                         nama,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF1A1A1A),
                         ),
@@ -606,107 +645,304 @@ class _KategoriTile extends StatelessWidget {
   }
 }
 
-// ─── Item Tile ────────────────────────────────────────────────────────────────
+// ─── Item Grid Card ───────────────────────────────────────────────────────────
 
-class _ItemTile extends StatelessWidget {
+class _ItemGridCard extends StatelessWidget {
   final InventoryItemModel item;
   final bool isEditMode;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
+  final VoidCallback onTap;
 
-  const _ItemTile({
+  const _ItemGridCard({
     required this.item,
     required this.isEditMode,
     required this.onDelete,
     required this.onEdit,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    return GestureDetector(
+      onTap: isEditMode ? null : onTap,
+      child: Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       decoration: BoxDecoration(
         color: isEditMode ? const Color(0xFFF5F5F5) : kPinkLight,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      item.name,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 50),
+              // Quantity + unit
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${item.quantity}',
+                    style: const TextStyle(
+                      fontSize: 64,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1A1A1A),
+                      height: 1.0,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      item.unit,
                       style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
                         color: Color(0xFF1A1A1A),
                       ),
                     ),
-                    if (item.isOutOfStock) ...[
-                      const SizedBox(width: 6),
-                      const Icon(Icons.error_rounded, color: kRed, size: 16),
-                    ],
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Name
+              Text(
+                item.name,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A),
                 ),
-                const SizedBox(height: 2),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              // PHRR or description
+              if (item.dailyUsage != null) ...[
+                const SizedBox(height: 3),
                 Text(
-                  '${item.quantity} ${item.unit}',
-                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  'PHRR: ${item.dailyUsage} ${item.unit} per hari',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ] else if (item.description != null && item.description!.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  item.description!,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
+            ],
+          ),
+          // Edit/delete + out-of-stock badge
+          if (isEditMode)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: onEdit,
+                    behavior: HitTestBehavior.opaque,
+                    child: Icon(Icons.edit_outlined, color: Colors.grey[500], size: 18),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: onDelete,
+                    behavior: HitTestBehavior.opaque,
+                    child: Icon(Icons.close, color: Colors.grey[500], size: 18),
+                  ),
+                ],
+              ),
+            )
+          else if (item.isOutOfStock)
+            const Positioned(
+              top: 0,
+              right: 0,
+              child: Icon(Icons.error_rounded, color: kRed, size: 18),
+            ),
+        ],
+      ),
+    ),
+    );
+  }
+}
+
+// ─── Confirm Delete Dialog ────────────────────────────────────────────────────
+
+// ─── Stok Input Bottom Sheet ──────────────────────────────────────────────────
+
+class _StokInputSheet extends StatefulWidget {
+  final InventoryItemModel item;
+  final bool isKeluar;
+  final Future<void> Function(int qty) onSave;
+
+  const _StokInputSheet({required this.item, required this.isKeluar, required this.onSave});
+
+  @override
+  State<_StokInputSheet> createState() => _StokInputSheetState();
+}
+
+class _StokInputSheetState extends State<_StokInputSheet> {
+  int _qty = 0;
+  bool _saving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 36),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          if (isEditMode)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: onEdit,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.edit_outlined, color: Colors.grey[600], size: 20),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                GestureDetector(
-                  onTap: onDelete,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.close, color: Colors.grey[600], size: 20),
-                  ),
-                ),
-              ],
-            )
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: item.isOutOfStock
-                    ? kRed.withValues(alpha: 0.1)
-                    : kGreen.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                item.isOutOfStock ? 'Habis' : 'Ada',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: item.isOutOfStock ? kRed : kGreen,
-                ),
-              ),
+          const SizedBox(height: 22),
+          // Product name
+          Text(
+            widget.item.name,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1A1A1A),
             ),
+            textAlign: TextAlign.center,
+          ),
+          // Info lines
+          if (widget.item.dailyUsage != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Pemakaian Harian Rata-Rata: ${widget.item.dailyUsage} ${widget.item.unit} per hari',
+              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          if (widget.item.description != null && widget.item.description!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              widget.item.description!,
+              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          const SizedBox(height: 32),
+          // Stepper row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Minus
+              GestureDetector(
+                onTap: () { if (_qty > 0) setState(() => _qty--); },
+                child: Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.remove, color: Colors.white, size: 28),
+                ),
+              ),
+              const SizedBox(width: 18),
+              // Number display
+              Container(
+                width: 100,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8E8E8),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '$_qty',
+                  style: const TextStyle(
+                    fontSize: 52,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 18),
+              // Plus
+              GestureDetector(
+                onTap: () {
+                  final max = widget.isKeluar ? widget.item.quantity : null;
+                  if (max == null || _qty < max) setState(() => _qty++);
+                },
+                child: Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 28),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Unit label
+          Text(
+            widget.item.unit,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 28),
+          // Save button
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton(
+              onPressed: _saving
+                  ? null
+                  : () async {
+                      if (_qty == 0) return;
+                      setState(() => _saving = true);
+                      final nav = Navigator.of(context);
+                      await widget.onSave(_qty);
+                      if (!mounted) return;
+                      nav.pop();
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPink,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+              child: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text(
+                      'Simpan',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+            ),
+          ),
         ],
       ),
     );
@@ -849,9 +1085,10 @@ class _TambahKategoriDialogState extends State<_TambahKategoriDialog> {
                     : () async {
                         if (_controller.text.trim().isEmpty) return;
                         setState(() => _saving = true);
+                        final nav = Navigator.of(context);
                         await widget.onAdd(_controller.text.trim());
                         if (!mounted) return;
-                        Navigator.pop(context);
+                        nav.pop();
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kPink,
@@ -976,9 +1213,10 @@ class _TambahItemDialogState extends State<_TambahItemDialog> {
                         final unit = _unitController.text.trim();
                         if (name.isEmpty) return;
                         setState(() => _saving = true);
+                        final nav = Navigator.of(context);
                         await widget.onAdd(name, qty, unit.isEmpty ? 'pcs' : unit);
                         if (!mounted) return;
-                        Navigator.pop(context);
+                        nav.pop();
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kPink,
@@ -1091,9 +1329,10 @@ class _EditItemDialogState extends State<_EditItemDialog> {
                         final qty = int.tryParse(_qtyController.text.trim());
                         if (qty == null) return;
                         setState(() => _saving = true);
+                        final nav = Navigator.of(context);
                         await widget.onSave(qty);
                         if (!mounted) return;
-                        Navigator.pop(context);
+                        nav.pop();
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kPink,
