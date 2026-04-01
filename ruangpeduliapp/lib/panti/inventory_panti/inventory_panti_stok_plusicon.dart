@@ -1,4 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/data/inventory_api.dart';
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+class LaporanItemModel {
+  final String categoryName;
+  final String productName;
+  final num amount;
+  final String unit;
+  final bool isMasuk;
+
+  const LaporanItemModel({
+    required this.categoryName,
+    required this.productName,
+    required this.amount,
+    required this.unit,
+    required this.isMasuk,
+  });
+
+  String get formattedAmount => '$amount $unit';
+}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -12,16 +33,17 @@ const Color kRed = Color(0xFFE53935);
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Call this from inventaris_panti.dart when the + button in Stok is tapped
-void showStokOpsiDialog(BuildContext context) {
+void showStokOpsiDialog(BuildContext context, {int? pantiId}) {
   showDialog(
     context: context,
     barrierColor: Colors.black.withOpacity(0.35),
-    builder: (_) => const _StokOpsiDialog(),
+    builder: (_) => _StokOpsiDialog(pantiId: pantiId),
   );
 }
 
 class _StokOpsiDialog extends StatelessWidget {
-  const _StokOpsiDialog();
+  final int? pantiId;
+  const _StokOpsiDialog({this.pantiId});
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +105,7 @@ class _StokOpsiDialog extends StatelessWidget {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const LaporanStokScreen()),
+                  MaterialPageRoute(builder: (_) => LaporanStokScreen(pantiId: pantiId)),
                 );
               },
             ),
@@ -146,7 +168,6 @@ class TambahProdukScreen extends StatefulWidget {
 
 class _TambahProdukScreenState extends State<TambahProdukScreen> {
   final _namaController = TextEditingController();
-  final _satuanController = TextEditingController();
   final _pemakaianController = TextEditingController();
   final _waktuTungguController = TextEditingController();
 
@@ -163,7 +184,6 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
   @override
   void dispose() {
     _namaController.dispose();
-    _satuanController.dispose();
     _pemakaianController.dispose();
     _waktuTungguController.dispose();
     super.dispose();
@@ -172,9 +192,9 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kPinkLight,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -197,7 +217,6 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Kategori Produk
             _buildLabel('Kategori Produk'),
             const SizedBox(height: 8),
             _buildDropdown(
@@ -206,15 +225,13 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
               items: _kategoriOptions,
               onChanged: (v) => setState(() => _selectedKategori = v),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // Nama Produk
             _buildLabel('Nama Produk'),
             const SizedBox(height: 8),
             _buildTextField(controller: _namaController, hint: 'Ketik Nama Produk'),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // Satuan
             _buildLabel('Satuan'),
             const SizedBox(height: 8),
             _buildDropdown(
@@ -223,28 +240,22 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
               items: _satuanOptions,
               onChanged: (v) => setState(() => _selectedSatuan = v),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // Pemakaian Harian Rata-Rata
-            Row(
-              children: [
-                _buildLabel('Pemakaian Harian Rata-Rata'),
-                const SizedBox(width: 6),
-                Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
-              ],
-            ),
+            Row(children: [
+              _buildLabel('Pemakaian Harian Rata-Rata'),
+              const SizedBox(width: 6),
+              Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
+            ]),
             const SizedBox(height: 8),
             _buildAITextField(controller: _pemakaianController, hint: 'Ketik atau gunakan Rekomendasi AI'),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // Waktu Tunggu Produk
-            Row(
-              children: [
-                _buildLabel('Waktu Tunggu Produk'),
-                const SizedBox(width: 6),
-                Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
-              ],
-            ),
+            Row(children: [
+              _buildLabel('Waktu Tunggu Produk'),
+              const SizedBox(width: 6),
+              Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
+            ]),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -305,7 +316,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.7),
+        fillColor: const Color(0xFFF2F2F2),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
@@ -324,7 +335,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.7),
+        fillColor: const Color(0xFFF2F2F2),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         suffixIcon: Padding(
           padding: const EdgeInsets.only(right: 8),
@@ -354,10 +365,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(30),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(30)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           isExpanded: true,
@@ -377,50 +385,77 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
 // FLOW 2 & 3 — Laporan Stok
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _LaporanItem {
-  final String kategori;
-  final String subLabel;
-  final String amount;
-  final bool isMasuk;
-
-  const _LaporanItem({
-    required this.kategori,
-    required this.subLabel,
-    required this.amount,
-    required this.isMasuk,
-  });
-}
-
-final List<_LaporanItem> _laporanData = [
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Minuman', subLabel: 'Susu Kedelai', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Minyak Goreng', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Singkong', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Obat-obatan', subLabel: 'Obat Pilek', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '-3kg', isMasuk: false),
+final List<LaporanItemModel> _dummyLaporan = [
+  const LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Beras Merah',    amount: 5,  unit: 'kg',    isMasuk: true),
+  const LaporanItemModel(categoryName: 'Minuman',     productName: 'Susu Kedelai',   amount: 3,  unit: 'liter', isMasuk: false),
+  const LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Minyak Goreng',  amount: 2,  unit: 'liter', isMasuk: true),
+  const LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Minyak Goreng',  amount: 1,  unit: 'liter', isMasuk: false),
+  const LaporanItemModel(categoryName: 'Obat-obatan', productName: 'Obat Pilek',     amount: 10, unit: 'pcs',   isMasuk: true),
+  const LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Singkong',       amount: 5,  unit: 'kg',    isMasuk: true),
+  const LaporanItemModel(categoryName: 'Minuman',     productName: 'Teh Kotak',      amount: 12, unit: 'pcs',   isMasuk: false),
+  const LaporanItemModel(categoryName: 'Perlengkapan',productName: 'Sabun Mandi',    amount: 6,  unit: 'pcs',   isMasuk: true),
+  const LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Gula Pasir',     amount: 3,  unit: 'kg',    isMasuk: false),
+  const LaporanItemModel(categoryName: 'Obat-obatan', productName: 'Vitamin C',      amount: 20, unit: 'pcs',   isMasuk: true),
+  const LaporanItemModel(categoryName: 'Perlengkapan',productName: 'Deterjen',       amount: 2,  unit: 'kg',    isMasuk: false),
+  const LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Tepung Terigu',  amount: 4,  unit: 'kg',    isMasuk: true),
 ];
 
 class LaporanStokScreen extends StatefulWidget {
-  const LaporanStokScreen({super.key});
+  final int? pantiId;
+  const LaporanStokScreen({super.key, this.pantiId});
 
   @override
   State<LaporanStokScreen> createState() => _LaporanStokScreenState();
 }
 
 class _LaporanStokScreenState extends State<LaporanStokScreen> {
-  String? _filterValue;
+  String _filterValue = 'Semua';
+  String _searchQuery = '';
   final List<String> _filterOptions = ['Semua', 'Stok Masuk', 'Stok Keluar'];
+  final _searchController = TextEditingController();
 
-  List<_LaporanItem> get _filtered {
-    if (_filterValue == null || _filterValue == 'Semua') return _laporanData;
-    if (_filterValue == 'Stok Masuk') return _laporanData.where((e) => e.isMasuk).toList();
-    return _laporanData.where((e) => !e.isMasuk).toList();
+  List<LaporanItemModel> _allData = _dummyLaporan;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLaporan();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchLaporan() async {
+    if (widget.pantiId == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    if (mounted) setState(() { _loading = true; _error = null; });
+    try {
+      final data = await InventoryApi().fetchLaporan(widget.pantiId!);
+      if (mounted) setState(() { _allData = data.isEmpty ? _dummyLaporan : data; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _allData = _dummyLaporan; _loading = false; });
+    }
+  }
+
+  List<LaporanItemModel> get _filtered {
+    var list = _allData;
+    if (_filterValue == 'Stok Masuk') list = list.where((e) => e.isMasuk).toList();
+    if (_filterValue == 'Stok Keluar') list = list.where((e) => !e.isMasuk).toList();
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((e) =>
+        e.categoryName.toLowerCase().contains(q) ||
+        e.productName.toLowerCase().contains(q),
+      ).toList();
+    }
+    return list;
   }
 
   @override
@@ -476,6 +511,8 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
                       ],
                     ),
                     child: TextField(
+                      controller: _searchController,
+                      onChanged: (v) => setState(() => _searchQuery = v),
                       decoration: InputDecoration(
                         hintText: 'Search',
                         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -532,7 +569,7 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
-                                value: _filterValue ?? 'Semua',
+                                value: _filterValue,
                                 isDense: true,
                                 icon: const Icon(Icons.tune_rounded, size: 18, color: Color(0xFF1A1A1A)),
                                 style: const TextStyle(
@@ -543,7 +580,7 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
                                 items: _filterOptions
                                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                                     .toList(),
-                                onChanged: (v) => setState(() => _filterValue = v),
+                                onChanged: (v) => setState(() => _filterValue = v ?? 'Semua'),
                               ),
                             ),
                           ),
@@ -553,15 +590,32 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
 
                     // List
                     Expanded(
-                      child: ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
-                        itemCount: _filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          return _LaporanTile(item: _filtered[index]);
-                        },
-                      ),
+                      child: _loading
+                          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                          : _error != null
+                              ? Center(
+                                  child: Text(
+                                    _error!,
+                                    style: const TextStyle(color: Colors.white),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                )
+                              : _filtered.isEmpty
+                                  ? const Center(
+                                      child: Text(
+                                        'Tidak ada data laporan.',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    )
+                                  : ListView.separated(
+                                      controller: scrollController,
+                                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+                                      itemCount: _filtered.length,
+                                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                      itemBuilder: (context, index) {
+                                        return _LaporanTile(item: _filtered[index]);
+                                      },
+                                    ),
                     ),
                   ],
                 ),
@@ -577,7 +631,7 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
 // ─── Laporan Tile ─────────────────────────────────────────────────────────────
 
 class _LaporanTile extends StatelessWidget {
-  final _LaporanItem item;
+  final LaporanItemModel item;
   const _LaporanTile({required this.item});
 
   @override
@@ -611,11 +665,11 @@ class _LaporanTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.kategori,
+                  item.categoryName,
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1A1A1A)),
                 ),
                 const SizedBox(height: 2),
-                Text(item.subLabel, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                Text(item.productName, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               ],
             ),
           ),
@@ -623,7 +677,7 @@ class _LaporanTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                item.amount,
+                item.formattedAmount,
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1A1A1A)),
               ),
               const SizedBox(height: 2),
@@ -631,157 +685,6 @@ class _LaporanTile extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Call this from stock detail screens to show the FAB selection menu
-void showStokDetailFabMenu(BuildContext context) {
-  showDialog(
-    context: context,
-    barrierColor: Colors.black.withOpacity(0.35),
-    builder: (_) => const _StokDetailFabMenu(),
-  );
-}
-
-class _StokDetailFabMenu extends StatelessWidget {
-  const _StokDetailFabMenu();
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-      backgroundColor: kPink,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 60),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Tambahkan Produk option
-            _FabMenuOption(
-              icon: Icons.inventory_2_outlined,
-              label: 'Tambahkan Produk',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TambahProdukScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            // Lihat Laporan option
-            _FabMenuOption(
-              icon: Icons.description_outlined,
-              label: 'Lihat Laporan',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LaporanStokScreen()),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FabMenuOption extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _FabMenuOption({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: kPink, size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            Icon(Icons.arrow_forward_rounded, color: kPink, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// WRAPPER — Stock Detail Screen with FAB
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/// Wrap your stock detail screen content with this to add FAB functionality
-class StockDetailWithFab extends StatelessWidget {
-  final String title;
-  final List<Widget> children;
-
-  const StockDetailWithFab({
-    required this.title,
-    required this.children,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1A1A1A),
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-        child: Column(children: children),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showStokDetailFabMenu(context),
-        backgroundColor: Colors.white,
-        shape: const CircleBorder(),
-        elevation: 4,
-        child: const Icon(Icons.add, color: kPink, size: 28),
       ),
     );
   }
