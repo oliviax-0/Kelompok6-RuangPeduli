@@ -4,6 +4,7 @@ import 'inventory_panti_anggota.dart';
 import 'inventory_panti_stokmasuk.dart';
 import 'inventory_panti_stokkeluar.dart';
 import 'inventory_panti_notifikasi.dart';
+import 'inventory_panti_stok_plusicon.dart' show showStokOpsiDialog;
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -194,6 +195,22 @@ class _InventarisPantiState extends State<InventarisPanti> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: () => showStokOpsiDialog(context),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1A1A1A),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 26),
+              ),
+            ),
           ),
         ],
       ),

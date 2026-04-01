@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'inventory_panti_stokmasuk.dart';
-import 'inventory_panti_stokkeluar.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -64,32 +62,6 @@ class _StokOpsiDialog extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            // Stok Masuk
-            _OpsiTile(
-              icon: Icons.arrow_downward_rounded,
-              label: 'Stok Masuk',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const StokMasukScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: 10),
-            // Stok Keluar
-            _OpsiTile(
-              icon: Icons.arrow_upward_rounded,
-              label: 'Stok Keluar',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const StokKeluarScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: 10),
             // Tambahkan Produk
             _OpsiTile(
               icon: Icons.add_box_outlined,
