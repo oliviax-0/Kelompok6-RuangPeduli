@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/finance_api.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
-import 'keuangan_panti_baru.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -29,14 +28,6 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
   List<TransactionModel> _transactions = [];
   bool _loading = true;
   String? _error;
-
-  String _formatRp(double amount) {
-    final formatted = amount.toInt().toString().replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (m) => '${m[1]}.',
-        );
-    return 'Rp $formatted';
-  }
 
   @override
   void initState() {
@@ -78,36 +69,32 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
     }
   }
 
+
+  String _formatRp(double amount) {
+    final formatted = amount.toInt().toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]}.',
+        );
+    return 'Rp $formatted';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildDashboardCard(),
-              ),
-            ],
-          ),
-          _buildTransactionSection(),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const KeuanganPantiBaru()),
+    return Stack(
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildDashboardCard(),
+            ),
+          ],
         ),
-        backgroundColor: Colors.white,
-        shape: const CircleBorder(),
-        elevation: 4,
-        child: const Icon(Icons.add, color: kPink, size: 28),
-      ),
+        _buildTransactionSection(),
+      ],
     );
   }
 
@@ -268,17 +255,12 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
                   ),
                 ),
               ),
-              // ── Header row (hanya text, tanpa icon) ──────────────────
+              // ── Header row ──────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Riwayat Transaksi',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
-                    ),
-                  ],
+                padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+                child: const Text(
+                  'Riwayat Transaksi',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
                 ),
               ),
               Expanded(
@@ -396,35 +378,6 @@ class _TransactionTile extends StatelessWidget {
 
 // ─── Choice Button ────────────────────────────────────────────────────────────
 
-class _ChoiceButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _ChoiceButton({required this.icon, required this.label, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 26),
-            const SizedBox(height: 6),
-            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ─── Tambah Pemasukan Dialog ──────────────────────────────────────────────────
 
@@ -597,9 +550,8 @@ class _TambahPemasukanDialogState extends State<_TambahPemasukanDialog> {
 
 class _TambahPengeluaranDialog extends StatefulWidget {
   final int userId;
-  final int? pantiId;
   final VoidCallback onSaved;
-  const _TambahPengeluaranDialog({required this.userId, this.pantiId, required this.onSaved});
+  const _TambahPengeluaranDialog({required this.userId, required this.onSaved});
 
   @override
   State<_TambahPengeluaranDialog> createState() => _TambahPengeluaranDialogState();
@@ -608,7 +560,7 @@ class _TambahPengeluaranDialog extends StatefulWidget {
 class _TambahPengeluaranDialogState extends State<_TambahPengeluaranDialog> {
   final _jumlahController = TextEditingController();
   final _catatanController = TextEditingController();
-  List<CategoryModel> _kategoriList = [];
+  final List<CategoryModel> _kategoriList = [];
   CategoryModel? _selectedKategori;
   DateTime _tanggal = DateTime.now();
   bool _saving = false;
@@ -616,11 +568,6 @@ class _TambahPengeluaranDialogState extends State<_TambahPengeluaranDialog> {
   @override
   void initState() {
     super.initState();
-    if (widget.pantiId != null) {
-      InventoryApi().fetchCategories(widget.pantiId!).then((list) {
-        if (mounted) setState(() { _kategoriList = list; if (list.isNotEmpty) _selectedKategori = list.first; });
-      });
-    }
   }
 
   @override

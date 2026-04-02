@@ -2,12 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:ruangpeduliapp/panti/keuangan_panti/keuangan_panti.dart';
+import 'package:ruangpeduliapp/panti/keuangan_panti/keuangan_plus.dar
 import 'package:ruangpeduliapp/panti/inventory_panti/inventory_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/profile_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_berita_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_beritabaru.dart';
-import 'package:ruangpeduliapp/panti/home_panti/home_ai.dart';
-import 'package:ruangpeduliapp/data/content_api.dart';
+import 'package:ruangpeduliapp/panti/home_panti/home_ai.dart
+import 'package:ruangpeduliapp/data/content_api.dart'
 import 'package:ruangpeduliapp/data/profile_api.dart';
 
 void main() {
@@ -353,10 +354,24 @@ class _HomePantiState extends State<HomePanti> {
         // Main + FAB
         FloatingActionButton(
           onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const BeritaBaruPanti()),
-            );
+            if (_selectedIndex == 1 &&
+                widget.userId != null &&
+                widget.pantiId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => InputTransaksiPage(
+                    userId: widget.userId!,
+                    pantiId: widget.pantiId!,
+                  ),
+                ),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BeritaBaruPanti()),
+              );
+            }
           },
           backgroundColor: Colors.white,
           elevation: 4,
