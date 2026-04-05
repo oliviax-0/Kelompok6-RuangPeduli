@@ -1,3 +1,6 @@
+import os
+import json
+import requests as req_lib
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -236,3 +239,113 @@ class LaporanView(APIView):
 
         laporan = StokLaporan.objects.create(item=item, amount=amount, tipe=tipe)
         return Response(StokLaporanSerializer(laporan).data, status=status.HTTP_201_CREATED)
+
+
+# ─── AI PHRR Prediction ────────────────────────────────────────────────────────
+
+class PredictPhrrView(APIView):
+    """
+    POST /api/inventory/predict-phrr/
+    Body: { panti_id, product_name, unit }
+    Returns: { daily_usage: float, reasoning: str }
+    Uses Claude API to predict daily usage based on product type + resident count.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        panti_id     = request.data.get('panti_id')
+        product_name = request.data.get('product_name', '').strip()
+        unit         = request.data.get('unit', 'pcs').strip()
+
+        if not panti_id or not product_name:
+            return Response({'error': 'panti_id dan product_name wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        panti = get_object_or_404(OrphanageProfile, pk=panti_id)
+        penghuni_count = panti.penghuni.count()
+
+        api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+        if not api_key:
+            return Response({'error': 'ANTHROPIC_API_KEY belum dikonfigurasi'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        prompt = (
+            f"Kamu adalah sistem AI untuk manajemen inventaris panti asuhan di Indonesia.\n"
+            f"Berikan prediksi pemakaian harian rata-rata (PHRR) untuk produk berikut:\n\n"
+            f"Produk: {product_name}\n"
+            f"Satuan: {unit}\n"
+            f"Jumlah penghuni panti: {penghuni_count} orang\n\n"
+            f"Pertimbangkan:\n"
+            f"- Jenis produk (makanan pokok lebih cepat habis dari bumbu dapur)\n"
+            f"- Jumlah penghuni ({penghuni_count} orang) sebagai faktor pengali utama\n"
+            f"- Kebiasaan konsumsi di panti asuhan Indonesia\n\n"
+            f"Balas HANYA dalam format JSON berikut, tanpa teks lain:\n"
+            f'{{ "daily_usage": <angka desimal>, "reasoning": "<alasan singkat 1 kalimat>" }}'
+        )
+
+        try:
+            resp = req_lib.post(
+                'https://api.anthropic.com/v1/messages',
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                },
+                json={
+                    'model': 'claude-haiku-4-5-20251001',
+                    'max_tokens': 128,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                },
+                timeout=20,
+            )
+            resp.raise_for_status()
+            text = resp.json()['content'][0]['text'].strip()
+            # Strip markdown code fences if present
+            if text.startswith('```'):
+                text = text.split('```')[1]
+                if text.startswith('json'):
+                    text = text[4:]
+            result = json.loads(text)
+            daily_usage = float(result.get('daily_usage', 0))
+            reasoning   = result.get('reasoning', '')
+            return Response({'daily_usage': daily_usage, 'reasoning': reasoning, 'unit': unit})
+        except Exception as e:
+            return Response({'error': f'Gagal memanggil AI: {e}'}, status=status.HTTP_502_BAD_GATEWAY)
+
+
+# ─── Low Stock Notifications ───────────────────────────────────────────────────
+
+class LowStockView(APIView):
+    """
+    GET /api/inventory/low-stock/?panti_id=<id>
+    Returns items that need_restock (qty=0 OR days_until_empty <= lead_time_days).
+    Each item includes days_until_empty so the UI can show urgency.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        panti_id = request.query_params.get('panti_id')
+        if not panti_id:
+            return Response({'error': 'panti_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+
+        items = InventoryItem.objects.filter(
+            category__panti_id=panti_id
+        ).select_related('category')
+
+        result = []
+        for item in items:
+            if item.needs_restock:
+                d = item.days_until_empty
+                result.append({
+                    'id': item.id,
+                    'name': item.name,
+                    'quantity': item.quantity,
+                    'unit': item.unit,
+                    'daily_usage': item.daily_usage,
+                    'lead_time_days': item.lead_time_days,
+                    'days_until_empty': round(d, 1) if d is not None else None,
+                    'category_id': item.category.id,
+                    'category_name': item.category.name,
+                    'is_out_of_stock': item.quantity == 0,
+                })
+
+        result.sort(key=lambda x: (x['days_until_empty'] is None, x['days_until_empty'] or 0))
+        return Response(result)

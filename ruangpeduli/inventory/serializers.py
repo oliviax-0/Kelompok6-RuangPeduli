@@ -3,11 +3,17 @@ from .models import InventoryCategory, InventoryItem, StokLaporan
 
 
 class InventoryItemSerializer(serializers.ModelSerializer):
-    status = serializers.ReadOnlyField()
+    status          = serializers.ReadOnlyField()
+    days_until_empty = serializers.ReadOnlyField()
+    needs_restock   = serializers.ReadOnlyField()
 
     class Meta:
         model  = InventoryItem
-        fields = ['id', 'name', 'quantity', 'unit', 'description', 'status']
+        fields = [
+            'id', 'name', 'quantity', 'unit', 'description',
+            'daily_usage', 'lead_time_days',
+            'status', 'days_until_empty', 'needs_restock',
+        ]
 
 
 class InventoryCategorySerializer(serializers.ModelSerializer):

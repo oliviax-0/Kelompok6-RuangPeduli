@@ -16,7 +16,8 @@ const Color kRed = Color(0xFFE53935);
 class KeuanganPanti extends StatefulWidget {
   final int? userId;
   final int? pantiId;
-  const KeuanganPanti({super.key, this.userId, this.pantiId});
+  final int refreshTrigger;
+  const KeuanganPanti({super.key, this.userId, this.pantiId, this.refreshTrigger = 0});
 
   @override
   State<KeuanganPanti> createState() => _KeuanganPantiState();
@@ -40,6 +41,14 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) _fetchData(silent: true);
     });
+  }
+
+  @override
+  void didUpdateWidget(KeuanganPanti oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshTrigger != widget.refreshTrigger) {
+      _fetchData();
+    }
   }
 
   @override

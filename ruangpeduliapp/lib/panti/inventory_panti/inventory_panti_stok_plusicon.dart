@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
+import 'inventory_panti_produkbaru.dart' show TambahProdukScreen;
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -13,17 +14,18 @@ const Color kRed = Color(0xFFE53935);
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Call this from inventaris_panti.dart when the + button in Stok is tapped
-void showStokOpsiDialog(BuildContext context, {int? pantiId}) {
+void showStokOpsiDialog(BuildContext context, {int? pantiId, int? userId}) {
   showDialog(
     context: context,
     barrierColor: Colors.black.withOpacity(0.35),
-    builder: (_) => _StokOpsiDialog(pantiId: pantiId),
+    builder: (_) => _StokOpsiDialog(pantiId: pantiId, userId: userId),
   );
 }
 
 class _StokOpsiDialog extends StatelessWidget {
   final int? pantiId;
-  const _StokOpsiDialog({this.pantiId});
+  final int? userId;
+  const _StokOpsiDialog({this.pantiId, this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -70,10 +72,17 @@ class _StokOpsiDialog extends StatelessWidget {
               label: 'Tambahkan Produk',
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TambahProdukScreen()),
-                );
+                if (pantiId != null && userId != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TambahProdukScreen(
+                        pantiId: pantiId!,
+                        userId: userId!,
+                      ),
+                    ),
+                  );
+                }
               },
             ),
             const SizedBox(height: 10),
@@ -129,232 +138,6 @@ class _OpsiTile extends StatelessWidget {
             ),
             const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 22),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// FLOW 1 — Tambahkan Produk
-// ═══════════════════════════════════════════════════════════════════════════════
-
-class TambahProdukScreen extends StatefulWidget {
-  const TambahProdukScreen({super.key});
-
-  @override
-  State<TambahProdukScreen> createState() => _TambahProdukScreenState();
-}
-
-class _TambahProdukScreenState extends State<TambahProdukScreen> {
-  final _namaController = TextEditingController();
-  final _pemakaianController = TextEditingController();
-  final _waktuTungguController = TextEditingController();
-
-  String? _selectedKategori;
-  String? _selectedSatuan;
-  String? _selectedSatuanWaktu;
-
-  final List<String> _kategoriOptions = [
-    'Bahan Pokok', 'Minuman', 'Obat-obatan', 'Furnitur', 'Perlengkapan', 'Lainnya',
-  ];
-  final List<String> _satuanOptions = ['kg', 'liter', 'pcs', 'box', 'pack', 'lusin'];
-  final List<String> _satuanWaktuOptions = ['Hari', 'Minggu', 'Bulan'];
-
-  @override
-  void dispose() {
-    _namaController.dispose();
-    _pemakaianController.dispose();
-    _waktuTungguController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          children: [
-            const Text(
-              'Tambahkan Produk',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A)),
-            ),
-            const SizedBox(width: 6),
-            Icon(Icons.info_outline_rounded, size: 18, color: Colors.grey[400]),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildLabel('Kategori Produk'),
-            const SizedBox(height: 8),
-            _buildDropdown(
-              hint: 'Pilih Kategori Produk',
-              value: _selectedKategori,
-              items: _kategoriOptions,
-              onChanged: (v) => setState(() => _selectedKategori = v),
-            ),
-            const SizedBox(height: 18),
-
-            _buildLabel('Nama Produk'),
-            const SizedBox(height: 8),
-            _buildTextField(controller: _namaController, hint: 'Ketik Nama Produk'),
-            const SizedBox(height: 18),
-
-            _buildLabel('Satuan'),
-            const SizedBox(height: 8),
-            _buildDropdown(
-              hint: 'Pilih satuan yang digunakan',
-              value: _selectedSatuan,
-              items: _satuanOptions,
-              onChanged: (v) => setState(() => _selectedSatuan = v),
-            ),
-            const SizedBox(height: 18),
-
-            Row(children: [
-              _buildLabel('Pemakaian Harian Rata-Rata'),
-              const SizedBox(width: 6),
-              Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
-            ]),
-            const SizedBox(height: 8),
-            _buildAITextField(controller: _pemakaianController, hint: 'Ketik atau gunakan Rekomendasi AI'),
-            const SizedBox(height: 18),
-
-            Row(children: [
-              _buildLabel('Waktu Tunggu Produk'),
-              const SizedBox(width: 6),
-              Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
-            ]),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTextField(
-                    controller: _waktuTungguController,
-                    hint: 'Ketik Angka',
-                    inputType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildDropdown(
-                    hint: 'Satuan Waktu',
-                    value: _selectedSatuanWaktu,
-                    items: _satuanWaktuOptions,
-                    onChanged: (v) => setState(() => _selectedSatuanWaktu = v),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kPink,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                ),
-                child: const Text('Simpan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) => Text(
-        text,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
-      );
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    TextInputType inputType = TextInputType.text,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: inputType,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
-        filled: true,
-        fillColor: const Color(0xFFF2F2F2),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: const BorderSide(color: kPink, width: 1.5),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAITextField({required TextEditingController controller, required String hint}) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
-        filled: true,
-        fillColor: const Color(0xFFF2F2F2),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        suffixIcon: Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Container(
-            width: 32,
-            height: 32,
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            decoration: const BoxDecoration(color: kPink, shape: BoxShape.circle),
-            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
-          ),
-        ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: const BorderSide(color: kPink, width: 1.5),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropdown({
-    required String hint,
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(30)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          isExpanded: true,
-          hint: Text(hint, style: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14)),
-          value: value,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF1A1A1A)),
-          style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: onChanged,
         ),
       ),
     );

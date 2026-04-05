@@ -1,53 +1,39 @@
 import 'package:flutter/material.dart';
-// import 'package:ruangpeduliapp/panti/inventory_panti/inventory_panti_stok.dart';
-// ↑ Uncomment to use StokProduk model from stok file,
-//   OR keep the model definition below if you prefer this file to be standalone.
+import 'package:ruangpeduliapp/data/inventory_api.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const Color kPink = Color(0xFFF28C9F);
-
-// ─── StokProduk model (copy here if not importing from inventory_panti_stok) ─
-// If you import StokProduk from inventory_panti_stok.dart, delete this class.
-
-class StokProduk {
-  final String nama;
-  final double jumlah;
-  final String satuan;
-  final String phrr;
-  final bool isLow;
-
-  const StokProduk({
-    required this.nama,
-    required this.jumlah,
-    required this.satuan,
-    required this.phrr,
-    this.isLow = false,
-  });
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAMBAH PRODUK SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class TambahProdukScreen extends StatefulWidget {
-  /// Pre-fills the Kategori dropdown when navigating from a specific category.
-  final String? kategoriNama;
+  final int pantiId;
+  final int userId;
 
-  const TambahProdukScreen({super.key, this.kategoriNama});
+  const TambahProdukScreen({
+    super.key,
+    required this.pantiId,
+    required this.userId,
+  });
 
   @override
   State<TambahProdukScreen> createState() => _TambahProdukScreenState();
 }
 
 class _TambahProdukScreenState extends State<TambahProdukScreen> {
-  final _namaController = TextEditingController();
-  final _pemakaianController = TextEditingController();
+  final _namaController       = TextEditingController();
+  final _pemakaianController  = TextEditingController();
   final _waktuTungguController = TextEditingController();
 
   String? _selectedKategori;
   String? _selectedSatuan;
   String? _selectedSatuanWaktu;
+  bool _saving      = false;
+  bool _predictingAI = false;
+  String? _aiReasoning;
 
   final List<String> _kategoriOptions = [
     'Makanan', 'Minuman', 'Obat-obatan', 'Bahan Pokok', 'Lainnya',
@@ -57,14 +43,8 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
   ];
   final List<String> _satuanWaktuOptions = ['Hari', 'Minggu', 'Bulan'];
 
-  @override
-  void initState() {
-    super.initState();
-    // Pre-select kategori if navigated from a specific category page
-    if (widget.kategoriNama != null && _kategoriOptions.contains(widget.kategoriNama)) {
-      _selectedKategori = widget.kategoriNama;
-    }
-  }
+  // Maps satuan waktu label → days multiplier
+  static const _satuanToDays = {'Hari': 1, 'Minggu': 7, 'Bulan': 30};
 
   @override
   void dispose() {
@@ -74,18 +54,95 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
     super.dispose();
   }
 
-  void _onTambahkan() {
-    final produk = StokProduk(
-      nama: _namaController.text.isNotEmpty ? _namaController.text : 'Produk Baru',
-      jumlah: 0,
-      satuan: _selectedSatuan ?? 'pcs',
-      phrr: _pemakaianController.text.isNotEmpty
-          ? '${_pemakaianController.text} per hari'
-          : '0 per hari',
-    );
-    // Returns the new product to the caller via pop result
-    Navigator.pop(context, produk);
+  // ── AI Prediction ──────────────────────────────────────────────────────────
+
+  Future<void> _predictPhrr() async {
+    final nama = _namaController.text.trim();
+    final satuan = _selectedSatuan ?? 'pcs';
+    if (nama.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Isi nama produk terlebih dahulu.')),
+      );
+      return;
+    }
+    setState(() { _predictingAI = true; _aiReasoning = null; });
+    try {
+      final result = await InventoryApi().predictPhrr(widget.pantiId, nama, satuan);
+      if (!mounted) return;
+      setState(() {
+        _pemakaianController.text = result.dailyUsage.toString();
+        _aiReasoning = result.reasoning;
+        _predictingAI = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _predictingAI = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
+    }
   }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+
+  Future<void> _onTambahkan() async {
+    final nama = _namaController.text.trim();
+    if (_selectedKategori == null || nama.isEmpty || _selectedSatuan == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lengkapi kategori, nama produk, dan satuan.')),
+      );
+      return;
+    }
+
+    // Parse PHRR
+    final double? dailyUsage = double.tryParse(_pemakaianController.text.trim());
+
+    // Parse lead time in days
+    int? leadTimeDays;
+    final wtVal = int.tryParse(_waktuTungguController.text.trim());
+    if (wtVal != null && _selectedSatuanWaktu != null) {
+      leadTimeDays = wtVal * (_satuanToDays[_selectedSatuanWaktu!] ?? 1);
+    }
+
+    setState(() => _saving = true);
+    try {
+      final existing = await InventoryApi().fetchCategories(widget.pantiId);
+      final duplicate = existing.any(
+        (c) => c.name.toLowerCase() == _selectedKategori!.toLowerCase(),
+      );
+
+      if (!mounted) return;
+
+      if (duplicate) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Kategori "$_selectedKategori" sudah ada.'),
+            backgroundColor: Colors.orange.shade700,
+          ),
+        );
+        return;
+      }
+
+      final category = await InventoryApi().addCategory(widget.userId, _selectedKategori!);
+      await InventoryApi().addItem(
+        widget.userId, category.id, nama, 0, _selectedSatuan!,
+        dailyUsage: dailyUsage,
+        leadTimeDays: leadTimeDays,
+      );
+
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -99,19 +156,9 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Row(
-          children: [
-            const Text(
-              'Tambahkan Produk',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1A1A1A),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Icon(Icons.info_outline_rounded, size: 18, color: Colors.grey[400]),
-          ],
+        title: const Text(
+          'Tambahkan Produk',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A)),
         ),
       ),
       body: Column(
@@ -136,10 +183,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
                   // ── Nama Produk ───────────────────────────────────────
                   _buildLabel('Nama Produk'),
                   const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _namaController,
-                    hint: 'Ketik Nama Produk',
-                  ),
+                  _buildTextField(controller: _namaController, hint: 'Ketik Nama Produk'),
                   const SizedBox(height: 18),
 
                   // ── Satuan ────────────────────────────────────────────
@@ -153,24 +197,50 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // ── Pemakaian Harian Rata-Rata ────────────────────────
+                  // ── Pemakaian Harian Rata-Rata (AI) ───────────────────
                   Row(children: [
                     _buildLabel('Pemakaian Harian Rata-Rata'),
                     const SizedBox(width: 6),
-                    Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
+                    Tooltip(
+                      message: 'AI memprediksi berdasarkan jenis produk & jumlah penghuni panti',
+                      child: Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
+                    ),
                   ]),
                   const SizedBox(height: 8),
-                  _buildAITextField(
-                    controller: _pemakaianController,
-                    hint: 'Ketik atau gunakan Rekomendasi AI',
-                  ),
+                  _buildAIField(),
+                  if (_aiReasoning != null) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: kPink.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.auto_awesome_rounded, size: 14, color: kPink),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _aiReasoning!,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF555555)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 18),
 
                   // ── Waktu Tunggu Produk ───────────────────────────────
                   Row(children: [
                     _buildLabel('Waktu Tunggu Produk'),
                     const SizedBox(width: 6),
-                    Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
+                    Tooltip(
+                      message: 'Berapa lama waktu dari pemesanan sampai produk tiba',
+                      child: Icon(Icons.info_outline_rounded, size: 16, color: Colors.grey[400]),
+                    ),
                   ]),
                   const SizedBox(height: 8),
                   Row(
@@ -198,7 +268,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
             ),
           ),
 
-          // ── Tambahkan Button (pinned at bottom) ───────────────────────
+          // ── Tambahkan Button ──────────────────────────────────────────
           SafeArea(
             top: false,
             child: Padding(
@@ -206,20 +276,19 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _onTambahkan,
+                  onPressed: _saving ? null : _onTambahkan,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPink,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
-                  child: const Text(
-                    'Tambahkan',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Tambahkan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
@@ -229,15 +298,52 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
     );
   }
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────
+  // ─── AI text field with tappable AI button ─────────────────────────────────
+
+  Widget _buildAIField() {
+    return TextField(
+      controller: _pemakaianController,
+      keyboardType: TextInputType.number,
+      style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+      decoration: InputDecoration(
+        hintText: 'Ketik angka atau tap ✨ untuk Rekomendasi AI',
+        hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 13),
+        filled: true,
+        fillColor: const Color(0xFFF2F2F2),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        suffixIcon: Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: GestureDetector(
+            onTap: _predictingAI ? null : _predictPhrr,
+            child: Container(
+              width: 32,
+              height: 32,
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              decoration: const BoxDecoration(color: kPink, shape: BoxShape.circle),
+              child: _predictingAI
+                  ? const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
+            ),
+          ),
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: const BorderSide(color: kPink, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
 
   Widget _buildLabel(String text) => Text(
         text,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF1A1A1A),
-        ),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
       );
 
   Widget _buildTextField({
@@ -255,53 +361,8 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
         filled: true,
         fillColor: const Color(0xFFF2F2F2),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: const BorderSide(color: kPink, width: 1.5),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAITextField({
-    required TextEditingController controller,
-    required String hint,
-  }) {
-    return TextField(
-      controller: controller,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
-        filled: true,
-        fillColor: const Color(0xFFF2F2F2),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        suffixIcon: Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Container(
-            width: 32,
-            height: 32,
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            decoration: const BoxDecoration(color: kPink, shape: BoxShape.circle),
-            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
-          ),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),
           borderSide: const BorderSide(color: kPink, width: 1.5),
@@ -318,10 +379,7 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F2F2),
-        borderRadius: BorderRadius.circular(30),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFF2F2F2), borderRadius: BorderRadius.circular(30)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           isExpanded: true,

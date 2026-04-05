@@ -33,7 +33,10 @@ class InventoryItemModel {
   final int quantity;
   final String unit;
   final String status;
-  final String? dailyUsage;
+  final double? dailyUsage;
+  final int leadTimeDays;
+  final double? daysUntilEmpty;
+  final bool needsRestock;
   final String? description;
 
   const InventoryItemModel({
@@ -43,6 +46,9 @@ class InventoryItemModel {
     required this.unit,
     required this.status,
     this.dailyUsage,
+    this.leadTimeDays = 1,
+    this.daysUntilEmpty,
+    this.needsRestock = false,
     this.description,
   });
 
@@ -54,8 +60,50 @@ class InventoryItemModel {
         quantity: json['quantity'] ?? 0,
         unit: json['unit'] ?? 'pcs',
         status: json['status'] ?? 'available',
-        dailyUsage: json['daily_usage']?.toString(),
+        dailyUsage: json['daily_usage'] != null ? double.tryParse(json['daily_usage'].toString()) : null,
+        leadTimeDays: json['lead_time_days'] ?? 1,
+        daysUntilEmpty: json['days_until_empty'] != null ? double.tryParse(json['days_until_empty'].toString()) : null,
+        needsRestock: json['needs_restock'] == true,
         description: json['description']?.toString(),
+      );
+}
+
+class LowStockItemModel {
+  final int id;
+  final String name;
+  final int quantity;
+  final String unit;
+  final double? dailyUsage;
+  final int leadTimeDays;
+  final double? daysUntilEmpty;
+  final int categoryId;
+  final String categoryName;
+  final bool isOutOfStock;
+
+  const LowStockItemModel({
+    required this.id,
+    required this.name,
+    required this.quantity,
+    required this.unit,
+    this.dailyUsage,
+    required this.leadTimeDays,
+    this.daysUntilEmpty,
+    required this.categoryId,
+    required this.categoryName,
+    required this.isOutOfStock,
+  });
+
+  factory LowStockItemModel.fromJson(Map<String, dynamic> json) => LowStockItemModel(
+        id: json['id'],
+        name: json['name'],
+        quantity: json['quantity'] ?? 0,
+        unit: json['unit'] ?? 'pcs',
+        dailyUsage: json['daily_usage'] != null ? double.tryParse(json['daily_usage'].toString()) : null,
+        leadTimeDays: json['lead_time_days'] ?? 1,
+        daysUntilEmpty: json['days_until_empty'] != null ? double.tryParse(json['days_until_empty'].toString()) : null,
+        categoryId: json['category_id'],
+        categoryName: json['category_name'] ?? '',
+        isOutOfStock: json['is_out_of_stock'] == true,
       );
 }
 
@@ -161,27 +209,71 @@ class InventoryApi {
     throw Exception('Gagal memuat produk');
   }
 
-  Future<InventoryItemModel> addItem(int userId, int categoryId, String name, int quantity, String unit) async {
+  Future<InventoryItemModel> addItem(
+    int userId, int categoryId, String name, int quantity, String unit, {
+    String? description,
+    double? dailyUsage,
+    int? leadTimeDays,
+  }) async {
     final uri = Uri.parse('$_base/inventory/categories/$categoryId/items/');
+    final bodyMap = <String, dynamic>{'user_id': userId, 'name': name, 'quantity': quantity, 'unit': unit};
+    if (description != null && description.isNotEmpty) bodyMap['description'] = description;
+    if (dailyUsage != null) bodyMap['daily_usage'] = dailyUsage;
+    if (leadTimeDays != null) bodyMap['lead_time_days'] = leadTimeDays;
     final res = await http
-        .post(uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'user_id': userId, 'name': name, 'quantity': quantity, 'unit': unit}))
+        .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(bodyMap))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode == 201) return InventoryItemModel.fromJson(jsonDecode(res.body));
     throw Exception('Gagal menambah produk');
   }
 
-  Future<void> updateItem(int userId, int itemId, {String? name, int? quantity, String? unit}) async {
+  Future<void> updateItem(int userId, int itemId, {
+    String? name, int? quantity, String? unit, String? description,
+    double? dailyUsage, int? leadTimeDays,
+  }) async {
     final uri = Uri.parse('$_base/inventory/items/$itemId/');
     final body = <String, dynamic>{'user_id': userId};
     if (name != null) body['name'] = name;
     if (quantity != null) body['quantity'] = quantity;
     if (unit != null) body['unit'] = unit;
+    if (description != null) body['description'] = description;
+    if (dailyUsage != null) body['daily_usage'] = dailyUsage;
+    if (leadTimeDays != null) body['lead_time_days'] = leadTimeDays;
     final res = await http
         .put(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) throw Exception('Gagal mengubah produk');
+  }
+
+  /// Calls Claude AI to predict daily usage for a product given the panti's resident count.
+  /// Returns the predicted daily_usage value (e.g. 6.0 for "6 kg per hari").
+  Future<({double dailyUsage, String reasoning})> predictPhrr(int pantiId, String productName, String unit) async {
+    final uri = Uri.parse('$_base/inventory/predict-phrr/');
+    final res = await http
+        .post(uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'panti_id': pantiId, 'product_name': productName, 'unit': unit}))
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode == 200) {
+      final body = jsonDecode(res.body);
+      return (
+        dailyUsage: double.tryParse(body['daily_usage'].toString()) ?? 0,
+        reasoning: body['reasoning']?.toString() ?? '',
+      );
+    }
+    final body = jsonDecode(res.body);
+    throw Exception(body['error'] ?? 'Gagal memprediksi PHRR');
+  }
+
+  Future<List<LowStockItemModel>> fetchLowStockItems(int pantiId) async {
+    final uri = Uri.parse('$_base/inventory/low-stock/').replace(
+      queryParameters: {'panti_id': pantiId.toString()},
+    );
+    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 200) {
+      return (jsonDecode(res.body) as List).map((e) => LowStockItemModel.fromJson(e)).toList();
+    }
+    throw Exception('Gagal memuat notifikasi stok');
   }
 
   Future<List<OutOfStockItemModel>> fetchOutOfStockItems(int pantiId) async {
