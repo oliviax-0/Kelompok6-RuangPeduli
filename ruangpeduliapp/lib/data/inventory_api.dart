@@ -84,6 +84,32 @@ class OutOfStockItemModel {
       );
 }
 
+class LaporanItemModel {
+  final String categoryName;
+  final String productName;
+  final int amount;
+  final String unit;
+  final bool isMasuk;
+
+  const LaporanItemModel({
+    required this.categoryName,
+    required this.productName,
+    required this.amount,
+    required this.unit,
+    required this.isMasuk,
+  });
+
+  String get formattedAmount => '${isMasuk ? '+' : '-'}$amount$unit';
+
+  factory LaporanItemModel.fromJson(Map<String, dynamic> json) => LaporanItemModel(
+        categoryName: json['category_name'] ?? '',
+        productName: json['product_name'] ?? '',
+        amount: json['amount'] ?? 0,
+        unit: json['unit'] ?? 'pcs',
+        isMasuk: json['type'] == 'masuk',
+      );
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 class InventoryApi {
@@ -172,6 +198,32 @@ class InventoryApi {
     });
     final results = await Future.wait(futures);
     return results.expand((e) => e).toList();
+  }
+
+  Future<List<LaporanItemModel>> fetchLaporan(int pantiId) async {
+    final uri = Uri.parse('$_base/inventory/laporan/').replace(
+      queryParameters: {'panti': pantiId.toString()},
+    );
+    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    if (res.statusCode == 200) {
+      return (jsonDecode(res.body) as List).map((e) => LaporanItemModel.fromJson(e)).toList();
+    }
+    throw Exception('Gagal memuat laporan');
+  }
+
+  Future<void> addLaporan(int userId, int itemId, int amount, bool isMasuk) async {
+    final uri = Uri.parse('$_base/inventory/laporan/');
+    final res = await http
+        .post(uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'user_id': userId,
+              'item_id': itemId,
+              'amount': amount,
+              'type': isMasuk ? 'masuk' : 'keluar',
+            }))
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode != 201) throw Exception('Gagal mencatat laporan');
   }
 
   Future<void> deleteItem(int userId, int itemId) async {

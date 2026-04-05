@@ -36,6 +36,7 @@ class _BeritaDetailScreenState extends State<BeritaDetailScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => PantiDetailScreen(
+            pantiId: widget.berita.pantiId,
             namaPanti: profile.namaPanti,
             username: '@${profile.username}',
             nomorPanti: profile.nomorPanti,

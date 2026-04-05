@@ -475,10 +475,11 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                             const SizedBox(height: 8),
                             _RoundedField(
                               controller: _nomorPantiController,
-                              hint: 'Masukan Nomor Telepon Aktif',
+                              hint: 'Contoh: 0812-3456-7890',
                               keyboardType: TextInputType.phone,
                               inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly
+                                FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
+                                _PhoneFormatter(),
                               ],
                               errorText: _nomorPantiError,
                               onChanged: (_) => setState(() => _nomorPantiError = null),
@@ -679,6 +680,25 @@ class _SectionLabel extends StatelessWidget {
         fontWeight: FontWeight.w700,
         color: Color(0xFF1A1A1A),
       ),
+    );
+  }
+}
+
+// ── Phone number formatter: 0812-3456-7890 ──
+class _PhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue next) {
+    final digits = next.text.replaceAll('-', '');
+    if (digits.isEmpty) return next.copyWith(text: '');
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length && i < 13; i++) {
+      if (i == 4 || i == 8) buffer.write('-');
+      buffer.write(digits[i]);
+    }
+    final formatted = buffer.toString();
+    return next.copyWith(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

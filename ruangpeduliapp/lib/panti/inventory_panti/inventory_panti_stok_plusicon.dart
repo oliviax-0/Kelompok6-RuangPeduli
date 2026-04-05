@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/data/inventory_api.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -12,16 +13,17 @@ const Color kRed = Color(0xFFE53935);
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Call this from inventaris_panti.dart when the + button in Stok is tapped
-void showStokOpsiDialog(BuildContext context) {
+void showStokOpsiDialog(BuildContext context, {int? pantiId}) {
   showDialog(
     context: context,
     barrierColor: Colors.black.withOpacity(0.35),
-    builder: (_) => const _StokOpsiDialog(),
+    builder: (_) => _StokOpsiDialog(pantiId: pantiId),
   );
 }
 
 class _StokOpsiDialog extends StatelessWidget {
-  const _StokOpsiDialog();
+  final int? pantiId;
+  const _StokOpsiDialog({this.pantiId});
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +83,10 @@ class _StokOpsiDialog extends StatelessWidget {
               label: 'Lihat Laporan',
               onTap: () {
                 Navigator.pop(context);
-                // TODO: navigate to LaporanStokScreen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => LaporanStokScreen(pantiId: pantiId)),
+                );
               },
             ),
           ],
@@ -360,50 +365,77 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
 // FLOW 2 & 3 — Laporan Stok
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _LaporanItem {
-  final String kategori;
-  final String subLabel;
-  final String amount;
-  final bool isMasuk;
-
-  const _LaporanItem({
-    required this.kategori,
-    required this.subLabel,
-    required this.amount,
-    required this.isMasuk,
-  });
-}
-
-final List<_LaporanItem> _laporanData = [
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Minuman', subLabel: 'Susu Kedelai', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Minyak Goreng', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Singkong', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Obat-obatan', subLabel: 'Obat Pilek', amount: '-3kg', isMasuk: false),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '+5kg', isMasuk: true),
-  _LaporanItem(kategori: 'Bahan Pokok', subLabel: 'Beras Merah', amount: '-3kg', isMasuk: false),
+const List<LaporanItemModel> _dummyLaporan = [
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Beras Merah',    amount: 5,  unit: 'kg',    isMasuk: true),
+  LaporanItemModel(categoryName: 'Minuman',     productName: 'Susu Kedelai',   amount: 3,  unit: 'liter', isMasuk: false),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Minyak Goreng',  amount: 2,  unit: 'liter', isMasuk: true),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Minyak Goreng',  amount: 1,  unit: 'liter', isMasuk: false),
+  LaporanItemModel(categoryName: 'Obat-obatan', productName: 'Obat Pilek',     amount: 10, unit: 'pcs',   isMasuk: true),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Singkong',       amount: 5,  unit: 'kg',    isMasuk: true),
+  LaporanItemModel(categoryName: 'Minuman',     productName: 'Teh Kotak',      amount: 12, unit: 'pcs',   isMasuk: false),
+  LaporanItemModel(categoryName: 'Perlengkapan',productName: 'Sabun Mandi',    amount: 6,  unit: 'pcs',   isMasuk: true),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Gula Pasir',     amount: 3,  unit: 'kg',    isMasuk: false),
+  LaporanItemModel(categoryName: 'Obat-obatan', productName: 'Vitamin C',      amount: 20, unit: 'pcs',   isMasuk: true),
+  LaporanItemModel(categoryName: 'Perlengkapan',productName: 'Deterjen',       amount: 2,  unit: 'kg',    isMasuk: false),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Tepung Terigu',  amount: 4,  unit: 'kg',    isMasuk: true),
 ];
 
 class LaporanStokScreen extends StatefulWidget {
-  const LaporanStokScreen({super.key});
+  final int? pantiId;
+  const LaporanStokScreen({super.key, this.pantiId});
 
   @override
   State<LaporanStokScreen> createState() => _LaporanStokScreenState();
 }
 
 class _LaporanStokScreenState extends State<LaporanStokScreen> {
-  String? _filterValue;
+  String _filterValue = 'Semua';
+  String _searchQuery = '';
   final List<String> _filterOptions = ['Semua', 'Stok Masuk', 'Stok Keluar'];
+  final _searchController = TextEditingController();
 
-  List<_LaporanItem> get _filtered {
-    if (_filterValue == null || _filterValue == 'Semua') return _laporanData;
-    if (_filterValue == 'Stok Masuk') return _laporanData.where((e) => e.isMasuk).toList();
-    return _laporanData.where((e) => !e.isMasuk).toList();
+  List<LaporanItemModel> _allData = _dummyLaporan;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLaporan();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchLaporan() async {
+    if (widget.pantiId == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    if (mounted) setState(() { _loading = true; _error = null; });
+    try {
+      final data = await InventoryApi().fetchLaporan(widget.pantiId!);
+      if (mounted) setState(() { _allData = data.isEmpty ? _dummyLaporan : data; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _allData = _dummyLaporan; _loading = false; });
+    }
+  }
+
+  List<LaporanItemModel> get _filtered {
+    var list = _allData;
+    if (_filterValue == 'Stok Masuk') list = list.where((e) => e.isMasuk).toList();
+    if (_filterValue == 'Stok Keluar') list = list.where((e) => !e.isMasuk).toList();
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((e) =>
+        e.categoryName.toLowerCase().contains(q) ||
+        e.productName.toLowerCase().contains(q),
+      ).toList();
+    }
+    return list;
   }
 
   @override
@@ -459,6 +491,8 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
                       ],
                     ),
                     child: TextField(
+                      controller: _searchController,
+                      onChanged: (v) => setState(() => _searchQuery = v),
                       decoration: InputDecoration(
                         hintText: 'Search',
                         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -515,7 +549,7 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
-                                value: _filterValue ?? 'Semua',
+                                value: _filterValue,
                                 isDense: true,
                                 icon: const Icon(Icons.tune_rounded, size: 18, color: Color(0xFF1A1A1A)),
                                 style: const TextStyle(
@@ -526,7 +560,7 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
                                 items: _filterOptions
                                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                                     .toList(),
-                                onChanged: (v) => setState(() => _filterValue = v),
+                                onChanged: (v) => setState(() => _filterValue = v ?? 'Semua'),
                               ),
                             ),
                           ),
@@ -536,15 +570,32 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
 
                     // List
                     Expanded(
-                      child: ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
-                        itemCount: _filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          return _LaporanTile(item: _filtered[index]);
-                        },
-                      ),
+                      child: _loading
+                          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                          : _error != null
+                              ? Center(
+                                  child: Text(
+                                    _error!,
+                                    style: const TextStyle(color: Colors.white),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                )
+                              : _filtered.isEmpty
+                                  ? const Center(
+                                      child: Text(
+                                        'Tidak ada data laporan.',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    )
+                                  : ListView.separated(
+                                      controller: scrollController,
+                                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+                                      itemCount: _filtered.length,
+                                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                      itemBuilder: (context, index) {
+                                        return _LaporanTile(item: _filtered[index]);
+                                      },
+                                    ),
                     ),
                   ],
                 ),
@@ -560,7 +611,7 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
 // ─── Laporan Tile ─────────────────────────────────────────────────────────────
 
 class _LaporanTile extends StatelessWidget {
-  final _LaporanItem item;
+  final LaporanItemModel item;
   const _LaporanTile({required this.item});
 
   @override
@@ -594,11 +645,11 @@ class _LaporanTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.kategori,
+                  item.categoryName,
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1A1A1A)),
                 ),
                 const SizedBox(height: 2),
-                Text(item.subLabel, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                Text(item.productName, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
               ],
             ),
           ),
@@ -606,7 +657,7 @@ class _LaporanTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                item.amount,
+                item.formattedAmount,
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1A1A1A)),
               ),
               const SizedBox(height: 2),

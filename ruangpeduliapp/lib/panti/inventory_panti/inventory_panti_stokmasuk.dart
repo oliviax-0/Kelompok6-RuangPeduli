@@ -406,8 +406,11 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
             final newQty = widget.isKeluar
                 ? (item.quantity - qty).clamp(0, item.quantity)
                 : item.quantity + qty;
+            // Update quantity in the database
             await InventoryApi().updateItem(widget.userId!, item.id, quantity: newQty);
-            _fetchItems();
+            // Record the stok masuk / stok keluar history
+            await InventoryApi().addLaporan(widget.userId!, item.id, qty, !widget.isKeluar);
+            if (mounted) _fetchItems();
           } catch (e) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));

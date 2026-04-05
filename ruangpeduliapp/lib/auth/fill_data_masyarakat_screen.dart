@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/auth/verification_screen.dart';
@@ -100,7 +101,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         username: username,
         namaPengguna: _namaPenggunaController.text.trim(),
         alamat: _alamatController.text.trim(),
-        nomorTelepon: _nomorTeleponController.text.trim(),
+        nomorTelepon: _nomorTeleponController.text.trim().replaceAll('-', ''),
       ).then((_) {
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
@@ -122,7 +123,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         role: 'masyarakat',
         namaPengguna: _namaPenggunaController.text.trim(),
         alamat: _alamatController.text.trim(),
-        nomorTelepon: _nomorTeleponController.text.trim(),
+        nomorTelepon: _nomorTeleponController.text.trim().replaceAll('-', ''),
       )).then((pendingId) {
         if (!mounted) return;
         Navigator.push(
@@ -244,8 +245,12 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                             const SizedBox(height: 8),
                             _RoundedInput(
                               controller: _nomorTeleponController,
-                              hint: 'Contoh: 0810395306464',
+                              hint: 'Contoh: 0812-3456-7890',
                               keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
+                                _PhoneFormatter(),
+                              ],
                               errorText: _nomorTeleponError,
                               onChanged: (_) => setState(() => _nomorTeleponError = null),
                             ),
@@ -344,12 +349,32 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
+// ── Phone number formatter: 0812-3456-7890 ──
+class _PhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue next) {
+    final digits = next.text.replaceAll('-', '');
+    if (digits.isEmpty) return next.copyWith(text: '');
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length && i < 13; i++) {
+      if (i == 4 || i == 8) buffer.write('-');
+      buffer.write(digits[i]);
+    }
+    final formatted = buffer.toString();
+    return next.copyWith(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 class _RoundedInput extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final String? errorText;
   final ValueChanged<String>? onChanged;
   final TextInputType keyboardType;
+  final List<TextInputFormatter> inputFormatters;
 
   const _RoundedInput({
     required this.controller,
@@ -357,6 +382,7 @@ class _RoundedInput extends StatelessWidget {
     this.errorText,
     this.onChanged,
     this.keyboardType = TextInputType.text,
+    this.inputFormatters = const [],
   });
 
   @override
@@ -369,6 +395,7 @@ class _RoundedInput extends StatelessWidget {
           controller: controller,
           onChanged: onChanged,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
           decoration: InputDecoration(
             hintText: hint,

@@ -3,7 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/masyarakat/notification/notification_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/transaksi/lokasi_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/home/panti_detail_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/history/riwayat_donasi_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
@@ -105,12 +105,50 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  // Loading state per-panti id while fetching media
+  final Set<int> _loadingPantiId = {};
+
+  Future<void> _openPantiDetail(PantiProfileModel panti) async {
+    setState(() => _loadingPantiId.add(panti.id));
+    try {
+      final media = await ProfileApi().fetchPantiMedia(panti.id);
+      if (!mounted) return;
+      final mediaUrls = media
+          .where((m) => m.file != null && m.file!.isNotEmpty)
+          .map((m) => m.file!)
+          .toList();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PantiDetailScreen(
+            pantiId: panti.id,
+            namaPanti: panti.namaPanti,
+            username: '@${panti.username}',
+            nomorPanti: panti.nomorPanti,
+            alamatPanti: panti.fullAddress.isNotEmpty ? panti.fullAddress : panti.alamatPanti,
+            description: panti.description,
+            profilePicture: panti.profilePicture,
+            terkumpul: panti.formattedTotalTerkumpul,
+            userId: widget.userId,
+            mediaUrls: mediaUrls,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memuat profil panti')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingPantiId.remove(panti.id));
+    }
+  }
+
   void _onNavTap(int index) {
     if (index == _selectedIndex) return;
     if (index == 0) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeMasyarakatScreen(userId: widget.userId)),
-      );
+      Navigator.of(context).pop();
     } else if (index == 2) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => RiwayatDonasiScreen(userId: widget.userId)),
@@ -335,7 +373,9 @@ class _SearchScreenState extends State<SearchScreen> {
           panti: panti,
           distanceLabel: _formatDistance(distM),
           isNearest: i == 0 && _userPosition != null && distM.isFinite,
-          onTap: () => Navigator.push(
+          isLoading: _loadingPantiId.contains(panti.id),
+          onTap: () => _openPantiDetail(panti),
+          onLocationTap: () => Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => LokasiScreen(
@@ -388,13 +428,17 @@ class _PantiCard extends StatelessWidget {
   final PantiProfileModel panti;
   final String distanceLabel;
   final bool isNearest;
+  final bool isLoading;
   final VoidCallback onTap;
+  final VoidCallback onLocationTap;
 
   const _PantiCard({
     required this.panti,
     required this.distanceLabel,
     required this.isNearest,
     required this.onTap,
+    required this.onLocationTap,
+    this.isLoading = false,
   });
 
   @override
@@ -404,7 +448,7 @@ class _PantiCard extends StatelessWidget {
         : panti.alamatPanti;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: onLocationTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 20),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
@@ -415,9 +459,9 @@ class _PantiCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Nama + jarak ──
+            // ── Nama + "Kunjungi Profil" ──
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Text(
@@ -430,22 +474,35 @@ class _PantiCard extends StatelessWidget {
                         color: Color(0xFF1A1A1A)),
                   ),
                 ),
-                if (distanceLabel.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.near_me_rounded,
-                          size: 12, color: Color(0xFFF47B8C)),
-                      const SizedBox(width: 3),
-                      Text(distanceLabel,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFFF47B8C),
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ],
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: isLoading ? null : onTap,
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFFF47B8C),
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF28695),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'Kunjungi Profil',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                ),
               ],
             ),
             if (isNearest) ...[
@@ -485,6 +542,22 @@ class _PantiCard extends StatelessWidget {
                         height: 1.55),
                   ),
                 ),
+                if (distanceLabel.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.near_me_rounded,
+                          size: 12, color: Color(0xFFF47B8C)),
+                      const SizedBox(width: 3),
+                      Text(distanceLabel,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFF47B8C),
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 10),
