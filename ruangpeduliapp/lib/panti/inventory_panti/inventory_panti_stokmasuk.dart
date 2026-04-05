@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
+import 'package:ruangpeduliapp/services/inventory_notification_service.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -230,6 +231,7 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
                                       categoryName: cat.name,
                                       hasAlert: cat.hasAlert,
                                       userId: widget.userId,
+                                      pantiId: widget.pantiId,
                                       isKeluar: widget.isKeluar,
                                     ),
                                   ),
@@ -285,6 +287,7 @@ class StokDetailKategoriScreen extends StatefulWidget {
   final String categoryName;
   final bool hasAlert;
   final int? userId;
+  final int? pantiId;
   final bool isKeluar;
 
   const StokDetailKategoriScreen({
@@ -293,6 +296,7 @@ class StokDetailKategoriScreen extends StatefulWidget {
     required this.categoryName,
     required this.hasAlert,
     this.userId,
+    this.pantiId,
     this.isKeluar = false,
   });
 
@@ -373,10 +377,16 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
       context: context,
       builder: (_) => _EditItemDialog(
         item: item,
-        onSave: (qty, description) async {
+        onSave: (qty, description, dailyUsage, leadTimeDays) async {
           if (widget.userId == null) return;
           try {
-            await InventoryApi().updateItem(widget.userId!, item.id, quantity: qty, description: description.isEmpty ? null : description);
+            await InventoryApi().updateItem(
+              widget.userId!, item.id,
+              quantity:     qty,
+              description:  description.isEmpty ? null : description,
+              dailyUsage:   dailyUsage,
+              leadTimeDays: leadTimeDays,
+            );
             _fetchItems();
           } catch (e) {
             if (mounted) {
@@ -406,11 +416,13 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
             final newQty = widget.isKeluar
                 ? (item.quantity - qty).clamp(0, item.quantity)
                 : item.quantity + qty;
-            // Update quantity in the database
             await InventoryApi().updateItem(widget.userId!, item.id, quantity: newQty);
-            // Record the stok masuk / stok keluar history
             await InventoryApi().addLaporan(widget.userId!, item.id, qty, !widget.isKeluar);
             if (mounted) _fetchItems();
+            // Check low stock after every stock change and notify if needed
+            if (widget.pantiId != null) {
+              InventoryNotificationService.checkAndNotify(widget.pantiId!);
+            }
           } catch (e) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -728,16 +740,8 @@ class _ItemGridCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              // PHRR or description
-              if (item.dailyUsage != null) ...[
-                const SizedBox(height: 3),
-                Text(
-                  'PHRR: ${item.dailyUsage} ${item.unit} per hari',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ] else if (item.description != null && item.description!.isNotEmpty) ...[
+              // Description
+              if (item.description != null && item.description!.isNotEmpty) ...[
                 const SizedBox(height: 3),
                 Text(
                   item.description!,
@@ -804,6 +808,7 @@ class _StokInputSheetState extends State<_StokInputSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 36),
       child: Column(
@@ -811,108 +816,83 @@ class _StokInputSheetState extends State<_StokInputSheet> {
         children: [
           // Drag handle
           Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
+            width: 36, height: 4,
+            decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 22),
+
           // Product name
           Text(
-            widget.item.name,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1A1A1A),
-            ),
+            item.name,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A)),
             textAlign: TextAlign.center,
           ),
-          // Info lines
-          if (widget.item.dailyUsage != null) ...[
-            const SizedBox(height: 8),
+
+          // Info lines (read-only)
+          if (item.dailyUsage != null) ...[
+            const SizedBox(height: 6),
             Text(
-              'Pemakaian Harian Rata-Rata: ${widget.item.dailyUsage} ${widget.item.unit} per hari',
+              'Pemakaian Harian Rata-Rata: ${item.dailyUsage} ${item.unit}/hari',
               style: TextStyle(fontSize: 13, color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
           ],
-          if (widget.item.description != null && widget.item.description!.isNotEmpty) ...[
-            const SizedBox(height: 4),
+          if (item.leadTimeDays > 1) ...[
+            const SizedBox(height: 2),
             Text(
-              widget.item.description!,
+              'Waktu Tunggu: ${item.leadTimeDays} hari',
               style: TextStyle(fontSize: 13, color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
           ],
+          if (item.description != null && item.description!.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              item.description!,
+              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+
           const SizedBox(height: 32),
-          // Stepper row
+
+          // Stepper
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Minus
               GestureDetector(
                 onTap: () { if (_qty > 0) setState(() => _qty--); },
                 child: Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    shape: BoxShape.circle,
-                  ),
+                  width: 58, height: 58,
+                  decoration: BoxDecoration(color: Colors.grey[400], shape: BoxShape.circle),
                   child: const Icon(Icons.remove, color: Colors.white, size: 28),
                 ),
               ),
               const SizedBox(width: 18),
-              // Number display
               Container(
-                width: 100,
-                height: 90,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8E8E8),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                width: 100, height: 90,
+                decoration: BoxDecoration(color: const Color(0xFFE8E8E8), borderRadius: BorderRadius.circular(16)),
                 alignment: Alignment.center,
-                child: Text(
-                  '$_qty',
-                  style: const TextStyle(
-                    fontSize: 52,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
+                child: Text('$_qty', style: const TextStyle(fontSize: 52, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A))),
               ),
               const SizedBox(width: 18),
-              // Plus
               GestureDetector(
                 onTap: () {
-                  final max = widget.isKeluar ? widget.item.quantity : null;
+                  final max = widget.isKeluar ? item.quantity : null;
                   if (max == null || _qty < max) setState(() => _qty++);
                 },
                 child: Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    shape: BoxShape.circle,
-                  ),
+                  width: 58, height: 58,
+                  decoration: BoxDecoration(color: Colors.grey[400], shape: BoxShape.circle),
                   child: const Icon(Icons.add, color: Colors.white, size: 28),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          // Unit label
-          Text(
-            widget.item.unit,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[400],
-            ),
-          ),
+          Text(item.unit, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[400])),
           const SizedBox(height: 28),
+
           // Save button
           Align(
             alignment: Alignment.centerRight,
@@ -935,15 +915,8 @@ class _StokInputSheetState extends State<_StokInputSheet> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               ),
               child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
-                  : const Text(
-                      'Simpan',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Simpan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -1253,7 +1226,7 @@ class _TambahItemDialogState extends State<_TambahItemDialog> {
 
 class _EditItemDialog extends StatefulWidget {
   final InventoryItemModel item;
-  final Future<void> Function(int qty, String description) onSave;
+  final Future<void> Function(int qty, String description, double? dailyUsage, int? leadTimeDays) onSave;
 
   const _EditItemDialog({required this.item, required this.onSave});
 
@@ -1264,21 +1237,40 @@ class _EditItemDialog extends StatefulWidget {
 class _EditItemDialogState extends State<_EditItemDialog> {
   late final TextEditingController _qtyController;
   late final TextEditingController _descController;
+  late final TextEditingController _phrrController;
+  late final TextEditingController _leadTimeController;
+
+  static const _satuanWaktuOptions = ['Hari', 'Minggu', 'Bulan'];
+  static const _satuanToDays = {'Hari': 1, 'Minggu': 7, 'Bulan': 30};
+
+  String? _selectedSatuanWaktu;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _qtyController = TextEditingController(text: widget.item.quantity.toString());
-    _descController = TextEditingController(text: widget.item.description ?? '');
+    _qtyController      = TextEditingController(text: widget.item.quantity.toString());
+    _descController     = TextEditingController(text: widget.item.description ?? '');
+    _phrrController     = TextEditingController(
+      text: widget.item.dailyUsage != null ? _formatUsage(widget.item.dailyUsage!) : '',
+    );
+    // Pre-fill lead time as days; default satuan = Hari
+    final lt = widget.item.leadTimeDays;
+    _leadTimeController = TextEditingController(text: lt > 1 ? lt.toString() : '');
+    _selectedSatuanWaktu = 'Hari';
   }
 
   @override
   void dispose() {
     _qtyController.dispose();
     _descController.dispose();
+    _phrrController.dispose();
+    _leadTimeController.dispose();
     super.dispose();
   }
+
+  String _formatUsage(double v) =>
+      v == v.truncateToDouble() ? v.toInt().toString() : v.toString();
 
   Widget _inputField(TextEditingController ctrl, String hint, {TextInputType inputType = TextInputType.text}) {
     return TextField(
@@ -1301,12 +1293,17 @@ class _EditItemDialogState extends State<_EditItemDialog> {
     );
   }
 
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF555555))),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Padding(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1318,11 +1315,56 @@ class _EditItemDialogState extends State<_EditItemDialog> {
             ),
             const SizedBox(height: 4),
             Text('Satuan: ${widget.item.unit}', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
+
+            // Jumlah
+            _label('Jumlah'),
             _inputField(_qtyController, 'Jumlah', inputType: TextInputType.number),
-            const SizedBox(height: 8),
-            _inputField(_descController, 'Deskripsi (opsional)'),
+            const SizedBox(height: 10),
+
+            // PHRR
+            _label('Pemakaian Harian Rata-Rata (PHRR)'),
+            _inputField(_phrrController, '${widget.item.unit} per hari (opsional)', inputType: TextInputType.number),
+            const SizedBox(height: 10),
+
+            // Waktu Tunggu
+            _label('Waktu Tunggu Produk'),
+            Row(
+              children: [
+                Expanded(
+                  child: _inputField(_leadTimeController, 'Angka (opsional)', inputType: TextInputType.number),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2F2F2),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: _selectedSatuanWaktu,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+                        items: _satuanWaktuOptions
+                            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _selectedSatuanWaktu = v),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Deskripsi
+            _label('Deskripsi (opsional)'),
+            _inputField(_descController, 'Deskripsi'),
             const SizedBox(height: 14),
+
             Align(
               alignment: Alignment.centerRight,
               child: ElevatedButton(
@@ -1331,9 +1373,14 @@ class _EditItemDialogState extends State<_EditItemDialog> {
                     : () async {
                         final qty = int.tryParse(_qtyController.text.trim());
                         if (qty == null) return;
+                        final phrr = double.tryParse(_phrrController.text.trim());
+                        final ltVal = int.tryParse(_leadTimeController.text.trim());
+                        final leadTimeDays = ltVal != null && _selectedSatuanWaktu != null
+                            ? ltVal * (_satuanToDays[_selectedSatuanWaktu!] ?? 1)
+                            : null;
                         setState(() => _saving = true);
                         final nav = Navigator.of(context);
-                        await widget.onSave(qty, _descController.text.trim());
+                        await widget.onSave(qty, _descController.text.trim(), phrr, leadTimeDays);
                         if (!mounted) return;
                         nav.pop();
                       },

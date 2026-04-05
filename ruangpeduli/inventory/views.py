@@ -262,51 +262,61 @@ class PredictPhrrView(APIView):
 
         panti = get_object_or_404(OrphanageProfile, pk=panti_id)
         penghuni_count = panti.penghuni.count()
+        pekerja_count  = panti.pekerja.count()
+        total_orang    = penghuni_count + pekerja_count
 
-        api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+        api_key = os.environ.get('GROQ_API_KEY', '')
         if not api_key:
-            return Response({'error': 'ANTHROPIC_API_KEY belum dikonfigurasi'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            return Response({'error': 'GROQ_API_KEY belum dikonfigurasi'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         prompt = (
             f"Kamu adalah sistem AI untuk manajemen inventaris panti asuhan di Indonesia.\n"
-            f"Berikan prediksi pemakaian harian rata-rata (PHRR) untuk produk berikut:\n\n"
+            f"Berikan 3 skenario prediksi pemakaian harian rata-rata (PHRR) untuk produk berikut:\n\n"
             f"Produk: {product_name}\n"
             f"Satuan: {unit}\n"
-            f"Jumlah penghuni panti: {penghuni_count} orang\n\n"
-            f"Pertimbangkan:\n"
-            f"- Jenis produk (makanan pokok lebih cepat habis dari bumbu dapur)\n"
-            f"- Jumlah penghuni ({penghuni_count} orang) sebagai faktor pengali utama\n"
-            f"- Kebiasaan konsumsi di panti asuhan Indonesia\n\n"
+            f"Jumlah penghuni (anak asuh): {penghuni_count} orang\n"
+            f"Jumlah pekerja/staf: {pekerja_count} orang\n"
+            f"Total pengguna produk: {total_orang} orang\n\n"
+            f"Berikan 3 estimasi berbeda: rendah, sedang, dan tinggi berdasarkan pola konsumsi berbeda.\n"
+            f"Pertimbangkan jenis produk dan total {total_orang} orang sebagai faktor pengali.\n\n"
             f"Balas HANYA dalam format JSON berikut, tanpa teks lain:\n"
-            f'{{ "daily_usage": <angka desimal>, "reasoning": "<alasan singkat 1 kalimat>" }}'
+            f'{{"suggestions": ['
+            f'{{"daily_usage": <angka>, "reasoning": "<alasan singkat>"}},'
+            f'{{"daily_usage": <angka>, "reasoning": "<alasan singkat>"}},'
+            f'{{"daily_usage": <angka>, "reasoning": "<alasan singkat>"}}'
+            f']}}'
         )
 
         try:
             resp = req_lib.post(
-                'https://api.anthropic.com/v1/messages',
+                'https://api.groq.com/openai/v1/chat/completions',
                 headers={
-                    'x-api-key': api_key,
-                    'anthropic-version': '2023-06-01',
-                    'content-type': 'application/json',
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json',
                 },
                 json={
-                    'model': 'claude-haiku-4-5-20251001',
-                    'max_tokens': 128,
+                    'model': 'llama-3.1-8b-instant',
+                    'max_tokens': 256,
                     'messages': [{'role': 'user', 'content': prompt}],
                 },
                 timeout=20,
             )
             resp.raise_for_status()
-            text = resp.json()['content'][0]['text'].strip()
+            text = resp.json()['choices'][0]['message']['content'].strip()
             # Strip markdown code fences if present
             if text.startswith('```'):
                 text = text.split('```')[1]
                 if text.startswith('json'):
                     text = text[4:]
+                text = text.strip('`').strip()
             result = json.loads(text)
-            daily_usage = float(result.get('daily_usage', 0))
-            reasoning   = result.get('reasoning', '')
-            return Response({'daily_usage': daily_usage, 'reasoning': reasoning, 'unit': unit})
+            suggestions = result.get('suggestions', [])
+            # Normalise each entry
+            out = [
+                {'daily_usage': float(s.get('daily_usage', 0)), 'reasoning': s.get('reasoning', '')}
+                for s in suggestions if s.get('daily_usage') is not None
+            ]
+            return Response({'suggestions': out, 'unit': unit})
         except Exception as e:
             return Response({'error': f'Gagal memanggil AI: {e}'}, status=status.HTTP_502_BAD_GATEWAY)
 

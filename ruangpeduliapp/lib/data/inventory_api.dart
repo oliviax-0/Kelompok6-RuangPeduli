@@ -245,9 +245,9 @@ class InventoryApi {
     if (res.statusCode != 200) throw Exception('Gagal mengubah produk');
   }
 
-  /// Calls Claude AI to predict daily usage for a product given the panti's resident count.
-  /// Returns the predicted daily_usage value (e.g. 6.0 for "6 kg per hari").
-  Future<({double dailyUsage, String reasoning})> predictPhrr(int pantiId, String productName, String unit) async {
+  /// Calls Groq AI to predict daily usage for a product.
+  /// Returns a list of suggestions (low / medium / high) sorted ascending.
+  Future<List<({double dailyUsage, String reasoning})>> predictPhrr(int pantiId, String productName, String unit) async {
     final uri = Uri.parse('$_base/inventory/predict-phrr/');
     final res = await http
         .post(uri,
@@ -256,10 +256,11 @@ class InventoryApi {
         .timeout(const Duration(seconds: 30));
     if (res.statusCode == 200) {
       final body = jsonDecode(res.body);
-      return (
-        dailyUsage: double.tryParse(body['daily_usage'].toString()) ?? 0,
-        reasoning: body['reasoning']?.toString() ?? '',
-      );
+      final list = (body['suggestions'] as List? ?? []);
+      return list.map((s) => (
+        dailyUsage: double.tryParse(s['daily_usage'].toString()) ?? 0,
+        reasoning: s['reasoning']?.toString() ?? '',
+      )).toList();
     }
     final body = jsonDecode(res.body);
     throw Exception(body['error'] ?? 'Gagal memprediksi PHRR');
