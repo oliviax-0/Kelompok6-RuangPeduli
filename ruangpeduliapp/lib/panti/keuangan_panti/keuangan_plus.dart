@@ -674,60 +674,16 @@ class _PengaturanKategoriViewState extends State<_PengaturanKategoriView> {
     }
   }
 
-  Future<void> _promptAdd() async {
-    final ctrl = TextEditingController();
-    final nama = await showDialog<String>(
+  void _promptAdd() {
+    showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        title: const Text('Tambah Kategori',
-            style:
-                TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'Nama kategori',
-            filled: true,
-            fillColor: const Color(0xFFF2F2F2),
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 12),
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: _kPink,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20))),
-            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-            child: const Text('Simpan'),
-          ),
-        ],
+      builder: (_) => _AddKategoriDialog(
+        onAdd: (nama) async {
+          final created = await InventoryApi().addCategory(widget.userId, nama);
+          if (mounted) widget.onAdded(created);
+        },
       ),
     );
-    ctrl.dispose();
-    if (nama == null || nama.isEmpty) return;
-
-    try {
-      final created =
-          await InventoryApi().addCategory(widget.userId, nama);
-      if (mounted) widget.onAdded(created);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    }
   }
 
   @override
@@ -1116,6 +1072,109 @@ class _PengeluaranFormSheetState extends State<_PengeluaranFormSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Add Kategori Dialog ──────────────────────────────────────────────────────
+
+class _AddKategoriDialog extends StatefulWidget {
+  final Future<void> Function(String nama) onAdd;
+  const _AddKategoriDialog({required this.onAdd});
+
+  @override
+  State<_AddKategoriDialog> createState() => _AddKategoriDialogState();
+}
+
+class _AddKategoriDialogState extends State<_AddKategoriDialog> {
+  final _controller = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tambah Kategori',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Nama kategori',
+                filled: true,
+                fillColor: const Color(0xFFF2F2F2),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _kPink, width: 1.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _saving
+                      ? null
+                      : () async {
+                          final nama = _controller.text.trim();
+                          if (nama.isEmpty) return;
+                          setState(() => _saving = true);
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+                          try {
+                            await widget.onAdd(nama);
+                            if (!mounted) return;
+                            nav.pop();
+                          } catch (e) {
+                            if (!mounted) return;
+                            setState(() => _saving = false);
+                            messenger.showSnackBar(
+                              SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kPink,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                  child: _saving
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Simpan'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
