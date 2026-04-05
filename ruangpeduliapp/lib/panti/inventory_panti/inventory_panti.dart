@@ -200,7 +200,7 @@ class _InventarisPantiState extends State<InventarisPanti> {
           Align(
             alignment: Alignment.centerRight,
             child: GestureDetector(
-              onTap: () => showStokOpsiDialog(context, pantiId: widget.pantiId),
+              onTap: () => showStokOpsiDialog(context, pantiId: widget.pantiId, userId: widget.userId),
               child: Container(
                 width: 44,
                 height: 44,

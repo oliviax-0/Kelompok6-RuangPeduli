@@ -351,10 +351,10 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
     showDialog(
       context: context,
       builder: (_) => _TambahItemDialog(
-        onAdd: (name, qty, unit) async {
+        onAdd: (name, qty, unit, description) async {
           if (widget.userId == null) return;
           try {
-            await InventoryApi().addItem(widget.userId!, widget.categoryId, name, qty, unit);
+            await InventoryApi().addItem(widget.userId!, widget.categoryId, name, qty, unit, description: description.isEmpty ? null : description);
             _fetchItems();
           } catch (e) {
             if (mounted) {
@@ -373,10 +373,10 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
       context: context,
       builder: (_) => _EditItemDialog(
         item: item,
-        onSave: (qty) async {
+        onSave: (qty, description) async {
           if (widget.userId == null) return;
           try {
-            await InventoryApi().updateItem(widget.userId!, item.id, quantity: qty);
+            await InventoryApi().updateItem(widget.userId!, item.id, quantity: qty, description: description.isEmpty ? null : description);
             _fetchItems();
           } catch (e) {
             if (mounted) {
@@ -1119,7 +1119,7 @@ class _TambahKategoriDialogState extends State<_TambahKategoriDialog> {
 // ─── Tambah Item Dialog ───────────────────────────────────────────────────────
 
 class _TambahItemDialog extends StatefulWidget {
-  final Future<void> Function(String name, int qty, String unit) onAdd;
+  final Future<void> Function(String name, int qty, String unit, String description) onAdd;
   const _TambahItemDialog({required this.onAdd});
 
   @override
@@ -1130,6 +1130,7 @@ class _TambahItemDialogState extends State<_TambahItemDialog> {
   final _nameController = TextEditingController();
   final _qtyController = TextEditingController();
   final _unitController = TextEditingController();
+  final _descController = TextEditingController();
   bool _saving = false;
 
   @override
@@ -1137,6 +1138,7 @@ class _TambahItemDialogState extends State<_TambahItemDialog> {
     _nameController.dispose();
     _qtyController.dispose();
     _unitController.dispose();
+    _descController.dispose();
     super.dispose();
   }
 
@@ -1204,6 +1206,8 @@ class _TambahItemDialogState extends State<_TambahItemDialog> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            _inputField(_descController, 'Deskripsi (opsional)'),
             const SizedBox(height: 14),
             Align(
               alignment: Alignment.centerRight,
@@ -1214,10 +1218,11 @@ class _TambahItemDialogState extends State<_TambahItemDialog> {
                         final name = _nameController.text.trim();
                         final qty = int.tryParse(_qtyController.text.trim()) ?? 0;
                         final unit = _unitController.text.trim();
+                        final desc = _descController.text.trim();
                         if (name.isEmpty) return;
                         setState(() => _saving = true);
                         final nav = Navigator.of(context);
-                        await widget.onAdd(name, qty, unit.isEmpty ? 'pcs' : unit);
+                        await widget.onAdd(name, qty, unit.isEmpty ? 'pcs' : unit, desc);
                         if (!mounted) return;
                         nav.pop();
                       },
@@ -1248,7 +1253,7 @@ class _TambahItemDialogState extends State<_TambahItemDialog> {
 
 class _EditItemDialog extends StatefulWidget {
   final InventoryItemModel item;
-  final Future<void> Function(int qty) onSave;
+  final Future<void> Function(int qty, String description) onSave;
 
   const _EditItemDialog({required this.item, required this.onSave});
 
@@ -1258,18 +1263,42 @@ class _EditItemDialog extends StatefulWidget {
 
 class _EditItemDialogState extends State<_EditItemDialog> {
   late final TextEditingController _qtyController;
+  late final TextEditingController _descController;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _qtyController = TextEditingController(text: widget.item.quantity.toString());
+    _descController = TextEditingController(text: widget.item.description ?? '');
   }
 
   @override
   void dispose() {
     _qtyController.dispose();
+    _descController.dispose();
     super.dispose();
+  }
+
+  Widget _inputField(TextEditingController ctrl, String hint, {TextInputType inputType = TextInputType.text}) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: inputType,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
+        filled: true,
+        fillColor: const Color(0xFFF2F2F2),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: const BorderSide(color: kPink, width: 1.5),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1285,43 +1314,14 @@ class _EditItemDialogState extends State<_EditItemDialog> {
           children: [
             Text(
               'Edit: ${widget.item.name}',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
             ),
             const SizedBox(height: 4),
-            Text(
-              'Satuan: ${widget.item.unit}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-            ),
+            Text('Satuan: ${widget.item.unit}', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
             const SizedBox(height: 10),
-            TextField(
-              controller: _qtyController,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              style: const TextStyle(fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Jumlah',
-                hintStyle: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
-                filled: true,
-                fillColor: const Color(0xFFF2F2F2),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: const BorderSide(color: kPink, width: 1.5),
-                ),
-              ),
-            ),
+            _inputField(_qtyController, 'Jumlah', inputType: TextInputType.number),
+            const SizedBox(height: 8),
+            _inputField(_descController, 'Deskripsi (opsional)'),
             const SizedBox(height: 14),
             Align(
               alignment: Alignment.centerRight,
@@ -1333,7 +1333,7 @@ class _EditItemDialogState extends State<_EditItemDialog> {
                         if (qty == null) return;
                         setState(() => _saving = true);
                         final nav = Navigator.of(context);
-                        await widget.onSave(qty);
+                        await widget.onSave(qty, _descController.text.trim());
                         if (!mounted) return;
                         nav.pop();
                       },
@@ -1345,11 +1345,7 @@ class _EditItemDialogState extends State<_EditItemDialog> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
                 child: _saving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),

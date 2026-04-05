@@ -17,11 +17,13 @@ class InventoryCategory(models.Model):
 
 class InventoryItem(models.Model):
     """A single product inside a category, with its stock quantity."""
-    category    = models.ForeignKey(InventoryCategory, on_delete=models.CASCADE, related_name='items')
-    name        = models.CharField(max_length=200)
-    quantity    = models.PositiveIntegerField(default=0)
-    unit        = models.CharField(max_length=50, default='pcs')   # e.g. kg, pcs, lusin, dus
-    description = models.TextField(blank=True, default='')
+    category       = models.ForeignKey(InventoryCategory, on_delete=models.CASCADE, related_name='items')
+    name           = models.CharField(max_length=200)
+    quantity       = models.PositiveIntegerField(default=0)
+    unit           = models.CharField(max_length=50, default='pcs')   # e.g. kg, pcs, lusin, dus
+    description    = models.TextField(blank=True, default='')
+    daily_usage    = models.FloatField(null=True, blank=True)   # PHRR — predicted or manual
+    lead_time_days = models.PositiveIntegerField(default=1)     # days until restock arrives
 
     class Meta:
         ordering = ['name']
@@ -32,6 +34,21 @@ class InventoryItem(models.Model):
     @property
     def status(self):
         return 'available' if self.quantity > 0 else 'out_of_stock'
+
+    @property
+    def days_until_empty(self):
+        """How many days of stock remain. None if daily_usage unknown."""
+        if self.daily_usage and self.daily_usage > 0:
+            return self.quantity / self.daily_usage
+        return None
+
+    @property
+    def needs_restock(self):
+        """True when stock will run out before the next restock arrives."""
+        d = self.days_until_empty
+        if d is None:
+            return self.quantity == 0
+        return d <= self.lead_time_days
 
 
 class StokLaporan(models.Model):

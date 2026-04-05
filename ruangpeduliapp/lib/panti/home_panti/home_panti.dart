@@ -55,6 +55,7 @@ class HomePanti extends StatefulWidget {
 
 class _HomePantiState extends State<HomePanti> {
   int _selectedIndex = 0;
+  int _keuanganRefreshTrigger = 0;
   final TextEditingController _searchController = TextEditingController();
   String? _profilePictureUrl;
 
@@ -188,7 +189,7 @@ class _HomePantiState extends State<HomePanti> {
       case 0:
         return _buildNewsFeed();
       case 1:
-        return KeuanganPanti(userId: widget.userId);
+        return KeuanganPanti(userId: widget.userId, refreshTrigger: _keuanganRefreshTrigger);
       case 2:
         return InventarisPanti(userId: widget.userId, pantiId: widget.pantiId);
       case 3:
@@ -363,6 +364,7 @@ class _HomePantiState extends State<HomePanti> {
                   builder: (_) => InputTransaksiPage(
                     userId: widget.userId!,
                     pantiId: widget.pantiId!,
+                    onSaved: () => setState(() => _keuanganRefreshTrigger++),
                   ),
                 ),
               );
