@@ -71,6 +71,7 @@ class DonasiListCreateView(APIView):
                     jenis_pemasukan=jenis,
                     jumlah=jumlah_int,
                     tanggal=date.today(),
+                    catatan=f'@{user.username}',
                 )
             except Exception:
                 pass  # Don't fail the donation if pemasukan creation fails

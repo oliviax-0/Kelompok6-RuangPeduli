@@ -5,11 +5,12 @@ from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
 from accounts.models import User
 from profiles.models import OrphanageProfile
-from .models import InventoryCategory, InventoryItem
+from .models import InventoryCategory, InventoryItem, StokLaporan
 from .serializers import (
     InventoryCategorySerializer,
     InventoryCategoryLightSerializer,
     InventoryItemSerializer,
+    StokLaporanSerializer,
 )
 
 
@@ -182,3 +183,56 @@ class ItemDetailView(APIView):
             return err
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─── Laporan (Stok History) ────────────────────────────────────────────────────
+
+class LaporanView(APIView):
+    """
+    GET  /api/inventory/laporan/?panti=<id>  → list all laporan for a panti
+    POST /api/inventory/laporan/             → record a stok masuk or keluar entry
+      Body: { user_id, item_id, amount, type }   (type: 'masuk' | 'keluar')
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        panti_id = request.query_params.get('panti')
+        if not panti_id:
+            return Response({'error': 'panti query param wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = StokLaporan.objects.select_related('item__category').filter(
+            item__category__panti_id=panti_id
+        )
+        return Response(StokLaporanSerializer(qs, many=True).data)
+
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        item_id = request.data.get('item_id')
+        amount  = request.data.get('amount')
+        tipe    = request.data.get('type')
+
+        if not all([user_id, item_id, amount, tipe]):
+            return Response(
+                {'error': 'user_id, item_id, amount, dan type wajib diisi'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if tipe not in (StokLaporan.MASUK, StokLaporan.KELUAR):
+            return Response({'error': "type harus 'masuk' atau 'keluar'"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=user_id, role='panti')
+        except User.DoesNotExist:
+            return Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
+
+        item = get_object_or_404(InventoryItem, pk=item_id)
+        if item.category.panti.user_id != user.id:
+            return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            amount = int(amount)
+            if amount <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'error': 'amount harus bilangan bulat positif'}, status=status.HTTP_400_BAD_REQUEST)
+
+        laporan = StokLaporan.objects.create(item=item, amount=amount, tipe=tipe)
+        return Response(StokLaporanSerializer(laporan).data, status=status.HTTP_201_CREATED)

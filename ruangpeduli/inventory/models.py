@@ -32,3 +32,21 @@ class InventoryItem(models.Model):
     @property
     def status(self):
         return 'available' if self.quantity > 0 else 'out_of_stock'
+
+
+class StokLaporan(models.Model):
+    """History log of every stok masuk / stok keluar transaction."""
+    MASUK  = 'masuk'
+    KELUAR = 'keluar'
+    TIPE_CHOICES = [(MASUK, 'Masuk'), (KELUAR, 'Keluar')]
+
+    item       = models.ForeignKey(InventoryItem, on_delete=models.CASCADE, related_name='laporan')
+    amount     = models.PositiveIntegerField()
+    tipe       = models.CharField(max_length=10, choices=TIPE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.item.name} {self.tipe} {self.amount} {self.item.unit}'

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/donation_api.dart';
-import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
@@ -88,9 +87,7 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
   void _onNavTap(int index) {
     if (index == 2) return; // already here
     if (index == 0) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeMasyarakatScreen(userId: widget.userId)),
-      );
+      Navigator.of(context).pop();
     } else if (index == 1) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)),

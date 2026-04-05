@@ -49,18 +49,21 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
   }
 
   void _onNavTap(int index) {
-    setState(() => _selectedIndex = index);
     if (index == 0) return;
+    setState(() => _selectedIndex = index);
     if (index == 1) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)))
+          .then((_) { if (mounted) setState(() => _selectedIndex = 0); });
       return;
     }
     if (index == 2) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => RiwayatDonasiScreen(userId: widget.userId)));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => RiwayatDonasiScreen(userId: widget.userId)))
+          .then((_) { if (mounted) setState(() => _selectedIndex = 0); });
       return;
     }
     if (index == 3) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)))
+          .then((_) { if (mounted) setState(() => _selectedIndex = 0); });
       return;
     }
   }

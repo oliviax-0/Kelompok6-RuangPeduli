@@ -11,6 +11,7 @@ import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 //  Dipanggil dari: BeritaDetailScreen → tombol Donasi
 // ─────────────────────────────────────────────────────────────
 class PantiDetailScreen extends StatefulWidget {
+  final int? pantiId;
   final String namaPanti;
   final String username;
   final String nomorPanti;
@@ -23,11 +24,9 @@ class PantiDetailScreen extends StatefulWidget {
   // Media foto/video untuk carousel (bisa kosong)
   final List<String> mediaUrls;
 
-  // Kebutuhan (item out-of-stock) untuk diteruskan ke KebutuhanScreen
-  final List<Map<String, dynamic>> kebutuhanList;
-
   const PantiDetailScreen({
     super.key,
+    this.pantiId,
     required this.namaPanti,
     required this.username,
     required this.nomorPanti,
@@ -37,7 +36,6 @@ class PantiDetailScreen extends StatefulWidget {
     required this.terkumpul,
     this.userId,
     this.mediaUrls = const [],
-    this.kebutuhanList = const [],
   });
 
   @override
@@ -179,10 +177,10 @@ class _PantiDetailScreenState extends State<PantiDetailScreen> {
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => KebutuhanScreen(
+                                    pantiId: widget.pantiId,
                                     namaPanti: widget.namaPanti,
                                     username: widget.username,
                                     profilePicture: widget.profilePicture,
-                                    kebutuhanList: widget.kebutuhanList,
                                     userId: widget.userId,
                                   ),
                                 ),
@@ -215,6 +213,8 @@ class _PantiDetailScreenState extends State<PantiDetailScreen> {
                                     namaPanti: widget.namaPanti,
                                     terkumpul: widget.terkumpul,
                                     imagePath: widget.profilePicture ?? '',
+                                    pantiId: widget.pantiId,
+                                    userId: widget.userId,
                                   ),
                                 ),
                               ),

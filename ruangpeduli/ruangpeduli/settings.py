@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'residents',
     'finance',
     'donations',
+    'kebutuhan',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

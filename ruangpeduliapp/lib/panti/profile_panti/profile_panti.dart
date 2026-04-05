@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/edit_profile_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/popup_panti.dart';
+import 'package:ruangpeduliapp/panti/profile_panti/kebutuhan_panti.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
 import 'package:ruangpeduliapp/auth/role_selection_screen.dart';
@@ -204,6 +205,36 @@ class _ProfilePantiState extends State<ProfilePanti> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Kebutuhan button
+          if (widget.pantiId != null && widget.userId != null)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => KebutuhanPantiPage(
+                      pantiId: widget.pantiId!,
+                      userId: widget.userId!,
+                    ),
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kPink,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                child: const Text(
+                  'Kebutuhan',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 20),
+
           // Alamat
           _SectionHeader(
             title: 'Alamat',

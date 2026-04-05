@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import InventoryCategory, InventoryItem
+from .models import InventoryCategory, InventoryItem, StokLaporan
 
 
 class InventoryItemSerializer(serializers.ModelSerializer):
@@ -40,3 +40,23 @@ class InventoryCategoryLightSerializer(serializers.ModelSerializer):
 
     def get_available_count(self, obj):
         return obj.items.filter(quantity__gt=0).count()
+
+
+class StokLaporanSerializer(serializers.ModelSerializer):
+    category_name = serializers.SerializerMethodField()
+    product_name  = serializers.SerializerMethodField()
+    unit          = serializers.SerializerMethodField()
+    type          = serializers.CharField(source='tipe', read_only=True)
+
+    class Meta:
+        model  = StokLaporan
+        fields = ['id', 'category_name', 'product_name', 'amount', 'unit', 'type', 'created_at']
+
+    def get_category_name(self, obj):
+        return obj.item.category.name
+
+    def get_product_name(self, obj):
+        return obj.item.name
+
+    def get_unit(self, obj):
+        return obj.item.unit
