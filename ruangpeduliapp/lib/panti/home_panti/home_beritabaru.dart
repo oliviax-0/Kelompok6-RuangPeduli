@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:ruangpeduliapp/data/content_api.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -17,16 +20,115 @@ class BeritaBaruPanti extends StatefulWidget {
 
 class _BeritaBaruPantiState extends State<BeritaBaruPanti> {
   final _judulController = TextEditingController();
-  final _isiController = TextEditingController();
-  final _penulisController = TextEditingController();
+  final _isiController   = TextEditingController();
+  final _picker          = ImagePicker();
+
+  File?  _thumbnail;
+  bool   _submitting = false;
 
   @override
   void dispose() {
     _judulController.dispose();
     _isiController.dispose();
-    _penulisController.dispose();
     super.dispose();
   }
+
+  // ── Image picker ────────────────────────────────────────────────────────────
+
+  Future<void> _pickImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFDE8EC),
+                  child: Icon(Icons.camera_alt_rounded, color: kPink),
+                ),
+                title: const Text('Ambil Foto', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFDE8EC),
+                  child: Icon(Icons.photo_library_rounded, color: kPink),
+                ),
+                title: const Text('Pilih dari Album', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (source == null) return;
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    setState(() => _thumbnail = File(picked.path));
+  }
+
+  void _removeThumbnail() => setState(() => _thumbnail = null);
+
+  // ── Submit ──────────────────────────────────────────────────────────────────
+
+  Future<void> _submit() async {
+    final title   = _judulController.text.trim();
+    final content = _isiController.text.trim();
+
+    if (title.isEmpty) {
+      _snack('Judul tidak boleh kosong');
+      return;
+    }
+    if (content.isEmpty) {
+      _snack('Isi artikel tidak boleh kosong');
+      return;
+    }
+    if (widget.userId == null) {
+      _snack('Sesi tidak valid, silakan login ulang');
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await ContentApi().createBerita(
+        userId:    widget.userId!,
+        title:     title,
+        content:   content,
+        thumbnail: _thumbnail,
+      );
+      if (!mounted) return;
+      _snack('Berita berhasil dibagikan!');
+      Navigator.pop(context, true); // true = refresh parent list
+    } catch (e) {
+      if (!mounted) return;
+      _snack(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  // ── Build ───────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +151,7 @@ class _BeritaBaruPantiState extends State<BeritaBaruPanti> {
         actions: [
           IconButton(
             icon: const Icon(Icons.close, color: Color(0xFF1A1A1A), size: 26),
-            onPressed: () => Navigator.pop(context),
+            onPressed: _submitting ? null : () => Navigator.pop(context),
             padding: const EdgeInsets.only(right: 12),
           ),
         ],
@@ -59,8 +161,8 @@ class _BeritaBaruPantiState extends State<BeritaBaruPanti> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Media Upload Area ─────────────────────────────────────────
-            _buildMediaPlaceholder(),
+            // ── Thumbnail ─────────────────────────────────────────────────
+            _buildThumbnailPicker(),
             const SizedBox(height: 24),
 
             // ── Judul ─────────────────────────────────────────────────────
@@ -81,42 +183,36 @@ class _BeritaBaruPantiState extends State<BeritaBaruPanti> {
               hint: 'Ketik Isi Artikel',
               maxLines: 8,
             ),
-            const SizedBox(height: 18),
-
-            // ── Penulis ───────────────────────────────────────────────────
-            _buildLabel('Penulis'),
-            const SizedBox(height: 8),
-            _buildTextField(
-              controller: _penulisController,
-              hint: 'Ketik Penulis',
-              maxLines: 1,
-            ),
             const SizedBox(height: 32),
 
             // ── Bagikan Button ────────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: handle post submission
-                  Navigator.pop(context);
-                },
+                onPressed: _submitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kPink,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: kPink.withValues(alpha: 0.5),
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                child: const Text(
-                  'Bagikan',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Bagikan',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
               ),
             ),
           ],
@@ -125,26 +221,57 @@ class _BeritaBaruPantiState extends State<BeritaBaruPanti> {
     );
   }
 
-  // ─── Media Placeholder ────────────────────────────────────────────────────
+  // ─── Thumbnail picker ─────────────────────────────────────────────────────
 
-  Widget _buildMediaPlaceholder() {
+  Widget _buildThumbnailPicker() {
+    if (_thumbnail != null) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Image.file(_thumbnail!, fit: BoxFit.cover, width: double.infinity),
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: _removeThumbnail,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(4),
+                child: const Icon(Icons.close, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return GestureDetector(
-      onTap: () {
-        // TODO: open image picker
-      },
+      onTap: _pickImage,
       child: Container(
         width: double.infinity,
-        height: 200,
+        height: 180,
         decoration: BoxDecoration(
           color: const Color(0xFFE8E8E8),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Center(
-          child: Icon(
-            Icons.add,
-            size: 56,
-            color: Color(0xFF1A1A1A),
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.add_photo_alternate_outlined, size: 48, color: Color(0xFF888888)),
+            SizedBox(height: 8),
+            Text(
+              'Tambah Thumbnail',
+              style: TextStyle(fontSize: 13, color: Color(0xFF888888)),
+            ),
+          ],
         ),
       ),
     );
@@ -173,6 +300,7 @@ class _BeritaBaruPantiState extends State<BeritaBaruPanti> {
     return TextField(
       controller: controller,
       maxLines: maxLines,
+      enabled: !_submitting,
       style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
       decoration: InputDecoration(
         hintText: hint,

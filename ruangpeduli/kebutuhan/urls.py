@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import KebutuhanListView, KebutuhanDetailView
+from .views import KebutuhanAllView, KebutuhanListView, KebutuhanDetailView
 
 urlpatterns = [
-    path('',       KebutuhanListView.as_view()),
+    path('all/',      KebutuhanAllView.as_view()),
+    path('',          KebutuhanListView.as_view()),
     path('<int:pk>/', KebutuhanDetailView.as_view()),
 ]

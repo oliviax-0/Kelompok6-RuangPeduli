@@ -314,15 +314,23 @@ class _HomePantiState extends State<HomePanti> {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => _selectedIndex == 3
-                    ? BeritaBaruPanti(userId: widget.userId, pantiId: widget.pantiId)
-                    : HomeAIPanti(userId: widget.userId, pantiId: widget.pantiId),
-              ),
-            );
+          onTap: () async {
+            if (_selectedIndex == 3) {
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BeritaBaruPanti(userId: widget.userId, pantiId: widget.pantiId),
+                ),
+              );
+              if (created == true) _fetchBeritas();
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HomeAIPanti(userId: widget.userId, pantiId: widget.pantiId),
+                ),
+              );
+            }
           },
           child: Container(
             width: 44,
@@ -354,7 +362,7 @@ class _HomePantiState extends State<HomePanti> {
 
         // Main + FAB
         FloatingActionButton(
-          onPressed: () {
+          onPressed: () async {
             if (_selectedIndex == 1 &&
                 widget.userId != null &&
                 widget.pantiId != null) {
@@ -369,10 +377,13 @@ class _HomePantiState extends State<HomePanti> {
                 ),
               );
             } else {
-              Navigator.push(
+              final created = await Navigator.push<bool>(
                 context,
-                MaterialPageRoute(builder: (_) => const BeritaBaruPanti()),
+                MaterialPageRoute(
+                  builder: (_) => BeritaBaruPanti(userId: widget.userId, pantiId: widget.pantiId),
+                ),
               );
+              if (created == true) _fetchBeritas();
             }
           },
           backgroundColor: Colors.white,
@@ -465,6 +476,7 @@ class _NewsCard extends StatelessWidget {
             builder: (context) => BeritaDetailPanti(
               beritaId: item.id,
               userId: userId,
+              pantiId: item.pantiId,
               title: item.title,
               thumbnail: item.thumbnail,
               pantiProfilePicture: item.pantiProfilePicture,

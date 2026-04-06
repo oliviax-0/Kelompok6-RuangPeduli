@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ruangpeduliapp/data/finance_api.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
 
@@ -9,6 +10,34 @@ const Color _kPinkLight = Color(0xFFFCEBED);
 
 // Sentinel id used to represent the "add new" dropdown option
 const int _kAddNewJenisId = -1;
+
+// ─── Thousand-separator formatter ────────────────────────────────────────────
+
+class _ThousandSeparatorFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Strip all dots to get the raw digits
+    final digits = newValue.text.replaceAll('.', '');
+    if (digits.isEmpty) return newValue.copyWith(text: '');
+
+    // Only allow digits
+    if (!RegExp(r'^\d+$').hasMatch(digits)) return oldValue;
+
+    // Insert dots every 3 digits from the right
+    final formatted = digits.replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]}.',
+    );
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
 
 // ─── InputTransaksiPage ───────────────────────────────────────────────────────
 
@@ -276,7 +305,7 @@ class _PemasukanFormState extends State<_PemasukanForm> {
   }
 
   Future<void> _save() async {
-    final jumlah = double.tryParse(_jumlahController.text.trim());
+    final jumlah = double.tryParse(_jumlahController.text.replaceAll('.', '').trim());
     if (_selectedJenis == null || jumlah == null || jumlah <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -391,6 +420,7 @@ class _PemasukanFormState extends State<_PemasukanForm> {
                         child: TextField(
                           controller: _jumlahController,
                           keyboardType: TextInputType.number,
+                          inputFormatters: [_ThousandSeparatorFormatter()],
                           decoration: const InputDecoration(
                             hintText: 'Ketik Jumlah Pemasukan',
                             hintStyle: TextStyle(
@@ -915,7 +945,7 @@ class _PengeluaranFormSheetState extends State<_PengeluaranFormSheet> {
   }
 
   Future<void> _save() async {
-    final jumlah = double.tryParse(_jumlahController.text.trim());
+    final jumlah = double.tryParse(_jumlahController.text.replaceAll('.', '').trim());
     if (jumlah == null || jumlah <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1010,6 +1040,7 @@ class _PengeluaranFormSheetState extends State<_PengeluaranFormSheet> {
                     controller: _jumlahController,
                     keyboardType: TextInputType.number,
                     autofocus: true,
+                    inputFormatters: [_ThousandSeparatorFormatter()],
                     decoration: const InputDecoration(
                       hintText: 'Ketik Jumlah Pengeluaran',
                       hintStyle: TextStyle(

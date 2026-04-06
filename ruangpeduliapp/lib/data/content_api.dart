@@ -102,6 +102,80 @@ class VideoModel {
 
 }
 
+// ─── KEBUTUHAN MODEL ─────────────────────────────────────────────────────────
+
+class KebutuhanItemModel {
+  final int id;
+  final int pantiId;
+  final String pantiName;
+  final String nama;
+  final String satuan;
+  final int jumlah;
+
+  const KebutuhanItemModel({
+    required this.id,
+    required this.pantiId,
+    required this.pantiName,
+    required this.nama,
+    required this.satuan,
+    required this.jumlah,
+  });
+
+  factory KebutuhanItemModel.fromJson(Map<String, dynamic> json) =>
+      KebutuhanItemModel(
+        id:        json['id'],
+        pantiId:   json['panti_id'],
+        pantiName: json['panti_name'] ?? '',
+        nama:      json['nama'] ?? '',
+        satuan:    json['satuan'] ?? '',
+        jumlah:    json['jumlah'] ?? 0,
+      );
+}
+
+// ─── KEBUTUHAN API ────────────────────────────────────────────────────────────
+
+class KebutuhanApi {
+  String get _base => AppConfig.baseUrl;
+
+  /// Fetch all kebutuhan across every panti in one request.
+  Future<List<KebutuhanItemModel>> fetchAllKebutuhan() async {
+    final uri = Uri.parse('$_base/kebutuhan/all/');
+    try {
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) throw Exception('Gagal memuat kebutuhan');
+      final List data = jsonDecode(res.body);
+      return data.map((e) => KebutuhanItemModel.fromJson(e as Map<String, dynamic>)).toList();
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  /// Fetch kebutuhan for a single panti.
+  Future<List<KebutuhanItemModel>> fetchKebutuhanByPanti(int pantiId) async {
+    final uri = Uri.parse('$_base/kebutuhan/').replace(
+      queryParameters: {'panti': pantiId.toString()},
+    );
+    try {
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) throw Exception('Gagal memuat kebutuhan');
+      final List data = jsonDecode(res.body);
+      return data.map((e) {
+        final m = e as Map<String, dynamic>;
+        return KebutuhanItemModel(
+          id:        m['id'],
+          pantiId:   pantiId,
+          pantiName: '',
+          nama:      m['nama'] ?? '',
+          satuan:    m['satuan'] ?? '',
+          jumlah:    m['jumlah'] ?? 0,
+        );
+      }).toList();
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+}
+
 // ─── CONTENT API ──────────────────────────────────────────────────────────────
 
 class ContentApi {
@@ -151,8 +225,23 @@ class ContentApi {
     }
   }
 
+  /// Get the current user's vote state for a berita.
+  /// Returns { upvote_count, downvote_count, user_vote: 'up'|'down'|null }.
+  Future<Map<String, dynamic>> fetchUserVote(int beritaId, int userId) async {
+    final uri = Uri.parse('$_base/content/berita/$beritaId/vote/').replace(
+      queryParameters: {'user_id': userId.toString()},
+    );
+    try {
+      final res = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
+      return {};
+    } on SocketException {
+      return {};
+    }
+  }
+
   /// Toggle vote on a berita. [voteType] must be 'up' or 'down'.
-  /// Returns { action, upvote_count, downvote_count }.
+  /// Returns { action, upvote_count, downvote_count, user_vote }.
   Future<Map<String, dynamic>> voteBerita(
       int beritaId, int userId, String voteType) async {
     final uri = Uri.parse('$_base/content/berita/$beritaId/vote/');
@@ -170,6 +259,37 @@ class ContentApi {
           );
       if (res.statusCode != 200) throw Exception('Gagal vote');
       return jsonDecode(res.body) as Map<String, dynamic>;
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  /// Create a new berita. [thumbnail] is optional.
+  /// Returns the created [BeritaModel].
+  Future<BeritaModel> createBerita({
+    required int userId,
+    required String title,
+    required String content,
+    File? thumbnail,
+  }) async {
+    final uri = Uri.parse('$_base/content/berita/');
+    try {
+      final req = http.MultipartRequest('POST', uri)
+        ..fields['user_id'] = userId.toString()
+        ..fields['title']   = title
+        ..fields['content'] = content;
+
+      if (thumbnail != null) {
+        req.files.add(await http.MultipartFile.fromPath('thumbnail', thumbnail.path));
+      }
+
+      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      final res      = await http.Response.fromStream(streamed);
+      if (res.statusCode == 201) {
+        return BeritaModel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+      }
+      final err = jsonDecode(res.body);
+      throw Exception(err['error'] ?? err['detail'] ?? 'Gagal membuat berita');
     } on SocketException {
       throw Exception('Tidak bisa konek ke server');
     }

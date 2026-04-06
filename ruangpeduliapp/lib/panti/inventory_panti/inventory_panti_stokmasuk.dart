@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
 import 'package:ruangpeduliapp/services/inventory_notification_service.dart';
+import 'inventory_panti_produkbaru.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -351,26 +352,6 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
     );
   }
 
-  void _showTambahItemDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => _TambahItemDialog(
-        onAdd: (name, qty, unit, description) async {
-          if (widget.userId == null) return;
-          try {
-            await InventoryApi().addItem(widget.userId!, widget.categoryId, name, qty, unit, description: description.isEmpty ? null : description);
-            _fetchItems();
-          } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(e.toString())),
-              );
-            }
-          }
-        },
-      ),
-    );
-  }
 
   void _showEditItemDialog(InventoryItemModel item) {
     showDialog(
@@ -541,7 +522,19 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showTambahItemDialog,
+        onPressed: () async {
+          if (widget.pantiId == null || widget.userId == null) return;
+          final added = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TambahProdukScreen(
+                pantiId: widget.pantiId!,
+                userId:  widget.userId!,
+              ),
+            ),
+          );
+          if (added == true) _fetchItems();
+        },
         backgroundColor: kPink,
         elevation: 4,
         shape: const CircleBorder(),

@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:ruangpeduliapp/data/content_api.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 
@@ -95,6 +96,51 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         for (final p in pantiList) {
           buffer.writeln('- ${p.namaPanti} | Lokasi: ${p.alamatPanti} | Telp: ${p.nomorPanti} | Dana terkumpul: ${p.formattedTotalTerkumpul} | Koordinat: ${p.lat ?? "-"},${p.lng ?? "-"}');
         }
+
+        // Load kebutuhan (wishlist items posted by each panti)
+        try {
+          final allKebutuhan = await KebutuhanApi().fetchAllKebutuhan();
+          if (allKebutuhan.isNotEmpty) {
+            buffer.writeln('\n=== KEBUTUHAN BARANG PER PANTI ===');
+            // group by panti
+            final grouped = <String, List<KebutuhanItemModel>>{};
+            for (final k in allKebutuhan) {
+              grouped.putIfAbsent(k.pantiName, () => []).add(k);
+            }
+            for (final entry in grouped.entries) {
+              buffer.writeln('${entry.key}:');
+              for (final item in entry.value) {
+                buffer.writeln('  - ${item.nama} (${item.jumlah} ${item.satuan})');
+              }
+            }
+          } else {
+            buffer.writeln('\n=== KEBUTUHAN BARANG PER PANTI ===\n(belum ada data kebutuhan)');
+          }
+        } catch (_) {}
+
+        // Load inventory alert data for each panti
+        buffer.writeln('\n=== STATUS INVENTARIS PER PANTI ===');
+        bool anyInventory = false;
+        for (final p in pantiList) {
+          try {
+            final categories = await InventoryApi().fetchCategories(p.id);
+            if (categories.isNotEmpty) {
+              anyInventory = true;
+              final urgent = categories.where((c) => c.hasAlert).toList();
+              final normal = categories.where((c) => !c.hasAlert).toList();
+              buffer.writeln('${p.namaPanti}:');
+              if (urgent.isNotEmpty) {
+                buffer.writeln('  [MENDESAK] ${urgent.map((c) => '${c.name} (tersedia: ${c.availableCount}/${c.itemCount})').join(', ')}');
+              }
+              if (normal.isNotEmpty) {
+                buffer.writeln('  [CUKUP] ${normal.map((c) => c.name).join(', ')}');
+              }
+            }
+          } catch (_) {}
+        }
+        if (!anyInventory) {
+          buffer.writeln('(belum ada data inventaris)');
+        }
       }
     } catch (_) {}
 
@@ -144,7 +190,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
             'Berdasarkan koordinat ini, berikut panti terdekat:\n');
         for (final e in top) {
           final km = (e.value / 1000).toStringAsFixed(1);
-          buf.writeln('- ${e.key.namaPanti}: ${km} km');
+          buf.writeln('- ${e.key.namaPanti}: $km km');
         }
         buf.write('Tolong rekomendasikan panti mana yang sebaiknya saya kunjungi atau donasikan dan berikan informasi lebih lanjut.');
         msg = buf.toString();
@@ -598,7 +644,9 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
   // ── Input bar ──────────────────────────────────────────────────────────────
 
   Widget _buildInputBar() {
-    return SafeArea(
+    return Container(
+      color: Colors.white,
+      child: SafeArea(
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -683,6 +731,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }

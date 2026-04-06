@@ -6,7 +6,19 @@ from django.shortcuts import get_object_or_404
 from accounts.models import User
 from profiles.models import OrphanageProfile
 from .models import KebutuhanItem
-from .serializers import KebutuhanItemSerializer
+from .serializers import KebutuhanItemSerializer, KebutuhanItemWithPantiSerializer
+
+
+class KebutuhanAllView(APIView):
+    """
+    GET /api/kebutuhan/all/ → list all kebutuhan across every panti (public)
+    Returns each item with panti_id and panti_name included.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        qs = KebutuhanItem.objects.select_related('panti').order_by('panti__nama_panti', '-created_at')
+        return Response(KebutuhanItemWithPantiSerializer(qs, many=True).data)
 
 
 class KebutuhanListView(APIView):
