@@ -103,7 +103,11 @@ class FinanceApi {
         ));
 
     final all = [...incomes, ...expenses];
-    all.sort((a, b) => b.tanggal.compareTo(a.tanggal));
+    all.sort((a, b) {
+      final dateCmp = b.tanggal.compareTo(a.tanggal);
+      if (dateCmp != 0) return dateCmp;
+      return b.id.compareTo(a.id); // newer id = added later on same date
+    });
     return all;
   }
 

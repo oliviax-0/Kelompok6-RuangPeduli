@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
+import 'package:ruangpeduliapp/masyarakat/home/panti_detail_screen.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -11,6 +13,7 @@ const Color kSalmon = Color(0xFFEBB9B1);
 class BeritaDetailPanti extends StatefulWidget {
   final int beritaId;
   final int? userId;
+  final int? pantiId;
   final String title;
   final String? thumbnail;
   final String? pantiProfilePicture;
@@ -25,6 +28,7 @@ class BeritaDetailPanti extends StatefulWidget {
     super.key,
     required this.beritaId,
     required this.userId,
+    this.pantiId,
     required this.title,
     required this.thumbnail,
     this.pantiProfilePicture,
@@ -46,12 +50,29 @@ class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
   bool _hasUpvoted = false;
   bool _hasDownvoted = false;
   bool _voting = false;
+  bool _loadingProfile = false;
 
   @override
   void initState() {
     super.initState();
     _upvotes = widget.upvoteCount;
     _downvotes = widget.downvoteCount;
+    _loadVoteState();
+  }
+
+  Future<void> _loadVoteState() async {
+    if (widget.userId == null) return;
+    try {
+      final result = await ContentApi().fetchUserVote(widget.beritaId, widget.userId!);
+      if (!mounted) return;
+      final userVote = result['user_vote'] as String?;
+      setState(() {
+        _upvotes   = result['upvote_count']   ?? _upvotes;
+        _downvotes = result['downvote_count'] ?? _downvotes;
+        _hasUpvoted   = userVote == 'up';
+        _hasDownvoted = userVote == 'down';
+      });
+    } catch (_) {}
   }
 
   Future<void> _vote(String voteType) async {
@@ -70,20 +91,13 @@ class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
         widget.userId!,
         voteType,
       );
+      if (!mounted) return;
+      final userVote = result['user_vote'] as String?;
       setState(() {
-        _upvotes = result['upvote_count'];
-        _downvotes = result['downvote_count'];
-        final action = result['action'];
-        if (action == 'removed') {
-          _hasUpvoted = false;
-          _hasDownvoted = false;
-        } else if (voteType == 'up') {
-          _hasUpvoted = true;
-          _hasDownvoted = false;
-        } else {
-          _hasDownvoted = true;
-          _hasUpvoted = false;
-        }
+        _upvotes      = result['upvote_count']   ?? _upvotes;
+        _downvotes    = result['downvote_count'] ?? _downvotes;
+        _hasUpvoted   = userVote == 'up';
+        _hasDownvoted = userVote == 'down';
       });
     } catch (e) {
       if (mounted) {
@@ -98,6 +112,51 @@ class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
 
   void _onUpvote() => _vote('up');
   void _onDownvote() => _vote('down');
+
+  Future<void> _onLihatProfil() async {
+    if (widget.pantiId == null) return;
+    setState(() => _loadingProfile = true);
+    try {
+      final api = ProfileApi();
+      final results = await Future.wait([
+        api.fetchPantiProfile(widget.pantiId!),
+        api.fetchPantiMedia(widget.pantiId!),
+      ]);
+      if (!mounted) return;
+      final profile = results[0] as PantiProfileModel;
+      final media = results[1] as List<PantiMediaModel>;
+      final mediaUrls = media
+          .where((m) => m.file != null && m.file!.isNotEmpty)
+          .map((m) => m.file!)
+          .toList();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PantiDetailScreen(
+            pantiId: widget.pantiId,
+            namaPanti: profile.namaPanti,
+            username: '@${profile.username}',
+            nomorPanti: profile.nomorPanti,
+            alamatPanti: profile.alamatPanti,
+            description: profile.description,
+            profilePicture: profile.profilePicture,
+            terkumpul: profile.formattedTotalTerkumpul,
+            userId: widget.userId,
+            showNavBar: false,
+            mediaUrls: mediaUrls,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memuat profil panti')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -200,7 +259,9 @@ class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
     return Column(
       children: [
         // Author card
-        Container(
+        GestureDetector(
+          onTap: _loadingProfile ? null : _onLihatProfil,
+          child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: kSalmon,
@@ -257,6 +318,44 @@ class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
             ],
           ),
         ),
+        ),
+        const SizedBox(height: 10),
+
+        // Lihat Profil button
+        if (widget.pantiId != null)
+          Center(
+            child: SizedBox(
+              width: 200,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: _loadingProfile ? null : _onLihatProfil,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE8848A),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                child: _loadingProfile
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Lihat Profil',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+          ),
         const SizedBox(height: 10),
 
         // Voting row
