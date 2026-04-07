@@ -285,7 +285,9 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPinkLight,
+      bottomNavigationBar: _buildInputBar(),
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildHeader(),
@@ -303,7 +305,6 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
                 ),
               ),
             ),
-            _buildInputBar(),
           ],
         ),
       ),
@@ -500,7 +501,9 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   }
 
   Widget _buildInputBar() {
-    return SafeArea(
+    return Container(
+      color: Colors.white,
+      child: SafeArea(
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -549,8 +552,6 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
               children: [
                 IconButton(onPressed: _pickImage, icon: const Icon(Icons.image_outlined, color: Color(0xFF555555), size: 22), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                 const SizedBox(width: 16),
-                const Icon(Icons.code_rounded, color: Color(0xFF555555), size: 22),
-                const SizedBox(width: 16),
                 IconButton(
                   onPressed: _toggleMic,
                   icon: Icon(
@@ -566,6 +567,7 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
           ],
         ),
       ),
+    ),
     );
   }
 }

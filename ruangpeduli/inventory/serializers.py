@@ -32,20 +32,25 @@ class InventoryCategorySerializer(serializers.ModelSerializer):
 
 class InventoryCategoryLightSerializer(serializers.ModelSerializer):
     """Lightweight version without items list — for listing all categories."""
-    item_count       = serializers.SerializerMethodField()
-    available_count  = serializers.SerializerMethodField()
-    panti_id         = serializers.IntegerField(source='panti.id', read_only=True)
-    panti_name       = serializers.CharField(source='panti.nama_panti', read_only=True)
+    item_count          = serializers.SerializerMethodField()
+    available_count     = serializers.SerializerMethodField()
+    needs_restock_count = serializers.SerializerMethodField()
+    panti_id            = serializers.IntegerField(source='panti.id', read_only=True)
+    panti_name          = serializers.CharField(source='panti.nama_panti', read_only=True)
 
     class Meta:
         model  = InventoryCategory
-        fields = ['id', 'panti_id', 'panti_name', 'name', 'item_count', 'available_count']
+        fields = ['id', 'panti_id', 'panti_name', 'name', 'item_count', 'available_count', 'needs_restock_count']
 
     def get_item_count(self, obj):
         return obj.items.count()
 
     def get_available_count(self, obj):
         return obj.items.filter(quantity__gt=0).count()
+
+    def get_needs_restock_count(self, obj):
+        """Number of items that need restocking (qty=0 OR days_until_empty <= lead_time)."""
+        return sum(1 for item in obj.items.all() if item.needs_restock)
 
 
 class StokLaporanSerializer(serializers.ModelSerializer):

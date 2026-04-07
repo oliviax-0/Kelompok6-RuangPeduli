@@ -263,7 +263,7 @@ class PredictPhrrView(APIView):
         panti = get_object_or_404(OrphanageProfile, pk=panti_id)
         penghuni_count = panti.penghuni.count()
         pekerja_count  = panti.pekerja.count()
-        total_orang    = penghuni_count + pekerja_count
+        total_orang    = max(penghuni_count + pekerja_count, 1)  # at least 1 to avoid near-zero PHRR
 
         api_key = os.environ.get('GROQ_API_KEY', '')
         if not api_key:

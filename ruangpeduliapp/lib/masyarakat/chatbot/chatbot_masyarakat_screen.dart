@@ -398,7 +398,9 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kPinkLight,
+      bottomNavigationBar: _buildInputBar(),
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildHeader(),
@@ -417,7 +419,6 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
                 ),
               ),
             ),
-            _buildInputBar(),
           ],
         ),
       ),
@@ -712,11 +713,6 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
                 _ActionIcon(
                   icon: Icons.image_outlined,
                   onTap: _pickImage,
-                ),
-                const SizedBox(width: 16),
-                _ActionIcon(
-                  icon: Icons.code_rounded,
-                  onTap: () {},
                 ),
                 const SizedBox(width: 16),
                 _ActionIcon(

@@ -48,11 +48,12 @@ class BeritaListView(APIView):
 
         panti = get_object_or_404(OrphanageProfile, user=user)
 
-        serializer = BeritaSerializer(data={
-            **request.data,
-            'author': user.id,
-            'panti': panti.id,
-        }, context={'request': request})
+        # Use .dict() to flatten QueryDict (multipart) so values are scalars, not lists
+        data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
+        data['author'] = user.id
+        data['panti']  = panti.id
+
+        serializer = BeritaSerializer(data=data, context={'request': request})
 
         if serializer.is_valid():
             serializer.save()

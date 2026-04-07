@@ -9,21 +9,26 @@ class CategoryModel {
   final String name;
   final int itemCount;
   final int availableCount;
+  final int needsRestockCount;
 
   const CategoryModel({
     required this.id,
     required this.name,
     required this.itemCount,
     required this.availableCount,
+    this.needsRestockCount = 0,
   });
 
-  bool get hasAlert => itemCount > 0 && availableCount < itemCount;
+  /// True when any item is out of stock OR any item needs restocking based on PHRR.
+  bool get hasAlert =>
+      itemCount > 0 && (availableCount < itemCount || needsRestockCount > 0);
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) => CategoryModel(
         id: json['id'],
         name: json['name'],
         itemCount: json['item_count'] ?? 0,
         availableCount: json['available_count'] ?? 0,
+        needsRestockCount: json['needs_restock_count'] ?? 0,
       );
 }
 

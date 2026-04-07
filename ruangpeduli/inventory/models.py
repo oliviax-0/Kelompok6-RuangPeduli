@@ -48,6 +48,10 @@ class InventoryItem(models.Model):
         d = self.days_until_empty
         if d is None:
             return self.quantity == 0
+        # If days_until_empty > 365, the PHRR is effectively 0 (e.g. AI gave near-zero
+        # because there were no registered penghuni). Fall back to qty == 0 check.
+        if d > 365:
+            return self.quantity == 0
         return d <= self.lead_time_days
 
 

@@ -302,7 +302,12 @@ class _HomePantiState extends State<HomePanti> {
       itemCount: _beritas.length,
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) =>
-          _NewsCard(item: _beritas[index], userId: widget.userId),
+          _NewsCard(
+            item: _beritas[index],
+            userId: widget.userId,
+            viewerPantiId: widget.pantiId,
+            onGoToOwnProfile: () => setState(() => _selectedIndex = 3),
+          ),
     );
   }
 
@@ -464,8 +469,10 @@ class _HomePantiState extends State<HomePanti> {
 class _NewsCard extends StatelessWidget {
   final BeritaModel item;
   final int? userId;
+  final int? viewerPantiId;
+  final VoidCallback? onGoToOwnProfile;
 
-  const _NewsCard({required this.item, required this.userId});
+  const _NewsCard({required this.item, required this.userId, this.viewerPantiId, this.onGoToOwnProfile});
 
   @override
   Widget build(BuildContext context) {
@@ -477,6 +484,8 @@ class _NewsCard extends StatelessWidget {
               beritaId: item.id,
               userId: userId,
               pantiId: item.pantiId,
+              viewerPantiId: viewerPantiId,
+              onGoToOwnProfile: onGoToOwnProfile,
               title: item.title,
               thumbnail: item.thumbnail,
               pantiProfilePicture: item.pantiProfilePicture,
