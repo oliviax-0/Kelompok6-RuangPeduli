@@ -103,7 +103,11 @@ class FinanceApi {
         ));
 
     final all = [...incomes, ...expenses];
-    all.sort((a, b) => b.tanggal.compareTo(a.tanggal));
+    all.sort((a, b) {
+      final dateCmp = b.tanggal.compareTo(a.tanggal);
+      if (dateCmp != 0) return dateCmp;
+      return b.id.compareTo(a.id); // newer id = added later on same date
+    });
     return all;
   }
 
@@ -116,6 +120,18 @@ class FinanceApi {
       return (jsonDecode(res.body) as List).map((e) => JenisPemasukanModel.fromJson(e)).toList();
     }
     throw Exception('Gagal memuat jenis pemasukan');
+  }
+
+  Future<JenisPemasukanModel> addJenisPemasukan(int userId, String nama) async {
+    final uri = Uri.parse('$_base/finance/jenis-pemasukan/');
+    final res = await http
+        .post(uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'user_id': userId, 'nama': nama}))
+        .timeout(const Duration(seconds: 15));
+    if (res.statusCode == 201) return JenisPemasukanModel.fromJson(jsonDecode(res.body));
+    final body = jsonDecode(res.body);
+    throw Exception(body['error'] ?? 'Gagal menambah jenis pemasukan');
   }
 
   Future<void> addPemasukan(int userId, int jenisId, double jumlah, String catatan, String tanggal) async {

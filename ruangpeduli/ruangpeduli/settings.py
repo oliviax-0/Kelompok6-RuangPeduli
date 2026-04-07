@@ -25,6 +25,8 @@ INSTALLED_APPS = [
     'inventory',
     'residents',
     'finance',
+    'donations',
+    'kebutuhan',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -97,9 +99,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 # ============================================================
 # GOOGLE OAUTH
 # ============================================================
-GOOGLE_CLIENT_ID           = os.getenv('GOOGLE_CLIENT_ID', '')            # iOS (Oliv)
-GOOGLE_CLIENT_ID_ANDROID   = os.getenv('GOOGLE_CLIENT_ID_ANDROID', '')    # Android (Andre)
-GOOGLE_CLIENT_ID_ANDROID_2 = os.getenv('GOOGLE_CLIENT_ID_ANDROID_2', '')  # Android (Ricci)
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')            # iOS (Oliv)
 
 # ============================================================
 # GMAIL SMTP 

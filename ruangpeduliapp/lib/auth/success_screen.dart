@@ -72,7 +72,7 @@ class _SuccessScreenState extends State<SuccessScreen>
   void _navigateToHome() {
     final Widget home = widget.role == 'panti'
         ? HomePanti(userId: widget.userId, pantiId: widget.pantiId)
-        : const HomeMasyarakatScreen();
+        : HomeMasyarakatScreen(userId: widget.userId);
 
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(

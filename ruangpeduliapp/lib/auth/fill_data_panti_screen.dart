@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
+import 'package:ruangpeduliapp/data/regional_api.dart';
 import 'package:ruangpeduliapp/auth/verification_screen.dart';
 import 'package:ruangpeduliapp/auth/success_screen.dart';
 
 class FillDataPantiScreen extends StatefulWidget {
   final String email;
   final String password;
-  final String? googleIdToken; // non-null → Google mode (skip OTP)
+  final String? googleIdToken;
 
   const FillDataPantiScreen({
     super.key,
@@ -27,19 +28,45 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
   late Animation<double> _fade;
   late Animation<Offset> _slide;
 
+  // ── Text controllers ──
   final _namaPantiController = TextEditingController();
-  final _alamatPantiController = TextEditingController();
+  final _jalanController = TextEditingController();
   final _usernameController = TextEditingController();
   final _nomorPantiController = TextEditingController();
-  bool _agreeTnC = true;
+  final _kodePosController = TextEditingController();
+
+  // ── Regional cascade state ──
+  final _regionalApi = RegionalApi();
+  List<ProvinceModel> _provinces = [];
+  List<CityModel> _cities = [];
+  List<DistrictModel> _districts = [];
+  List<VillageModel> _villages = [];
+
+  ProvinceModel? _selectedProvince;
+  CityModel? _selectedCity;
+  DistrictModel? _selectedDistrict;
+  VillageModel? _selectedVillage;
+
+  bool _loadingProvinces = false;
+  bool _loadingCities = false;
+  bool _loadingDistricts = false;
+  bool _loadingVillages = false;
+
+  // ── Validation errors ──
   String? _namaPantiError;
-  String? _alamatPantiError;
+  String? _jalanError;
+  String? _provinsiError;
+  String? _kotaError;
+  String? _kecamatanError;
+  String? _kelurahanError;
   String? _usernameError;
   String? _nomorPantiError;
   String? _tncError;
   String? _generalError;
-  final _api = AuthApi();
+
+  bool _agreeTnC = true;
   bool _loading = false;
+  final _api = AuthApi();
 
   @override
   void initState() {
@@ -54,62 +81,169 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
     Future.delayed(const Duration(milliseconds: 80), () {
       if (mounted) _controller.forward();
     });
+    _loadProvinces();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _namaPantiController.dispose();
-    _alamatPantiController.dispose();
+    _jalanController.dispose();
     _usernameController.dispose();
     _nomorPantiController.dispose();
+    _kodePosController.dispose();
     super.dispose();
   }
 
+  // ── Load provinces ──
+  Future<void> _loadProvinces() async {
+    setState(() => _loadingProvinces = true);
+    try {
+      final list = await _regionalApi.fetchProvinces();
+      if (mounted) setState(() { _provinces = list; _loadingProvinces = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingProvinces = false);
+    }
+  }
+
+  // ── On province selected ──
+  Future<void> _onProvinceChanged(ProvinceModel? p) async {
+    setState(() {
+      _selectedProvince = p;
+      _selectedCity = null;
+      _selectedDistrict = null;
+      _selectedVillage = null;
+      _cities = [];
+      _districts = [];
+      _villages = [];
+      _provinsiError = null;
+    });
+    if (p == null) return;
+    setState(() => _loadingCities = true);
+    try {
+      final list = await _regionalApi.fetchCities(p.id);
+      if (mounted) setState(() { _cities = list; _loadingCities = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingCities = false);
+    }
+  }
+
+  // ── On city selected ──
+  Future<void> _onCityChanged(CityModel? c) async {
+    setState(() {
+      _selectedCity = c;
+      _selectedDistrict = null;
+      _selectedVillage = null;
+      _districts = [];
+      _villages = [];
+      _kotaError = null;
+    });
+    if (c == null) return;
+    setState(() => _loadingDistricts = true);
+    try {
+      final list = await _regionalApi.fetchDistricts(c.id);
+      if (mounted) setState(() { _districts = list; _loadingDistricts = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingDistricts = false);
+    }
+  }
+
+  // ── On district selected ──
+  Future<void> _onDistrictChanged(DistrictModel? d) async {
+    setState(() {
+      _selectedDistrict = d;
+      _selectedVillage = null;
+      _villages = [];
+      _kecamatanError = null;
+    });
+    if (d == null) return;
+    setState(() => _loadingVillages = true);
+    try {
+      final list = await _regionalApi.fetchVillages(d.id);
+      if (mounted) setState(() { _villages = list; _loadingVillages = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingVillages = false);
+    }
+  }
+
+  // ── Submit ──
   void _onSelanjutnya() {
     final username = _usernameController.text.trim();
-    final namaPantiErr = _namaPantiController.text.isEmpty ? 'Wajib diisi' : null;
-    final alamatErr = _alamatPantiController.text.isEmpty ? 'Wajib diisi' : null;
+    final namaPantiErr =
+        _namaPantiController.text.isEmpty ? 'Wajib diisi' : null;
+    final jalanErr = _jalanController.text.isEmpty ? 'Wajib diisi' : null;
+    final provinsiErr = _selectedProvince == null ? 'Wajib dipilih' : null;
+    final kotaErr = _selectedCity == null ? 'Wajib dipilih' : null;
+    final kecamatanErr = _selectedDistrict == null ? 'Wajib dipilih' : null;
+    final kelurahanErr = _selectedVillage == null ? 'Wajib dipilih' : null;
     final usernameErr = username.isEmpty
         ? 'Wajib diisi'
-        : (!RegExp(r'[a-zA-Z]').hasMatch(username) || !RegExp(r'\d').hasMatch(username))
+        : (!RegExp(r'[a-zA-Z]').hasMatch(username) ||
+                !RegExp(r'\d').hasMatch(username))
             ? 'Username harus mengandung huruf dan angka'
             : null;
-    final nomorErr = _nomorPantiController.text.isEmpty ? 'Wajib diisi' : null;
-    final tncErr = !_agreeTnC ? 'Anda harus menyetujui S&K terlebih dahulu' : null;
+    final nomorErr =
+        _nomorPantiController.text.isEmpty ? 'Wajib diisi' : null;
+    final tncErr =
+        !_agreeTnC ? 'Anda harus menyetujui S&K terlebih dahulu' : null;
 
     setState(() {
       _namaPantiError = namaPantiErr;
-      _alamatPantiError = alamatErr;
+      _jalanError = jalanErr;
+      _provinsiError = provinsiErr;
+      _kotaError = kotaErr;
+      _kecamatanError = kecamatanErr;
+      _kelurahanError = kelurahanErr;
       _usernameError = usernameErr;
       _nomorPantiError = nomorErr;
       _tncError = tncErr;
       _generalError = null;
     });
 
-    if (namaPantiErr != null || alamatErr != null || usernameErr != null ||
-        nomorErr != null || tncErr != null) return;
+    if (namaPantiErr != null || jalanErr != null || provinsiErr != null ||
+        kotaErr != null || kecamatanErr != null || kelurahanErr != null ||
+        usernameErr != null || nomorErr != null || tncErr != null) {
+      return;
+    }
+
+    // Build full alamat string
+    final alamatFull = [
+      _jalanController.text.trim(),
+      'Kel. ${_selectedVillage!.name}',
+      'Kec. ${_selectedDistrict!.name}',
+      _selectedCity!.name,
+      _selectedProvince!.name,
+      if (_kodePosController.text.trim().isNotEmpty)
+        _kodePosController.text.trim(),
+    ].join(', ');
 
     setState(() => _loading = true);
 
     if (widget.googleIdToken != null) {
-      // Google mode — register directly, no OTP
       _api.googleRegister(
         idToken: widget.googleIdToken!,
         role: 'panti',
         username: username,
         namaPanti: _namaPantiController.text.trim(),
-        alamatPanti: _alamatPantiController.text.trim(),
+        alamatPanti: alamatFull,
         nomorPanti: _nomorPantiController.text.trim(),
+        provinsiPanti: _selectedProvince!.name,
+        kabupatenKotaPanti: _selectedCity!.name,
+        kecamatanPanti: _selectedDistrict!.name,
+        kelurahanPanti: _selectedVillage!.name,
+        kodePosPanti: _kodePosController.text.trim().isNotEmpty
+            ? _kodePosController.text.trim()
+            : null,
       ).then((result) {
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => SuccessScreen(
-            role: 'panti',
-            userId: result['user_id'] as int?,
-            pantiId: result['panti_id'] as int?,
-          )),
+          MaterialPageRoute(
+              builder: (_) => SuccessScreen(
+                    role: 'panti',
+                    userId: result['user_id'] as int?,
+                    pantiId: result['panti_id'] as int?,
+                  )),
           (route) => false,
         );
       }).catchError((e) {
@@ -125,8 +259,15 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
         password: widget.password,
         role: 'panti',
         namaPanti: _namaPantiController.text.trim(),
-        alamatPanti: _alamatPantiController.text.trim(),
+        alamatPanti: alamatFull,
         nomorPanti: _nomorPantiController.text.trim(),
+        provinsiPanti: _selectedProvince!.name,
+        kabupatenKotaPanti: _selectedCity!.name,
+        kecamatanPanti: _selectedDistrict!.name,
+        kelurahanPanti: _selectedVillage!.name,
+        kodePosPanti: _kodePosController.text.trim().isNotEmpty
+            ? _kodePosController.text.trim()
+            : null,
       )).then((pendingId) {
         if (!mounted) return;
         Navigator.push(
@@ -172,7 +313,7 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
             ),
           ),
 
-          // Wave — tinggi sedang ~75%
+          // Wave
           Align(
             alignment: Alignment.bottomCenter,
             child: SizedBox(
@@ -182,7 +323,7 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
             ),
           ),
 
-          // Konten
+          // Content
           SafeArea(
             child: FadeTransition(
               opacity: _fade,
@@ -192,22 +333,18 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Back button
                       const Padding(
                         padding: EdgeInsets.only(left: 16, top: 8),
                         child: AuthBackButton(),
                       ),
-
                       SizedBox(height: size.height * 0.18),
-
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 28),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 8),
-
-                            // Title
                             const Text(
                               'Isi Data',
                               style: TextStyle(
@@ -218,30 +355,8 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                             ),
                             const SizedBox(height: 28),
 
-                            // Nama Panti
-                            _SectionLabel('Nama Panti'),
-                            const SizedBox(height: 8),
-                            _RoundedField(
-                              controller: _namaPantiController,
-                              hint: 'Contoh: Panti Sayap Ibu Bintaro',
-                              errorText: _namaPantiError,
-                              onChanged: (_) => setState(() => _namaPantiError = null),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Alamat Panti
-                            _SectionLabel('Alamat Panti'),
-                            const SizedBox(height: 8),
-                            _RoundedField(
-                              controller: _alamatPantiController,
-                              hint: 'Contoh: Jalan Sudirman 123',
-                              errorText: _alamatPantiError,
-                              onChanged: (_) => setState(() => _alamatPantiError = null),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Username
-                            _SectionLabel('Username'),
+                            // ── Username ──
+                            const _SectionLabel('Username'),
                             const SizedBox(height: 8),
                             _RoundedField(
                               controller: _usernameController,
@@ -251,22 +366,127 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                             ),
                             const SizedBox(height: 20),
 
-                            // Nomor Panti
+                            // ── Nama Panti ──
+                            const _SectionLabel('Nama Panti'),
+                            const SizedBox(height: 8),
+                            _RoundedField(
+                              controller: _namaPantiController,
+                              hint: 'Contoh: Panti Sayap Ibu Bintaro',
+                              errorText: _namaPantiError,
+                              onChanged: (_) => setState(() => _namaPantiError = null),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // ── Jalan & Nomor ──
+                            const _SectionLabel('Alamat'),
+                            const SizedBox(height: 8),
+                            _RoundedField(
+                              controller: _jalanController,
+                              hint: 'Contoh: Jl. Sudirman No. 5',
+                              errorText: _jalanError,
+                              onChanged: (_) => setState(() => _jalanError = null),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // ── Provinsi ──
+                            const _SectionLabel('Provinsi'),
+                            const SizedBox(height: 8),
+                            _CascadeDropdown<ProvinceModel>(
+                              value: _selectedProvince,
+                              items: _provinces,
+                              loading: _loadingProvinces,
+                              hint: 'Pilih provinsi',
+                              errorText: _provinsiError,
+                              itemLabel: (p) => p.name,
+                              onChanged: _onProvinceChanged,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // ── Kabupaten/Kota ──
+                            const _SectionLabel('Kabupaten / Kota'),
+                            const SizedBox(height: 8),
+                            _CascadeDropdown<CityModel>(
+                              value: _selectedCity,
+                              items: _cities,
+                              loading: _loadingCities,
+                              hint: _selectedProvince == null
+                                  ? 'Pilih provinsi terlebih dahulu'
+                                  : 'Pilih kabupaten/kota',
+                              enabled: _selectedProvince != null,
+                              errorText: _kotaError,
+                              itemLabel: (c) => c.name,
+                              onChanged: _onCityChanged,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // ── Kecamatan ──
+                            const _SectionLabel('Kecamatan'),
+                            const SizedBox(height: 8),
+                            _CascadeDropdown<DistrictModel>(
+                              value: _selectedDistrict,
+                              items: _districts,
+                              loading: _loadingDistricts,
+                              hint: _selectedCity == null
+                                  ? 'Pilih kota/kabupaten terlebih dahulu'
+                                  : 'Pilih kecamatan',
+                              enabled: _selectedCity != null,
+                              errorText: _kecamatanError,
+                              itemLabel: (d) => d.name,
+                              onChanged: _onDistrictChanged,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // ── Kelurahan ──
+                            const _SectionLabel('Kelurahan'),
+                            const SizedBox(height: 8),
+                            _CascadeDropdown<VillageModel>(
+                              value: _selectedVillage,
+                              items: _villages,
+                              loading: _loadingVillages,
+                              hint: _selectedDistrict == null
+                                  ? 'Pilih kecamatan terlebih dahulu'
+                                  : 'Pilih kelurahan',
+                              enabled: _selectedDistrict != null,
+                              errorText: _kelurahanError,
+                              itemLabel: (v) => v.name,
+                              onChanged: (v) => setState(() {
+                                _selectedVillage = v;
+                                _kelurahanError = null;
+                              }),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // ── Kode Pos ──
+                            const _SectionLabel('Kode Pos'),
+                            const SizedBox(height: 8),
+                            _RoundedField(
+                              controller: _kodePosController,
+                              hint: 'Contoh: 15310',
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(5),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+
+                            // ── Nomor Panti ──
                             const _SectionLabel('Nomor Panti'),
                             const SizedBox(height: 8),
                             _RoundedField(
                               controller: _nomorPantiController,
-                              hint: 'Masukan Nomor Telepon Aktif',
+                              hint: 'Contoh: 0812-3456-7890',
                               keyboardType: TextInputType.phone,
                               inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly
+                                FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
+                                _PhoneFormatter(),
                               ],
                               errorText: _nomorPantiError,
                               onChanged: (_) => setState(() => _nomorPantiError = null),
                             ),
                             const SizedBox(height: 24),
 
-                            // Syarat dan Ketentuan
+                            // ── Syarat dan Ketentuan ──
                             const Text(
                               'Syarat dan Ketentuan',
                               style: TextStyle(
@@ -288,7 +508,8 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                                         () => _agreeTnC = val ?? false),
                                     activeColor: const Color(0xFF2C2C2C),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(4)),
+                                        borderRadius:
+                                            BorderRadius.circular(4)),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -323,7 +544,6 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
                             InlineMessage(message: _generalError),
                             if (_generalError != null) const SizedBox(height: 8),
 
-                            // Selanjutnya button
                             Center(
                               child: SizedBox(
                                 width: size.width * 0.55,
@@ -349,8 +569,104 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
   }
 }
 
-// ── Reusable widgets ──
+// ── Cascading dropdown ──
+class _CascadeDropdown<T> extends StatelessWidget {
+  final T? value;
+  final List<T> items;
+  final bool loading;
+  final bool enabled;
+  final String hint;
+  final String? errorText;
+  final String Function(T) itemLabel;
+  final ValueChanged<T?> onChanged;
 
+  const _CascadeDropdown({
+    required this.value,
+    required this.items,
+    required this.hint,
+    required this.itemLabel,
+    required this.onChanged,
+    this.loading = false,
+    this.enabled = true,
+    this.errorText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = errorText != null && errorText!.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: enabled
+                ? const Color(0xFFF0E8EA)
+                : const Color(0xFFE8E0E2),
+            borderRadius: BorderRadius.circular(12),
+            border: hasError
+                ? Border.all(color: const Color(0xFFF43D5E), width: 1.5)
+                : null,
+          ),
+          child: loading
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Color(0xFFF47B8C)),
+                  ),
+                )
+              : DropdownButtonHideUnderline(
+                  child: DropdownButton<T>(
+                    value: value,
+                    isExpanded: true,
+                    hint: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        hint,
+                        style: TextStyle(
+                            fontSize: 14,
+                            color: enabled
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade300),
+                      ),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                    borderRadius: BorderRadius.circular(12),
+                    items: enabled
+                        ? items
+                            .map((item) => DropdownMenuItem<T>(
+                                  value: item,
+                                  child: Text(itemLabel(item),
+                                      style: const TextStyle(fontSize: 14)),
+                                ))
+                            .toList()
+                        : [],
+                    onChanged: enabled ? onChanged : null,
+                  ),
+                ),
+        ),
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.info_outline_rounded,
+                  size: 13, color: Color(0xFFF43D5E)),
+              const SizedBox(width: 4),
+              Text(errorText!,
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFFF43D5E))),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ── Section Label ──
 class _SectionLabel extends StatelessWidget {
   final String text;
   const _SectionLabel(this.text);
@@ -368,6 +684,26 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+// ── Phone number formatter: 0812-3456-7890 ──
+class _PhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue next) {
+    final digits = next.text.replaceAll('-', '');
+    if (digits.isEmpty) return next.copyWith(text: '');
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length && i < 13; i++) {
+      if (i == 4 || i == 8) buffer.write('-');
+      buffer.write(digits[i]);
+    }
+    final formatted = buffer.toString();
+    return next.copyWith(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+// ── Rounded text field ──
 class _RoundedField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
@@ -399,7 +735,8 @@ class _RoundedField extends StatelessWidget {
           style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            hintStyle:
+                TextStyle(color: Colors.grey.shade400, fontSize: 14),
             filled: true,
             fillColor: const Color(0xFFF0E8EA),
             contentPadding:
@@ -416,7 +753,8 @@ class _RoundedField extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
+              borderSide:
+                  const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
             ),
           ),
         ),
@@ -424,11 +762,13 @@ class _RoundedField extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFFF43D5E)),
+              const Icon(Icons.info_outline_rounded,
+                  size: 13, color: Color(0xFFF43D5E)),
               const SizedBox(width: 4),
               Text(
                 errorText!,
-                style: const TextStyle(fontSize: 12, color: Color(0xFFF43D5E)),
+                style: const TextStyle(
+                    fontSize: 12, color: Color(0xFFF43D5E)),
               ),
             ],
           ),
@@ -443,7 +783,7 @@ class _FillDataWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paintBack = Paint()
-      ..color = Colors.white.withOpacity(0.40)
+      ..color = Colors.white.withValues(alpha: 0.40)
       ..style = PaintingStyle.fill;
 
     final pathBack = Path()

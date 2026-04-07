@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/auth/role_selection_screen.dart';
+import 'package:ruangpeduliapp/data/donation_api.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/masyarakat/profile/edit_profil_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/transaksi/konfirmasi_pembayaran_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/history/riwayat_donasi_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final int? userId;
+  const ProfileScreen({super.key, this.userId});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -13,60 +18,98 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedIndex = 3;
+  List<PantiProfileModel> _pantiList = [];
+  bool _isLoading = true;
+  SocietyProfileModel? _userProfile;
+  int _totalDonasi = 0;
 
-  // ── Data dummy panti ──
-  final List<Map<String, dynamic>> _pantiList = [
-    {
-      'nama': 'Yayasan Sayap Ibu',
-      'terkumpul': 'Rp12.520.000 Terkumpul',
-      'image': 'assets/images/panti1.png',
-    },
-    {
-      'nama': 'Griya Yatim Dhuafa',
-      'terkumpul': 'Rp8.500.000 Terkumpul',
-      'image': 'assets/images/panti2.png',
-    },
-    {
-      'nama': 'Panti Asuhan Mekar Lestari',
-      'terkumpul': 'Rp5.200.000 Terkumpul',
-      'image': 'assets/images/panti3.png',
-    },
-    {
-      'nama': 'Panti Asuhan Kasih Sesama',
-      'terkumpul': 'Rp3.750.000 Terkumpul',
-      'image': 'assets/images/panti4.png',
-    },
-    {
-      'nama': 'Rumah Yatim Indonesia',
-      'terkumpul': 'Rp9.100.000 Terkumpul',
-      'image': 'assets/images/panti5.png',
-    },
-    {
-      'nama': 'Panti Asuhan Al-Ikhlas',
-      'terkumpul': 'Rp4.300.000 Terkumpul',
-      'image': 'assets/images/panti6.png',
-    },
-    {
-      'nama': 'Yayasan Peduli Anak',
-      'terkumpul': 'Rp6.800.000 Terkumpul',
-      'image': 'assets/images/panti7.png',
-    },
-    {
-      'nama': 'Panti Asuhan Bina Insani',
-      'terkumpul': 'Rp2.950.000 Terkumpul',
-      'image': 'assets/images/panti8.png',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadPanti();
+    if (widget.userId != null) {
+      _loadUserProfile();
+      _loadTotalDonasi();
+    }
+  }
+
+  Future<void> _loadUserProfile() async {
+    final profile = await ProfileApi().fetchMasyarakatProfile(widget.userId!);
+    if (mounted) setState(() => _userProfile = profile);
+  }
+
+  Future<void> _loadTotalDonasi() async {
+    try {
+      final list = await DonationApi().fetchDonations(widget.userId!);
+      final total = list.fold<int>(0, (sum, d) => sum + d.jumlah);
+      if (mounted) setState(() => _totalDonasi = total);
+    } catch (_) {}
+  }
+
+  String get _formattedTotalDonasi {
+    if (_totalDonasi == 0) return 'Rp0';
+    final s = _totalDonasi.toString();
+    final buffer = StringBuffer('Rp');
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(s[i]);
+    }
+    return buffer.toString();
+  }
+
+  Future<void> _loadPanti() async {
+    try {
+      final list = await ProfileApi().fetchAllPanti();
+      if (mounted) setState(() { _pantiList = list; _isLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Keluar',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: const Text('Apakah Anda yakin ingin keluar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Batal',
+                style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+                (_) => false,
+              );
+            },
+            child: const Text('Keluar',
+                style: TextStyle(
+                    color: Color(0xFFF43D5E),
+                    fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _onNavTap(int index) {
     if (index == _selectedIndex) return;
     if (index == 0) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeMasyarakatScreen()),
+        MaterialPageRoute(builder: (_) => HomeMasyarakatScreen(userId: widget.userId)),
       );
     } else if (index == 1) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SearchScreen()),
+        MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)),
+      );
+    } else if (index == 2) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => RiwayatDonasiScreen(userId: widget.userId)),
       );
     }
     setState(() => _selectedIndex = index);
@@ -115,14 +158,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: Colors.grey.shade200,
                             ),
                             child: ClipOval(
-                              child: Image.asset(
-                                'assets/images/profile_photo.png',
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Icon(
-                                    Icons.person_rounded,
-                                    size: 40,
-                                    color: Colors.grey.shade400),
-                              ),
+                              child: _userProfile?.profilePicture != null
+                                  ? Image.network(
+                                      _userProfile!.profilePicture!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Icon(
+                                          Icons.person_rounded,
+                                          size: 40,
+                                          color: Colors.grey.shade400),
+                                    )
+                                  : Icon(
+                                      Icons.person_rounded,
+                                      size: 40,
+                                      color: Colors.grey.shade400),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -132,29 +180,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Sienna Malik',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1A1A1A),
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _userProfile?.namaPengguna.isNotEmpty == true
+                                            ? _userProfile!.namaPengguna
+                                            : (_userProfile?.username ?? 'Pengguna'),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => _confirmLogout(),
+                                      child: const Icon(
+                                        Icons.logout_rounded,
+                                        size: 20,
+                                        color: Color(0xFFF43D5E),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '@sunshinebecomesy0u',
+                                  _userProfile != null
+                                      ? '@${_userProfile!.username}'
+                                      : '',
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey.shade500),
                                 ),
                                 const SizedBox(height: 10),
                                 GestureDetector(
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) =>
-                                            const EditProfilScreen()),
-                                  ),
+                                  onTap: () async {
+                                    final updated = await Navigator.push<SocietyProfileModel>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => EditProfilScreen(
+                                          profile: _userProfile,
+                                          userId: widget.userId,
+                                        ),
+                                      ),
+                                    );
+                                    if (updated != null && mounted) {
+                                      setState(() => _userProfile = updated);
+                                    }
+                                  },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 20, vertical: 8),
@@ -235,7 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Rp15.520.000',
+                                  _formattedTotalDonasi,
                                   style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.grey.shade600),
@@ -266,30 +340,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 12),
 
                     // Panti list
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _pantiList.length,
-                      itemBuilder: (context, i) {
-                        final panti = _pantiList[i];
-                        return _PantiDonasCard(
-                          nama: panti['nama'],
-                          terkumpul: panti['terkumpul'],
-                          imagePath: panti['image'],
-                          onDonasi: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => KonfirmasiPembayaranScreen(
-                                namaPanti: panti['nama'],
-                                terkumpul: panti['terkumpul'],
-                                imagePath: panti['image'],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    if (_isLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator(color: Color(0xFFF43D5E))),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: _pantiList.length,
+                        itemBuilder: (context, i) {
+                          final panti = _pantiList[i];
+                          return _PantiDonasCard(
+                            nama: panti.namaPanti,
+                            terkumpul: panti.formattedTotalTerkumpul,
+                            profilePicture: panti.profilePicture,
+                            onDonasi: () async {
+                              final result = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => KonfirmasiPembayaranScreen(
+                                    namaPanti: panti.namaPanti,
+                                    terkumpul: panti.formattedTotalTerkumpul,
+                                    imagePath: panti.profilePicture ?? '',
+                                    pantiId: panti.id,
+                                    userId: widget.userId,
+                                  ),
+                                ),
+                              );
+                              if (result == true && mounted) {
+                                _loadTotalDonasi();
+                                _loadPanti();
+                              }
+                            },
+                          );
+                        },
+                      ),
                     const SizedBox(height: 80),
                   ],
                 ),
@@ -348,13 +436,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 class _PantiDonasCard extends StatelessWidget {
   final String nama;
   final String terkumpul;
-  final String imagePath;
+  final String? profilePicture;
   final VoidCallback onDonasi;
 
   const _PantiDonasCard({
     required this.nama,
     required this.terkumpul,
-    required this.imagePath,
+    required this.profilePicture,
     required this.onDonasi,
   });
 
@@ -379,19 +467,15 @@ class _PantiDonasCard extends StatelessWidget {
           // Image
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.asset(
-              imagePath,
-              width: 72,
-              height: 72,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                width: 72,
-                height: 72,
-                color: const Color(0xFFDDCDD0),
-                child: Icon(Icons.image_rounded,
-                    size: 32, color: Colors.grey.shade400),
-              ),
-            ),
+            child: profilePicture != null && profilePicture!.isNotEmpty
+                ? Image.network(
+                    profilePicture!,
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholder(),
+                  )
+                : _placeholder(),
           ),
           const SizedBox(width: 12),
 
@@ -410,8 +494,9 @@ class _PantiDonasCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   terkumpul,
-                  style:
-                      TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 10),
                 Align(
@@ -440,6 +525,15 @@ class _PantiDonasCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      width: 72,
+      height: 72,
+      color: const Color(0xFFDDCDD0),
+      child: Icon(Icons.home_work_rounded, size: 32, color: Colors.grey.shade400),
     );
   }
 }

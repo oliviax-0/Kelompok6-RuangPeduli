@@ -37,9 +37,17 @@ class RegisterData {
   final String role;
   final String? namaPengguna;
   final String? alamat;
+  final String? nomorTelepon;
   final String? namaPanti;
   final String? alamatPanti;
   final String? nomorPanti;
+  final String? provinsiPanti;
+  final String? kabupatenKotaPanti;
+  final String? kecamatanPanti;
+  final String? kelurahanPanti;
+  final String? kodePosPanti;
+  final double? latPanti;
+  final double? lngPanti;
 
   RegisterData({
     required this.username,
@@ -48,9 +56,17 @@ class RegisterData {
     required this.role,
     this.namaPengguna,
     this.alamat,
+    this.nomorTelepon,
     this.namaPanti,
     this.alamatPanti,
     this.nomorPanti,
+    this.provinsiPanti,
+    this.kabupatenKotaPanti,
+    this.kecamatanPanti,
+    this.kelurahanPanti,
+    this.kodePosPanti,
+    this.latPanti,
+    this.lngPanti,
   });
 
   Map<String, dynamic> toJson() {
@@ -61,9 +77,17 @@ class RegisterData {
       'role': role,
       'nama_pengguna': namaPengguna,
       'alamat': alamat,
+      'nomor_telepon': nomorTelepon,
       'nama_panti': namaPanti,
       'alamat_panti': alamatPanti,
       'nomor_panti': nomorPanti,
+      'provinsi_panti': provinsiPanti,
+      'kabupaten_kota_panti': kabupatenKotaPanti,
+      'kecamatan_panti': kecamatanPanti,
+      'kelurahan_panti': kelurahanPanti,
+      'kode_pos_panti': kodePosPanti,
+      'lat_panti': latPanti,
+      'lng_panti': lngPanti,
     }..removeWhere((k, v) => v == null);
   }
 }
@@ -292,9 +316,17 @@ class AuthApi {
     required String username,
     String? namaPengguna,
     String? alamat,
+    String? nomorTelepon,
     String? namaPanti,
     String? alamatPanti,
     String? nomorPanti,
+    String? provinsiPanti,
+    String? kabupatenKotaPanti,
+    String? kecamatanPanti,
+    String? kelurahanPanti,
+    String? kodePosPanti,
+    double? latPanti,
+    double? lngPanti,
   }) async {
     final url = Uri.parse('$baseUrl/google-register/');
     print('📤 POST $url');
@@ -305,9 +337,17 @@ class AuthApi {
       'username': username,
       if (namaPengguna != null) 'nama_pengguna': namaPengguna,
       if (alamat != null) 'alamat': alamat,
+      if (nomorTelepon != null) 'nomor_telepon': nomorTelepon,
       if (namaPanti != null) 'nama_panti': namaPanti,
       if (alamatPanti != null) 'alamat_panti': alamatPanti,
       if (nomorPanti != null) 'nomor_panti': nomorPanti,
+      if (provinsiPanti != null) 'provinsi_panti': provinsiPanti,
+      if (kabupatenKotaPanti != null) 'kabupaten_kota_panti': kabupatenKotaPanti,
+      if (kecamatanPanti != null) 'kecamatan_panti': kecamatanPanti,
+      if (kelurahanPanti != null) 'kelurahan_panti': kelurahanPanti,
+      if (kodePosPanti != null) 'kode_pos_panti': kodePosPanti,
+      if (latPanti != null) 'lat_panti': latPanti,
+      if (lngPanti != null) 'lng_panti': lngPanti,
     };
 
     try {

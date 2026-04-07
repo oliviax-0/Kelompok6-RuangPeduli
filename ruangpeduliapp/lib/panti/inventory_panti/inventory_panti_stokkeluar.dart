@@ -16,5 +16,6 @@ class StokKeluarScreen extends StatelessWidget {
         title: 'Stok Keluar',
         userId: userId,
         pantiId: pantiId,
+        isKeluar: true,
       );
 }

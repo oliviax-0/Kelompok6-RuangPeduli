@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ruangpeduliapp/auth/auth_widgets.dart';
 import 'package:ruangpeduliapp/data/data.dart';
 import 'package:ruangpeduliapp/auth/verification_screen.dart';
@@ -30,10 +31,12 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
   final _namaPenggunaController = TextEditingController();
   final _alamatController = TextEditingController();
   final _usernameController = TextEditingController();
+  final _nomorTeleponController = TextEditingController();
   bool _agreeTnC = true;
   String? _namaPenggunaError;
   String? _alamatError;
   String? _usernameError;
+  String? _nomorTeleponError;
   String? _tncError;
   String? _generalError;
 
@@ -61,6 +64,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
     _namaPenggunaController.dispose();
     _alamatController.dispose();
     _usernameController.dispose();
+    _nomorTeleponController.dispose();
     super.dispose();
   }
 
@@ -73,17 +77,19 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         : (!RegExp(r'[a-zA-Z]').hasMatch(username) || !RegExp(r'\d').hasMatch(username))
             ? 'Username harus mengandung huruf dan angka'
             : null;
+    final teleponErr = _nomorTeleponController.text.trim().isEmpty ? 'Wajib diisi' : null;
     final tncErr = !_agreeTnC ? 'Anda harus menyetujui S&K terlebih dahulu' : null;
 
     setState(() {
       _namaPenggunaError = namaErr;
       _alamatError = alamatErr;
       _usernameError = usernameErr;
+      _nomorTeleponError = teleponErr;
       _tncError = tncErr;
       _generalError = null;
     });
 
-    if (namaErr != null || alamatErr != null || usernameErr != null || tncErr != null) return;
+    if (namaErr != null || alamatErr != null || usernameErr != null || teleponErr != null || tncErr != null) return;
 
     setState(() => _loading = true);
 
@@ -95,6 +101,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         username: username,
         namaPengguna: _namaPenggunaController.text.trim(),
         alamat: _alamatController.text.trim(),
+        nomorTelepon: _nomorTeleponController.text.trim().replaceAll('-', ''),
       ).then((_) {
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
@@ -116,6 +123,7 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         role: 'masyarakat',
         namaPengguna: _namaPenggunaController.text.trim(),
         alamat: _alamatController.text.trim(),
+        nomorTelepon: _nomorTeleponController.text.trim().replaceAll('-', ''),
       )).then((pendingId) {
         if (!mounted) return;
         Navigator.push(
@@ -230,6 +238,22 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
                               errorText: _usernameError,
                               onChanged: (_) => setState(() => _usernameError = null),
                             ),
+                            const SizedBox(height: 20),
+
+                            // Nomor Telepon
+                            _FieldLabel('Nomor Telepon'),
+                            const SizedBox(height: 8),
+                            _RoundedInput(
+                              controller: _nomorTeleponController,
+                              hint: 'Contoh: 0812-3456-7890',
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'[\d-]')),
+                                _PhoneFormatter(),
+                              ],
+                              errorText: _nomorTeleponError,
+                              onChanged: (_) => setState(() => _nomorTeleponError = null),
+                            ),
                             const SizedBox(height: 28),
 
                             // Syarat dan Ketentuan
@@ -325,17 +349,40 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
+// ── Phone number formatter: 0812-3456-7890 ──
+class _PhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue next) {
+    final digits = next.text.replaceAll('-', '');
+    if (digits.isEmpty) return next.copyWith(text: '');
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length && i < 13; i++) {
+      if (i == 4 || i == 8) buffer.write('-');
+      buffer.write(digits[i]);
+    }
+    final formatted = buffer.toString();
+    return next.copyWith(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 class _RoundedInput extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final String? errorText;
   final ValueChanged<String>? onChanged;
+  final TextInputType keyboardType;
+  final List<TextInputFormatter> inputFormatters;
 
   const _RoundedInput({
     required this.controller,
     required this.hint,
     this.errorText,
     this.onChanged,
+    this.keyboardType = TextInputType.text,
+    this.inputFormatters = const [],
   });
 
   @override
@@ -347,6 +394,8 @@ class _RoundedInput extends StatelessWidget {
         TextField(
           controller: controller,
           onChanged: onChanged,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
           decoration: InputDecoration(
             hintText: hint,
@@ -396,7 +445,7 @@ class _MasyarakatWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paintBack = Paint()
-      ..color = Colors.white.withOpacity(0.40)
+      ..color = Colors.white.withValues(alpha: 0.40)
       ..style = PaintingStyle.fill;
 
     final pathBack = Path()

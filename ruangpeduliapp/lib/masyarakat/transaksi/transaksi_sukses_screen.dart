@@ -1,14 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
+import 'package:ruangpeduliapp/data/donation_api.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
 
 class TransaksiSuksesScreen extends StatefulWidget {
   final String namaPanti;
   final String total;
+  final int jumlahDonasi;
+  final String metodePembayaran;
+  final String noReferensi;
+  final int? pantiId;
+  final int? userId;
 
   const TransaksiSuksesScreen({
     super.key,
     required this.namaPanti,
     required this.total,
+    required this.jumlahDonasi,
+    required this.metodePembayaran,
+    required this.noReferensi,
+    this.pantiId,
+    this.userId,
   });
 
   @override
@@ -25,6 +36,8 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
 
   // Phase 2: sukses page fade in
   bool _showSukses = false;
+  String _username = '';
+  String? _profilePicture;
 
   @override
   void initState() {
@@ -44,6 +57,33 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
   }
 
   Future<void> _runSequence() async {
+    // Fetch username
+    if (widget.userId != null) {
+      final profile = await ProfileApi().fetchMasyarakatProfile(widget.userId!);
+      if (mounted && profile != null) {
+        setState(() {
+          _username = profile.username;
+          _profilePicture = profile.profilePicture;
+        });
+      }
+    }
+
+    // Save donation to backend (fire-and-forget, don't block UI)
+    if (widget.userId != null) {
+      DonationApi().createDonation(
+        userId: widget.userId!,
+        pantiId: widget.pantiId,
+        namaPanti: widget.namaPanti,
+        jumlah: widget.jumlahDonasi,
+        metodePembayaran: widget.metodePembayaran,
+        noReferensi: widget.noReferensi,
+      ).catchError((_) => DonasiModel(
+            id: 0, namaPanti: '', jumlah: 0,
+            metodePembayaran: '', noReferensi: '',
+            tanggal: '', tanggalLabel: '',
+          )); // silently ignore errors — UI already shows success
+    }
+
     // Centang slide masuk dari kanan
     await Future.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
@@ -56,10 +96,7 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
   }
 
   void _onSelesai() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-      (route) => false,
-    );
+    Navigator.of(context).pop(true); // signals donation completed
   }
 
   @override
@@ -160,18 +197,23 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
                       color: Colors.grey.shade300,
                       shape: BoxShape.circle,
                     ),
-                    child: const Center(
-                      child: Text('NM',
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A1A1A))),
+                    child: ClipOval(
+                      child: _profilePicture != null && _profilePicture!.isNotEmpty
+                          ? Image.network(
+                              _profilePicture!,
+                              width: 42,
+                              height: 42,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _avatarInitial(),
+                            )
+                          : _avatarInitial(),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Nama Pengguna',
-                      style: TextStyle(
-                          fontSize: 14, color: Color(0xFF1A1A1A))),
+                  Text(
+                    _username.isNotEmpty ? '@$_username' : '...',
+                    style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -236,6 +278,23 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
               const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _avatarInitial() {
+    return Container(
+      width: 42,
+      height: 42,
+      color: Colors.grey.shade300,
+      child: Center(
+        child: Text(
+          _username.isNotEmpty ? _username[0].toUpperCase() : '?',
+          style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1A1A1A)),
         ),
       ),
     );

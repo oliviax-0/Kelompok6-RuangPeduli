@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/data/finance_api.dart';
 import 'package:ruangpeduliapp/data/residents_api.dart';
+import 'package:ruangpeduliapp/services/inventory_notification_service.dart';
 import 'inventory_panti_anggota.dart';
 import 'inventory_panti_stokmasuk.dart';
 import 'inventory_panti_stokkeluar.dart';
 import 'inventory_panti_notifikasi.dart';
+import 'inventory_panti_stok_plusicon.dart' show showStokOpsiDialog;
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -27,11 +30,14 @@ class InventarisPanti extends StatefulWidget {
 class _InventarisPantiState extends State<InventarisPanti> {
   int? _pegawaiCount;
   int? _penghuniCount;
+  int  _lowStockCount = 0;
 
   @override
   void initState() {
     super.initState();
     _fetchCounts();
+    _checkLowStock();
+    _checkFinance();
   }
 
   Future<void> _fetchCounts() async {
@@ -47,6 +53,22 @@ class _InventarisPantiState extends State<InventarisPanti> {
           _penghuniCount = results[1].length;
         });
       }
+    } catch (_) {}
+  }
+
+  Future<void> _checkLowStock() async {
+    if (widget.pantiId == null) return;
+    try {
+      final items = await InventoryNotificationService.checkAndNotify(widget.pantiId!);
+      if (mounted) setState(() => _lowStockCount = items.length);
+    } catch (_) {}
+  }
+
+  Future<void> _checkFinance() async {
+    if (widget.userId == null) return;
+    try {
+      final dashboard = await FinanceApi().fetchDashboard(widget.userId!);
+      InventoryNotificationService.checkFinanceAndNotify(dashboard.saldo);
     } catch (_) {}
   }
 
@@ -96,45 +118,57 @@ class _InventarisPantiState extends State<InventarisPanti> {
               ),
             ),
           ),
-          // Bell with red badge
+          // Bell with dynamic badge
           GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => InventarisNotifikasiScreen(pantiId: widget.pantiId)),
-            ),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => InventarisNotifikasiScreen(pantiId: widget.pantiId)),
+              );
+              // Refresh count when returning from the notification screen
+              _checkLowStock();
+            },
             child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.notifications_rounded, color: Color(0xFF1A1A1A), size: 20),
-              ),
-              Positioned(
-                top: 2,
-                right: 2,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: kRed,
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
+                  child: const Icon(Icons.notifications_rounded, color: Color(0xFF1A1A1A), size: 20),
                 ),
-              ),
-            ],
-          ),
+                if (_lowStockCount > 0)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      decoration: const BoxDecoration(color: kRed, shape: BoxShape.circle),
+                      child: Text(
+                        _lowStockCount > 99 ? '99+' : '$_lowStockCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -194,6 +228,22 @@ class _InventarisPantiState extends State<InventarisPanti> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: () => showStokOpsiDialog(context, pantiId: widget.pantiId, userId: widget.userId),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1A1A1A),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 26),
+              ),
+            ),
           ),
         ],
       ),

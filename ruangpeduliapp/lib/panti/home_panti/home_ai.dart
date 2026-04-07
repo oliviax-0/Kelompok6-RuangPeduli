@@ -285,54 +285,62 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPinkLight,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
+      bottomNavigationBar: _buildInputBar(),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
           children: [
-            const Text(
-              'AI Chat Bot',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A1A1A)),
-            ),
-            if (_loadingContext) ...[
-              const SizedBox(width: 8),
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2, color: kPink),
+            _buildHeader(),
+            _buildInfoBanner(),
+            Expanded(
+              child: SelectionArea(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  itemCount: _messages.length + (_isLoading ? 1 : 0),
+                  itemBuilder: (_, index) {
+                    if (index == _messages.length) return _buildTypingIndicator();
+                    return _buildMessageBubble(_messages[index]);
+                  },
+                ),
               ),
-            ],
+            ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.close, color: Color(0xFF1A1A1A)),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
       ),
-      body: Column(
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
         children: [
-          _buildInfoBanner(),
-          Expanded(
-            child: SelectionArea(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                itemCount: _messages.length + (_isLoading ? 1 : 0),
-                itemBuilder: (_, index) {
-                  if (index == _messages.length) return _buildTypingIndicator();
-                  return _buildMessageBubble(_messages[index]);
-                },
+          const Expanded(
+            child: Text(
+              'AI Chat Bot',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1A1A1A),
               ),
             ),
           ),
-          _buildInputBar(),
+          if (_loadingContext)
+            const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: kPink),
+              ),
+            ),
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: const Icon(Icons.close_rounded,
+                size: 24, color: Color(0xFF1A1A1A)),
+          ),
         ],
       ),
     );
@@ -426,11 +434,19 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser)
-            Container(
-              width: 36, height: 36,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: kPink),
-              child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
+            ClipOval(
+              child: Image.asset(
+                'assets/images/chatbot_ai.png',
+                width: 36,
+                height: 36,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(shape: BoxShape.circle, color: kPink),
+                  child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
+                ),
+              ),
             ),
           if (isUser) copyBtn,
           Flexible(
@@ -485,7 +501,9 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   }
 
   Widget _buildInputBar() {
-    return SafeArea(
+    return Container(
+      color: Colors.white,
+      child: SafeArea(
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -549,6 +567,7 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
           ],
         ),
       ),
+    ),
     );
   }
 }

@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:ruangpeduliapp/panti/keuangan_panti.dart';
+import 'package:ruangpeduliapp/panti/keuangan_panti/keuangan_panti.dart';
+import 'package:ruangpeduliapp/panti/keuangan_panti/keuangan_plus.dart';
 import 'package:ruangpeduliapp/panti/inventory_panti/inventory_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/profile_panti.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_berita_panti.dart';
@@ -54,6 +55,7 @@ class HomePanti extends StatefulWidget {
 
 class _HomePantiState extends State<HomePanti> {
   int _selectedIndex = 0;
+  int _keuanganRefreshTrigger = 0;
   final TextEditingController _searchController = TextEditingController();
   String? _profilePictureUrl;
 
@@ -187,7 +189,7 @@ class _HomePantiState extends State<HomePanti> {
       case 0:
         return _buildNewsFeed();
       case 1:
-        return KeuanganPanti(userId: widget.userId);
+        return KeuanganPanti(userId: widget.userId, refreshTrigger: _keuanganRefreshTrigger);
       case 2:
         return InventarisPanti(userId: widget.userId, pantiId: widget.pantiId);
       case 3:
@@ -300,7 +302,12 @@ class _HomePantiState extends State<HomePanti> {
       itemCount: _beritas.length,
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) =>
-          _NewsCard(item: _beritas[index], userId: widget.userId),
+          _NewsCard(
+            item: _beritas[index],
+            userId: widget.userId,
+            viewerPantiId: widget.pantiId,
+            onGoToOwnProfile: () => setState(() => _selectedIndex = 3),
+          ),
     );
   }
 
@@ -312,15 +319,23 @@ class _HomePantiState extends State<HomePanti> {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => _selectedIndex == 3
-                    ? BeritaBaruPanti(userId: widget.userId, pantiId: widget.pantiId)
-                    : HomeAIPanti(userId: widget.userId, pantiId: widget.pantiId),
-              ),
-            );
+          onTap: () async {
+            if (_selectedIndex == 3) {
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BeritaBaruPanti(userId: widget.userId, pantiId: widget.pantiId),
+                ),
+              );
+              if (created == true) _fetchBeritas();
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HomeAIPanti(userId: widget.userId, pantiId: widget.pantiId),
+                ),
+              );
+            }
           },
           child: Container(
             width: 44,
@@ -352,11 +367,29 @@ class _HomePantiState extends State<HomePanti> {
 
         // Main + FAB
         FloatingActionButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const BeritaBaruPanti()),
-            );
+          onPressed: () async {
+            if (_selectedIndex == 1 &&
+                widget.userId != null &&
+                widget.pantiId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => InputTransaksiPage(
+                    userId: widget.userId!,
+                    pantiId: widget.pantiId!,
+                    onSaved: () => setState(() => _keuanganRefreshTrigger++),
+                  ),
+                ),
+              );
+            } else {
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BeritaBaruPanti(userId: widget.userId, pantiId: widget.pantiId),
+                ),
+              );
+              if (created == true) _fetchBeritas();
+            }
           },
           backgroundColor: Colors.white,
           elevation: 4,
@@ -436,8 +469,10 @@ class _HomePantiState extends State<HomePanti> {
 class _NewsCard extends StatelessWidget {
   final BeritaModel item;
   final int? userId;
+  final int? viewerPantiId;
+  final VoidCallback? onGoToOwnProfile;
 
-  const _NewsCard({required this.item, required this.userId});
+  const _NewsCard({required this.item, required this.userId, this.viewerPantiId, this.onGoToOwnProfile});
 
   @override
   Widget build(BuildContext context) {
@@ -448,6 +483,9 @@ class _NewsCard extends StatelessWidget {
             builder: (context) => BeritaDetailPanti(
               beritaId: item.id,
               userId: userId,
+              pantiId: item.pantiId,
+              viewerPantiId: viewerPantiId,
+              onGoToOwnProfile: onGoToOwnProfile,
               title: item.title,
               thumbnail: item.thumbnail,
               pantiProfilePicture: item.pantiProfilePicture,

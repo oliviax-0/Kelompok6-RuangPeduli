@@ -43,8 +43,6 @@ def _verify_google_token(token: str):
     """Try verifying against all registered client IDs."""
     client_ids = [c for c in [
         settings.GOOGLE_CLIENT_ID,
-        settings.GOOGLE_CLIENT_ID_ANDROID,
-        settings.GOOGLE_CLIENT_ID_ANDROID_2,
     ] if c]
     last_error = None
     for client_id in client_ids:
@@ -176,6 +174,7 @@ class VerifyOtpView(APIView):
                         user=user,
                         nama_pengguna=pending.nama_pengguna,
                         alamat=pending.alamat,
+                        nomor_telepon=pending.nomor_telepon or '',
                     )
                 elif pending.role == 'panti':
                     from profiles.models import OrphanageProfile
@@ -184,6 +183,13 @@ class VerifyOtpView(APIView):
                         nama_panti=pending.nama_panti,
                         alamat_panti=pending.alamat_panti,
                         nomor_panti=pending.nomor_panti,
+                        provinsi=pending.provinsi_panti or '',
+                        kabupaten_kota=pending.kabupaten_kota_panti or '',
+                        kecamatan=pending.kecamatan_panti or '',
+                        kelurahan=pending.kelurahan_panti or '',
+                        kode_pos=pending.kode_pos_panti or '',
+                        lat=pending.lat_panti,
+                        lng=pending.lng_panti,
                     )
 
                 pending.delete()  # ← hapus pending setelah berhasil
@@ -659,6 +665,7 @@ class GoogleRegisterView(APIView):
                         user=user,
                         nama_pengguna=request.data.get('nama_pengguna', ''),
                         alamat=request.data.get('alamat', ''),
+                        nomor_telepon=request.data.get('nomor_telepon', ''),
                     )
                 elif role == 'panti':
                     from profiles.models import OrphanageProfile
@@ -667,6 +674,13 @@ class GoogleRegisterView(APIView):
                         nama_panti=request.data.get('nama_panti', ''),
                         alamat_panti=request.data.get('alamat_panti', ''),
                         nomor_panti=request.data.get('nomor_panti', ''),
+                        provinsi=request.data.get('provinsi_panti', ''),
+                        kabupaten_kota=request.data.get('kabupaten_kota_panti', ''),
+                        kecamatan=request.data.get('kecamatan_panti', ''),
+                        kelurahan=request.data.get('kelurahan_panti', ''),
+                        kode_pos=request.data.get('kode_pos_panti', ''),
+                        lat=request.data.get('lat_panti'),
+                        lng=request.data.get('lng_panti'),
                     )
 
             panti_id = profile.id if role == 'panti' else None

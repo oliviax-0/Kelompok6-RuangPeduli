@@ -6,12 +6,16 @@ class KonfirmasiPembayaranScreen extends StatefulWidget {
   final String namaPanti;
   final String terkumpul;
   final String imagePath;
+  final int? pantiId;
+  final int? userId;
 
   const KonfirmasiPembayaranScreen({
     super.key,
     required this.namaPanti,
     required this.terkumpul,
     required this.imagePath,
+    this.pantiId,
+    this.userId,
   });
 
   @override
@@ -21,30 +25,66 @@ class KonfirmasiPembayaranScreen extends StatefulWidget {
 
 class _KonfirmasiPembayaranScreenState
     extends State<KonfirmasiPembayaranScreen> {
-  final _nominalCtrl = TextEditingController(text: '567.500');
+  final _nominalCtrl = TextEditingController(text: '');
+  String? _nominalError;
+
+  @override
+  void initState() {
+    super.initState();
+    _nominalCtrl.addListener(_formatNominal);
+  }
+
+  // Auto-format: keeps only digits, inserts thousand-separator dots
+  void _formatNominal() {
+    final raw = _nominalCtrl.text.replaceAll('.', '');
+    if (raw.isEmpty) return;
+    final buffer = StringBuffer();
+    for (int i = 0; i < raw.length; i++) {
+      if (i > 0 && (raw.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(raw[i]);
+    }
+    final formatted = buffer.toString();
+    if (_nominalCtrl.text != formatted) {
+      _nominalCtrl.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+  }
 
   @override
   void dispose() {
+    _nominalCtrl.removeListener(_formatNominal);
     _nominalCtrl.dispose();
     super.dispose();
   }
 
-  void _onKonfirmasi() {
-    final nominal = _nominalCtrl.text.replaceAll('.', '');
-    if (nominal.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Masukkan nominal donasi'),
-          backgroundColor: Colors.red.shade400,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+  void _showError(String msg) {
+    if (mounted) setState(() => _nominalError = msg);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Future<void> _onKonfirmasi() async {
+    final raw = _nominalCtrl.text.replaceAll('.', '');
+    if (raw.isEmpty) {
+      _showError('Masukkan nominal donasi');
       return;
     }
+    final nominal = int.tryParse(raw) ?? 0;
+    if (nominal < 1000) {
+      _showError('Nominal minimal Rp1.000');
+      return;
+    }
+    if (mounted) setState(() => _nominalError = null);
 
-    Navigator.push(
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => KonfirmasiMetodeScreen(
@@ -52,9 +92,12 @@ class _KonfirmasiPembayaranScreenState
           terkumpul: widget.terkumpul,
           imagePath: widget.imagePath,
           nominal: _nominalCtrl.text,
+          pantiId: widget.pantiId,
+          userId: widget.userId,
         ),
       ),
     );
+    if (result == true && mounted) Navigator.of(context).pop(true);
   }
 
   @override
@@ -118,20 +161,8 @@ class _KonfirmasiPembayaranScreenState
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.asset(
-                              widget.imagePath,
-                              width: 80,
-                              height: 70,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 80,
-                                height: 70,
-                                color: const Color(0xFFDDCDD0),
-                                child: Icon(Icons.image_rounded,
-                                    size: 32,
-                                    color: Colors.grey.shade400),
-                              ),
-                            ),
+                            child: _PantiImage(
+                                path: widget.imagePath, width: 80, height: 70),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -201,6 +232,16 @@ class _KonfirmasiPembayaranScreenState
                           ),
                           const Divider(
                               height: 16, color: Color(0xFFEEEEEE)),
+                          if (_nominalError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                _nominalError!,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red.shade400),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -237,4 +278,43 @@ class _KonfirmasiPembayaranScreenState
       ),
     );
   }
+}
+
+class _PantiImage extends StatelessWidget {
+  final String path;
+  final double width;
+  final double height;
+  const _PantiImage(
+      {required this.path, required this.width, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    final isNetwork =
+        path.startsWith('http://') || path.startsWith('https://');
+    if (isNetwork) {
+      return Image.network(
+        path,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _placeholder(),
+      );
+    }
+    if (path.isEmpty) return _placeholder();
+    return Image.asset(
+      path,
+      width: width,
+      height: height,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _placeholder(),
+    );
+  }
+
+  Widget _placeholder() => Container(
+        width: width,
+        height: height,
+        color: const Color(0xFFDDCDD0),
+        child: Icon(Icons.home_work_rounded,
+            size: 32, color: Colors.grey.shade400),
+      );
 }

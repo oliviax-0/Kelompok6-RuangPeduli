@@ -48,11 +48,12 @@ class BeritaListView(APIView):
 
         panti = get_object_or_404(OrphanageProfile, user=user)
 
-        serializer = BeritaSerializer(data={
-            **request.data,
-            'author': user.id,
-            'panti': panti.id,
-        }, context={'request': request})
+        # Use .dict() to flatten QueryDict (multipart) so values are scalars, not lists
+        data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
+        data['author'] = user.id
+        data['panti']  = panti.id
+
+        serializer = BeritaSerializer(data=data, context={'request': request})
 
         if serializer.is_valid():
             serializer.save()
@@ -98,12 +99,31 @@ class BeritaDetailView(APIView):
 
 class BeritaVoteView(APIView):
     """
+    GET  /api/content/berita/<id>/vote/?user_id=<id> → current vote state
     POST /api/content/berita/<id>/vote/
     Body: { user_id, vote_type: 'up'|'down' }
     - If same vote_type → remove vote (toggle off)
     - If different vote_type → switch vote
     """
     permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        berita = get_object_or_404(Berita, pk=pk)
+        user_id = request.query_params.get('user_id')
+        user_vote = None
+        if user_id:
+            try:
+                user = User.objects.get(id=user_id)
+                existing = BeritaVote.objects.filter(berita=berita, user=user).first()
+                if existing:
+                    user_vote = existing.vote_type
+            except User.DoesNotExist:
+                pass
+        return Response({
+            'upvote_count': berita.upvote_count,
+            'downvote_count': berita.downvote_count,
+            'user_vote': user_vote,
+        })
 
     def post(self, request, pk):
         berita = get_object_or_404(Berita, pk=pk)
@@ -124,18 +144,22 @@ class BeritaVoteView(APIView):
             if existing.vote_type == vote_type:
                 existing.delete()
                 action = 'removed'
+                user_vote = None
             else:
                 existing.vote_type = vote_type
                 existing.save()
                 action = 'switched'
+                user_vote = vote_type
         else:
             BeritaVote.objects.create(berita=berita, user=user, vote_type=vote_type)
             action = 'added'
+            user_vote = vote_type
 
         return Response({
             'action': action,
             'upvote_count': berita.upvote_count,
             'downvote_count': berita.downvote_count,
+            'user_vote': user_vote,
         })
 
 
