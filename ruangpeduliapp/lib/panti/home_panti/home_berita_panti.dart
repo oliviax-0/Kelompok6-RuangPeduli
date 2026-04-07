@@ -14,6 +14,8 @@ class BeritaDetailPanti extends StatefulWidget {
   final int beritaId;
   final int? userId;
   final int? pantiId;
+  final int? viewerPantiId;
+  final VoidCallback? onGoToOwnProfile;
   final String title;
   final String? thumbnail;
   final String? pantiProfilePicture;
@@ -29,6 +31,8 @@ class BeritaDetailPanti extends StatefulWidget {
     required this.beritaId,
     required this.userId,
     this.pantiId,
+    this.viewerPantiId,
+    this.onGoToOwnProfile,
     required this.title,
     required this.thumbnail,
     this.pantiProfilePicture,
@@ -115,6 +119,14 @@ class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
 
   Future<void> _onLihatProfil() async {
     if (widget.pantiId == null) return;
+
+    // If the viewer is the owner of this berita, pop back and switch to profile tab
+    if (widget.viewerPantiId != null && widget.viewerPantiId == widget.pantiId) {
+      Navigator.pop(context);
+      widget.onGoToOwnProfile?.call();
+      return;
+    }
+
     setState(() => _loadingProfile = true);
     try {
       final api = ProfileApi();

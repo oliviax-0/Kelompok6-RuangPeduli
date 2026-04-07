@@ -289,7 +289,15 @@ class ContentApi {
         return BeritaModel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
       }
       final err = jsonDecode(res.body);
-      throw Exception(err['error'] ?? err['detail'] ?? 'Gagal membuat berita');
+      if (err is Map) {
+        final msg = err['error'] ?? err['detail'];
+        if (msg != null) throw Exception(msg.toString());
+        // Serializer validation errors: { field: [msg, ...] }
+        final firstField = err.values.first;
+        final firstMsg = firstField is List ? firstField.first : firstField;
+        throw Exception(firstMsg.toString());
+      }
+      throw Exception('Gagal membuat berita');
     } on SocketException {
       throw Exception('Tidak bisa konek ke server');
     }
