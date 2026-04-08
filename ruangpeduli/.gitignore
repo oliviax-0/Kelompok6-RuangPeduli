@@ -1,6 +1,5 @@
 # Sensitive files — never commit these
-.env
-**/.env
+
 
 # Python
 __pycache__/
@@ -13,9 +12,6 @@ __pycache__/
 # Django
 *.log
 local_settings.py
-db.sqlite3
-db.sqlite3-journal
-media/
 
 # Virtual environment
 venv/
