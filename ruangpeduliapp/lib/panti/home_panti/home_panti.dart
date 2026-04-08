@@ -297,17 +297,21 @@ class _HomePantiState extends State<HomePanti> {
         ),
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-      itemCount: _beritas.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (context, index) =>
-          _NewsCard(
-            item: _beritas[index],
-            userId: widget.userId,
-            viewerPantiId: widget.pantiId,
-            onGoToOwnProfile: () => setState(() => _selectedIndex = 3),
-          ),
+    return RefreshIndicator(
+      color: kPink,
+      onRefresh: _fetchBeritas,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+        itemCount: _beritas.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
+        itemBuilder: (context, index) =>
+            _NewsCard(
+              item: _beritas[index],
+              userId: widget.userId,
+              viewerPantiId: widget.pantiId,
+              onGoToOwnProfile: () => setState(() => _selectedIndex = 3),
+            ),
+      ),
     );
   }
 

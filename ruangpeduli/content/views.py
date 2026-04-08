@@ -50,6 +50,9 @@ class BeritaListView(APIView):
 
         # Use .dict() to flatten QueryDict (multipart) so values are scalars, not lists
         data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
+        # Explicitly extract uploaded files (dict.update on MultiValueDict returns lists, not files)
+        if 'thumbnail' in request.FILES:
+            data['thumbnail'] = request.FILES.get('thumbnail')
         data['author'] = user.id
         data['panti']  = panti.id
 
