@@ -23,9 +23,10 @@ class Pemasukan(models.Model):
     jumlah           = models.DecimalField(max_digits=15, decimal_places=2)
     catatan          = models.TextField(blank=True, default='')
     tanggal          = models.DateField()
+    created_at       = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
-        ordering = ['-tanggal']
+        ordering = ['-tanggal', '-created_at']
 
     def __str__(self):
         nama = self.jenis_pemasukan.nama if self.jenis_pemasukan else '-'
@@ -39,9 +40,10 @@ class Pengeluaran(models.Model):
     jumlah   = models.DecimalField(max_digits=15, decimal_places=2)
     catatan  = models.TextField(blank=True, default='')
     tanggal  = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
-        ordering = ['-tanggal']
+        ordering = ['-tanggal', '-created_at']
 
     def __str__(self):
         kat = self.kategori.name if self.kategori else 'Tanpa Kategori'

@@ -13,7 +13,7 @@ class PemasukanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Pemasukan
-        fields = ['id', 'jenis_pemasukan', 'jenis_nama', 'jumlah', 'catatan', 'tanggal']
+        fields = ['id', 'jenis_pemasukan', 'jenis_nama', 'jumlah', 'catatan', 'tanggal', 'created_at']
 
 
 class PengeluaranSerializer(serializers.ModelSerializer):
@@ -21,4 +21,4 @@ class PengeluaranSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Pengeluaran
-        fields = ['id', 'kategori', 'kategori_nama', 'jumlah', 'catatan', 'tanggal']
+        fields = ['id', 'kategori', 'kategori_nama', 'jumlah', 'catatan', 'tanggal', 'created_at']

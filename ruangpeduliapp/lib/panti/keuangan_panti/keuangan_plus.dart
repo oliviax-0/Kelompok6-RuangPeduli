@@ -384,9 +384,10 @@ class _PemasukanFormState extends State<_PemasukanForm> {
                                 Icons.keyboard_arrow_down_rounded,
                                 color: Color(0xFF888888)),
                             items: dropdownItems,
-                            onChanged: (v) {
+                            onChanged: (v) async {
                               if (v?.id == _kAddNewJenisId) {
-                                _promptAddNew();
+                                await _promptAddNew();
+                                if (mounted) setState(() {});
                               } else {
                                 setState(() => _selectedJenis = v);
                               }
