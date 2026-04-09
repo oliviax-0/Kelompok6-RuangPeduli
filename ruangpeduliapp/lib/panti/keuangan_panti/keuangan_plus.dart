@@ -951,12 +951,21 @@ class _PengeluaranFormSheetState extends State<_PengeluaranFormSheet> {
     final jumlah = double.tryParse(_jumlahController.text.replaceAll('.', '').trim());
     if (jumlah == null || jumlah <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Masukkan jumlah pengeluaran.')));
+          const SnackBar(content: Text('Masukkan jumlah pengeluaran.')));
       return;
     }
     setState(() => _saving = true);
     try {
+      final dashboard = await FinanceApi().fetchDashboard(widget.userId);
+      if (jumlah > dashboard.saldo) {
+        if (mounted) {
+          Navigator.pop(context, false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Saldo tidak mencukupi')),
+          );
+        }
+        return;
+      }
       final now = DateTime.now();
       await FinanceApi().addPengeluaran(
         widget.userId,

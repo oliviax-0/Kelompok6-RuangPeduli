@@ -196,7 +196,7 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
         _dashboard != null ? _formatRp(_dashboard!.totalPemasukan) : 'Rp ——';
     final pengeluaran =
         _dashboard != null ? _formatRp(_dashboard!.totalPengeluaran) : 'Rp ——';
-    final saldo = _dashboard != null ? _formatRp(_dashboard!.saldo) : 'Rp ——';
+    final saldo = _dashboard != null ? _formatRp(_dashboard!.saldo.clamp(0, double.infinity)) : 'Rp ——';
 
     return Container(
       padding: const EdgeInsets.all(16),
