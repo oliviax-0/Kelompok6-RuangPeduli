@@ -106,18 +106,40 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
       } catch (_) {}
 
       try {
-        // ── Residents data ───────────────────────────────────────────────
+        // ── Residents data (aggregated only — no names/IDs sent) ─────────
         final residents = await Future.wait([
           ResidentsApi().fetchPenghuni(widget.userId!),
           ResidentsApi().fetchPekerja(widget.userId!),
         ]);
 
         final penghuni = residents[0] as List<PenghuniModel>;
-        final pekerja = residents[1] as List<PekerjaModel>;
+        final pekerja  = residents[1] as List<PekerjaModel>;
+        final now      = DateTime.now().year;
 
-        buffer.writeln('\n=== DATA PENGHUNI & PEGAWAI ===');
-        buffer.writeln('Jumlah Penghuni: ${penghuni.length}');
-        buffer.writeln('Jumlah Pegawai: ${pekerja.length}');
+        // Penghuni aggregates
+        final lakiCount = penghuni.where((p) => p.jenisKelamin.toLowerCase() == 'laki-laki').length;
+        final perempuanCount = penghuni.length - lakiCount;
+        final ages = penghuni.map((p) => now - p.tahunLahir).toList();
+        final avgAge = ages.isEmpty ? 0 : (ages.reduce((a, b) => a + b) / ages.length).round();
+        final usiaBawah12 = ages.where((a) => a < 12).length;
+        final usia12to17  = ages.where((a) => a >= 12 && a <= 17).length;
+        final usiaAtas17  = ages.where((a) => a > 17).length;
+
+        // Pekerja aggregates
+        final divisiMap = <String, int>{};
+        for (final p in pekerja) {
+          divisiMap[p.divisi] = (divisiMap[p.divisi] ?? 0) + 1;
+        }
+
+        buffer.writeln('\n=== RINGKASAN PENGHUNI & PEGAWAI ===');
+        buffer.writeln('Total Penghuni: ${penghuni.length} orang');
+        buffer.writeln('  - Laki-laki: $lakiCount | Perempuan: $perempuanCount');
+        buffer.writeln('  - Rata-rata usia: $avgAge tahun');
+        buffer.writeln('  - Usia <12 tahun: $usiaBawah12 | 12–17 tahun: $usia12to17 | >17 tahun: $usiaAtas17');
+        buffer.writeln('Total Pegawai: ${pekerja.length} orang');
+        if (divisiMap.isNotEmpty) {
+          buffer.writeln('  - Per divisi: ${divisiMap.entries.map((e) => '${e.key}: ${e.value}').join(', ')}');
+        }
       } catch (_) {}
     }
 
