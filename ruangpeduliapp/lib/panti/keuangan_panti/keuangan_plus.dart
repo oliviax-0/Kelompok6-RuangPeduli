@@ -250,7 +250,8 @@ class _PemasukanFormState extends State<_PemasukanForm> {
     final ctrl = TextEditingController();
     final nama = await showDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
+      barrierDismissible: true,
+      builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Jenis Pemasukan Baru',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
@@ -270,7 +271,7 @@ class _PemasukanFormState extends State<_PemasukanForm> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('Batal')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -279,13 +280,14 @@ class _PemasukanFormState extends State<_PemasukanForm> {
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20))),
-            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            onPressed: () => Navigator.pop(dialogCtx, ctrl.text.trim()),
             child: const Text('Simpan'),
           ),
         ],
       ),
     );
-    ctrl.dispose();
+    // Defer dispose so the dismissal animation can finish before controller is freed
+    WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
     if (nama == null || nama.isEmpty) return;
 
     try {
