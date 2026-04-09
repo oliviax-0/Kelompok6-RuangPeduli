@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'inventory_panti_produkbaru.dart' show TambahProdukScreen;
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -149,18 +150,18 @@ class _OpsiTile extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const List<LaporanItemModel> _dummyLaporan = [
-  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Beras Merah',    amount: 5,  unit: 'kg',    isMasuk: true),
-  LaporanItemModel(categoryName: 'Minuman',     productName: 'Susu Kedelai',   amount: 3,  unit: 'liter', isMasuk: false),
-  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Minyak Goreng',  amount: 2,  unit: 'liter', isMasuk: true),
-  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Minyak Goreng',  amount: 1,  unit: 'liter', isMasuk: false),
-  LaporanItemModel(categoryName: 'Obat-obatan', productName: 'Obat Pilek',     amount: 10, unit: 'pcs',   isMasuk: true),
-  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Singkong',       amount: 5,  unit: 'kg',    isMasuk: true),
-  LaporanItemModel(categoryName: 'Minuman',     productName: 'Teh Kotak',      amount: 12, unit: 'pcs',   isMasuk: false),
-  LaporanItemModel(categoryName: 'Perlengkapan',productName: 'Sabun Mandi',    amount: 6,  unit: 'pcs',   isMasuk: true),
-  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Gula Pasir',     amount: 3,  unit: 'kg',    isMasuk: false),
-  LaporanItemModel(categoryName: 'Obat-obatan', productName: 'Vitamin C',      amount: 20, unit: 'pcs',   isMasuk: true),
-  LaporanItemModel(categoryName: 'Perlengkapan',productName: 'Deterjen',       amount: 2,  unit: 'kg',    isMasuk: false),
-  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Tepung Terigu',  amount: 4,  unit: 'kg',    isMasuk: true),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Beras Merah',    amount: 5,  unit: 'kg',    isMasuk: true,  tanggal: '2026-04-01'),
+  LaporanItemModel(categoryName: 'Minuman',     productName: 'Susu Kedelai',   amount: 3,  unit: 'liter', isMasuk: false, tanggal: '2026-04-01'),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Minyak Goreng',  amount: 2,  unit: 'liter', isMasuk: true,  tanggal: '2026-04-02'),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Minyak Goreng',  amount: 1,  unit: 'liter', isMasuk: false, tanggal: '2026-04-02'),
+  LaporanItemModel(categoryName: 'Obat-obatan', productName: 'Obat Pilek',     amount: 10, unit: 'pcs',   isMasuk: true,  tanggal: '2026-04-03'),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Singkong',       amount: 5,  unit: 'kg',    isMasuk: true,  tanggal: '2026-04-04'),
+  LaporanItemModel(categoryName: 'Minuman',     productName: 'Teh Kotak',      amount: 12, unit: 'pcs',   isMasuk: false, tanggal: '2026-04-05'),
+  LaporanItemModel(categoryName: 'Perlengkapan',productName: 'Sabun Mandi',    amount: 6,  unit: 'pcs',   isMasuk: true,  tanggal: '2026-04-06'),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Gula Pasir',     amount: 3,  unit: 'kg',    isMasuk: false, tanggal: '2026-04-07'),
+  LaporanItemModel(categoryName: 'Obat-obatan', productName: 'Vitamin C',      amount: 20, unit: 'pcs',   isMasuk: true,  tanggal: '2026-04-07'),
+  LaporanItemModel(categoryName: 'Perlengkapan',productName: 'Deterjen',       amount: 2,  unit: 'kg',    isMasuk: false, tanggal: '2026-04-08'),
+  LaporanItemModel(categoryName: 'Bahan Pokok', productName: 'Tepung Terigu',  amount: 4,  unit: 'kg',    isMasuk: true,  tanggal: '2026-04-09'),
 ];
 
 class LaporanStokScreen extends StatefulWidget {
@@ -177,6 +178,10 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
   final List<String> _filterOptions = ['Semua', 'Stok Masuk', 'Stok Keluar'];
   final _searchController = TextEditingController();
 
+  final _stt = SpeechToText();
+  bool _sttReady = false;
+  bool _listening = false;
+
   List<LaporanItemModel> _allData = _dummyLaporan;
   bool _loading = true;
   String? _error;
@@ -185,12 +190,45 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
   void initState() {
     super.initState();
     _fetchLaporan();
+    _stt.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          if (mounted) setState(() => _listening = false);
+        }
+      },
+      onError: (_) { if (mounted) setState(() => _listening = false); },
+    ).then((ok) { if (mounted) setState(() => _sttReady = ok); });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleMic() async {
+    if (!_sttReady) return;
+    if (_listening) {
+      await _stt.stop();
+      setState(() => _listening = false);
+      return;
+    }
+    final locales = await _stt.locales();
+    String? localeId;
+    for (final l in locales) {
+      if (l.localeId.startsWith('id')) { localeId = l.localeId; break; }
+    }
+    await _stt.listen(
+      localeId: localeId,
+      onResult: (result) {
+        if (result.finalResult && mounted) {
+          final text = result.recognizedWords;
+          _searchController.text = text;
+          setState(() { _searchQuery = text; _listening = false; });
+        }
+      },
+    );
+    if (mounted) setState(() => _listening = true);
   }
 
   Future<void> _fetchLaporan() async {
@@ -208,7 +246,7 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
   }
 
   List<LaporanItemModel> get _filtered {
-    var list = _allData;
+    var list = List<LaporanItemModel>.from(_allData);
     if (_filterValue == 'Stok Masuk') list = list.where((e) => e.isMasuk).toList();
     if (_filterValue == 'Stok Keluar') list = list.where((e) => !e.isMasuk).toList();
     if (_searchQuery.isNotEmpty) {
@@ -218,7 +256,35 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
         e.productName.toLowerCase().contains(q),
       ).toList();
     }
+    // Latest first
+    list.sort((a, b) => b.tanggal.compareTo(a.tanggal));
     return list;
+  }
+
+  String _formatDateLabel(String tanggal) {
+    const months = ['', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+                        'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    try {
+      final parts = tanggal.split('-');
+      final day   = int.parse(parts[2]).toString().padLeft(2, '0');
+      final month = months[int.parse(parts[1])];
+      final year  = parts[0];
+      return '$day $month $year';
+    } catch (_) { return tanggal; }
+  }
+
+  List<Object> get _groupedItems {
+    final items = _filtered;
+    final List<Object> result = [];
+    String? lastDate;
+    for (final item in items) {
+      if (item.tanggal != lastDate) {
+        result.add(item.tanggal);
+        lastDate = item.tanggal;
+      }
+      result.add(item);
+    }
+    return result;
   }
 
   @override
@@ -279,7 +345,15 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
                       decoration: InputDecoration(
                         hintText: 'Search',
                         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                        prefixIcon: Icon(Icons.mic_none_rounded, color: Colors.grey[400], size: 20),
+                        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                            color: _listening ? kPink : Colors.grey[400],
+                            size: 20,
+                          ),
+                          onPressed: _toggleMic,
+                        ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(vertical: 12),
                       ),
@@ -370,15 +444,35 @@ class _LaporanStokScreenState extends State<LaporanStokScreen> {
                                         style: TextStyle(color: Colors.white),
                                       ),
                                     )
-                                  : ListView.separated(
-                                      controller: scrollController,
-                                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
-                                      itemCount: _filtered.length,
-                                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                                      itemBuilder: (context, index) {
-                                        return _LaporanTile(item: _filtered[index]);
-                                      },
-                                    ),
+                                  : Builder(builder: (context) {
+                                      final grouped = _groupedItems;
+                                      return ListView.builder(
+                                        controller: scrollController,
+                                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
+                                        itemCount: grouped.length,
+                                        itemBuilder: (context, index) {
+                                          final item = grouped[index];
+                                          if (item is String) {
+                                            return Padding(
+                                              padding: const EdgeInsets.only(top: 12, bottom: 6),
+                                              child: Text(
+                                                _formatDateLabel(item),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white70,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: 10),
+                                            child: _LaporanTile(item: item as LaporanItemModel),
+                                          );
+                                        },
+                                      );
+                                    }),
                     ),
                   ],
                 ),

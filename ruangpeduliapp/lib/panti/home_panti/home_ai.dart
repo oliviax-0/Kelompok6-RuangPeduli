@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -46,6 +47,16 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   bool _loadingContext = true;
 
   final List<Map<String, String>> _history = [];
+  static const String _staticPrompt =
+      'Kamu adalah Bobi, asisten AI untuk aplikasi RuangPeduli, '
+      'sebuah platform manajemen panti asuhan di Indonesia. '
+      'Bantu pengelola panti dengan pertanyaan seputar manajemen penghuni, '
+      'keuangan, inventaris, dan hal-hal lain terkait operasional panti asuhan. '
+      'Jawab dalam Bahasa Indonesia yang ramah dan profesional. '
+      'HANYA gunakan format tabel Markdown (| Kolom | Kolom |) jika pengguna secara eksplisit meminta laporan keuangan. '
+      'Untuk pertanyaan lainnya, jawab dengan teks biasa tanpa tabel.';
+
+  Timer? _contextTimer;
 
   final _picker = ImagePicker();
   final _stt = SpeechToText();
@@ -60,6 +71,9 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   void initState() {
     super.initState();
     _initContext();
+    _contextTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) _refreshContext();
+    });
     _stt.initialize(
       onStatus: (status) {
         if (status == 'done' || status == 'notListening') {
@@ -70,32 +84,22 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
     ).then((ok) { if (mounted) setState(() => _sttReady = ok); });
   }
 
-  Future<void> _initContext() async {
+  Future<String> _buildDynamicContext() async {
     final buffer = StringBuffer();
-    buffer.writeln('Kamu adalah Bobi, asisten AI untuk aplikasi RuangPeduli, '
-        'sebuah platform manajemen panti asuhan di Indonesia. '
-        'Bantu pengelola panti dengan pertanyaan seputar manajemen penghuni, '
-        'keuangan, inventaris, dan hal-hal lain terkait operasional panti asuhan. '
-        'Jawab dalam Bahasa Indonesia yang ramah dan profesional. '
-        'HANYA gunakan format tabel Markdown (| Kolom | Kolom |) jika pengguna secara eksplisit meminta laporan keuangan. '
-        'Untuk pertanyaan lainnya, jawab dengan teks biasa tanpa tabel.');
 
     if (widget.userId != null) {
       try {
-        // ── Finance data ─────────────────────────────────────────────────
         final results = await Future.wait([
           FinanceApi().fetchDashboard(widget.userId!),
           FinanceApi().fetchTransactions(widget.userId!),
         ]);
-
-        final dashboard = results[0] as FinanceDashboard;
+        final dashboard    = results[0] as FinanceDashboard;
         final transactions = results[1] as List<TransactionModel>;
 
         buffer.writeln('\n=== DATA KEUANGAN PANTI (REAL-TIME) ===');
         buffer.writeln('Total Pemasukan Bulan Ini: Rp ${dashboard.totalPemasukan.toInt()}');
         buffer.writeln('Total Pengeluaran Bulan Ini: Rp ${dashboard.totalPengeluaran.toInt()}');
         buffer.writeln('Saldo Saat Ini: Rp ${dashboard.saldo.toInt()}');
-
         if (transactions.isNotEmpty) {
           buffer.writeln('\nRiwayat Transaksi Terakhir:');
           for (final tx in transactions.take(10)) {
@@ -106,26 +110,22 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
       } catch (_) {}
 
       try {
-        // ── Residents data (aggregated only — no names/IDs sent) ─────────
         final residents = await Future.wait([
           ResidentsApi().fetchPenghuni(widget.userId!),
           ResidentsApi().fetchPekerja(widget.userId!),
         ]);
-
         final penghuni = residents[0] as List<PenghuniModel>;
         final pekerja  = residents[1] as List<PekerjaModel>;
         final now      = DateTime.now().year;
 
-        // Penghuni aggregates
-        final lakiCount = penghuni.where((p) => p.jenisKelamin.toLowerCase() == 'laki-laki').length;
+        final lakiCount      = penghuni.where((p) => p.jenisKelamin.toLowerCase() == 'laki-laki').length;
         final perempuanCount = penghuni.length - lakiCount;
-        final ages = penghuni.map((p) => now - p.tahunLahir).toList();
-        final avgAge = ages.isEmpty ? 0 : (ages.reduce((a, b) => a + b) / ages.length).round();
-        final usiaBawah12 = ages.where((a) => a < 12).length;
-        final usia12to17  = ages.where((a) => a >= 12 && a <= 17).length;
-        final usiaAtas17  = ages.where((a) => a > 17).length;
+        final ages           = penghuni.map((p) => now - p.tahunLahir).toList();
+        final avgAge         = ages.isEmpty ? 0 : (ages.reduce((a, b) => a + b) / ages.length).round();
+        final usiaBawah12    = ages.where((a) => a < 12).length;
+        final usia12to17     = ages.where((a) => a >= 12 && a <= 17).length;
+        final usiaAtas17     = ages.where((a) => a > 17).length;
 
-        // Pekerja aggregates
         final divisiMap = <String, int>{};
         for (final p in pekerja) {
           divisiMap[p.divisi] = (divisiMap[p.divisi] ?? 0) + 1;
@@ -145,14 +145,12 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
 
     if (widget.pantiId != null) {
       try {
-        // ── Inventory data ───────────────────────────────────────────────
         final categories = await InventoryApi().fetchCategories(widget.pantiId!);
         buffer.writeln('\n=== DATA INVENTARIS ===');
         buffer.writeln('Jumlah Kategori: ${categories.length}');
         for (final cat in categories) {
           buffer.writeln('- ${cat.name}: ${cat.itemCount} produk (${cat.availableCount} tersedia)');
         }
-
         final outOfStock = await InventoryApi().fetchOutOfStockItems(widget.pantiId!);
         if (outOfStock.isNotEmpty) {
           buffer.writeln('\nProduk Habis (${outOfStock.length} item):');
@@ -163,9 +161,20 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
       } catch (_) {}
     }
 
-    _history.add({'role': 'system', 'content': buffer.toString()});
+    return buffer.toString();
+  }
 
+  Future<void> _initContext() async {
+    final dynamic = await _buildDynamicContext();
+    _history.add({'role': 'system', 'content': '$_staticPrompt$dynamic'});
     if (mounted) setState(() => _loadingContext = false);
+  }
+
+  Future<void> _refreshContext() async {
+    final dynamic = await _buildDynamicContext();
+    if (_history.isNotEmpty) {
+      _history[0] = {'role': 'system', 'content': '$_staticPrompt$dynamic'};
+    }
   }
 
   Future<void> _pickImage() async {
@@ -298,6 +307,7 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
 
   @override
   void dispose() {
+    _contextTimer?.cancel();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();

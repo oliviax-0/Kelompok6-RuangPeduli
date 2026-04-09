@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ruangpeduliapp/data/residents_api.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -21,10 +22,13 @@ Widget _buildInputField({
   required TextEditingController controller,
   required String hint,
   TextInputType inputType = TextInputType.text,
+  int? maxLength,
 }) {
   return TextField(
     controller: controller,
     keyboardType: inputType,
+    maxLength: maxLength,
+    inputFormatters: maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : null,
     style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
     decoration: InputDecoration(
       hintText: hint,
@@ -42,7 +46,7 @@ Widget _buildInputField({
   );
 }
 
-Widget _buildSearchBar() {
+Widget _buildSearchBarWidget(TextEditingController controller, VoidCallback onChanged) {
   return Container(
     height: 44,
     decoration: BoxDecoration(
@@ -50,10 +54,12 @@ Widget _buildSearchBar() {
       borderRadius: BorderRadius.circular(30),
     ),
     child: TextField(
+      controller: controller,
+      onChanged: (_) => onChanged(),
       decoration: InputDecoration(
         hintText: 'Search',
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-        prefixIcon: Icon(Icons.mic_none_rounded, color: Colors.grey[400], size: 20),
+        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
         border: InputBorder.none,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
       ),
@@ -78,6 +84,7 @@ class _DaftarPegawaiScreenState extends State<DaftarPegawaiScreen> {
   bool _loading = true;
   String? _error;
   String? _filterValue;
+  final _searchController = TextEditingController();
 
   List<String> get _filterOptions {
     final divisis = _pegawaiData.map((e) => e.divisi).toSet().toList()..sort();
@@ -85,14 +92,25 @@ class _DaftarPegawaiScreenState extends State<DaftarPegawaiScreen> {
   }
 
   List<PekerjaModel> get _filtered {
-    if (_filterValue == null || _filterValue == 'Semua') return _pegawaiData;
-    return _pegawaiData.where((e) => e.divisi == _filterValue).toList();
+    final query = _searchController.text.trim().toLowerCase();
+    var list = _pegawaiData;
+    if (_filterValue != null && _filterValue != 'Semua') {
+      list = list.where((e) => e.divisi == _filterValue).toList();
+    }
+    if (query.isEmpty) return list;
+    return list.where((e) => e.nama.toLowerCase().contains(query) || e.divisi.toLowerCase().contains(query) || e.posisi.toLowerCase().contains(query)).toList();
   }
 
   @override
   void initState() {
     super.initState();
     _fetchPekerja();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchPekerja() async {
@@ -141,7 +159,7 @@ class _DaftarPegawaiScreenState extends State<DaftarPegawaiScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Row(
               children: [
-                Expanded(child: _buildSearchBar()),
+                Expanded(child: _buildSearchBarWidget(_searchController, () => setState(() {}))),
                 const SizedBox(width: 10),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -532,18 +550,30 @@ class _DaftarPenghuniScreenState extends State<DaftarPenghuniScreen> {
   bool _loading = true;
   String? _error;
   String? _filterValue;
+  final _searchController = TextEditingController();
 
   final List<String> _filterOptions = ['Semua', 'laki-laki', 'perempuan'];
 
   List<PenghuniModel> get _filtered {
-    if (_filterValue == null || _filterValue == 'Semua') return _penghuniData;
-    return _penghuniData.where((e) => e.jenisKelamin.toLowerCase() == _filterValue!.toLowerCase()).toList();
+    final query = _searchController.text.trim().toLowerCase();
+    var list = _penghuniData;
+    if (_filterValue != null && _filterValue != 'Semua') {
+      list = list.where((e) => e.jenisKelamin.toLowerCase() == _filterValue!.toLowerCase()).toList();
+    }
+    if (query.isEmpty) return list;
+    return list.where((e) => e.nama.toLowerCase().contains(query)).toList();
   }
 
   @override
   void initState() {
     super.initState();
     _fetchPenghuni();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchPenghuni() async {
@@ -591,7 +621,7 @@ class _DaftarPenghuniScreenState extends State<DaftarPenghuniScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Row(
               children: [
-                Expanded(child: _buildSearchBar()),
+                Expanded(child: _buildSearchBarWidget(_searchController, () => setState(() {}))),
                 const SizedBox(width: 10),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -746,7 +776,14 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
   Future<void> _save() async {
     final nama = _namaController.text.trim();
     final tahun = int.tryParse(_tahunLahirController.text.trim());
+    final currentYear = DateTime.now().year;
     if (nama.isEmpty || tahun == null || _jenisKelamin == null) return;
+    if (tahun > currentYear || tahun < 1900) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Tahun lahir tidak valid (1900–$currentYear)')),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       await ResidentsApi().updatePenghuni(widget.userId, widget.item.id, nama, tahun, _jenisKelamin!);
@@ -800,7 +837,7 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
             const SizedBox(height: 14),
             _buildLabel('Tahun Lahir'),
             const SizedBox(height: 8),
-            _buildInputField(controller: _tahunLahirController, hint: 'Tahun Lahir', inputType: TextInputType.number),
+            _buildInputField(controller: _tahunLahirController, hint: 'Tahun Lahir', inputType: TextInputType.number, maxLength: 4),
             const SizedBox(height: 14),
             _buildLabel('Jenis Kelamin'),
             const SizedBox(height: 8),
@@ -894,7 +931,14 @@ class _TambahPenghuniDialogState extends State<_TambahPenghuniDialog> {
   Future<void> _save() async {
     final nama = _namaController.text.trim();
     final tahun = int.tryParse(_tahunLahirController.text.trim());
+    final currentYear = DateTime.now().year;
     if (nama.isEmpty || tahun == null || _jenisKelamin == null) return;
+    if (tahun > currentYear || tahun < 1900) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Tahun lahir tidak valid (1900–$currentYear)')),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       await ResidentsApi().addPenghuni(widget.userId, nama, tahun, _jenisKelamin!);
@@ -924,7 +968,7 @@ class _TambahPenghuniDialogState extends State<_TambahPenghuniDialog> {
             const SizedBox(height: 14),
             _buildLabel('Tahun Lahir'),
             const SizedBox(height: 8),
-            _buildInputField(controller: _tahunLahirController, hint: 'Ketik Tahun Lahir', inputType: TextInputType.number),
+            _buildInputField(controller: _tahunLahirController, hint: 'Ketik Tahun Lahir', inputType: TextInputType.number, maxLength: 4),
             const SizedBox(height: 14),
             _buildLabel('Jenis Kelamin'),
             const SizedBox(height: 8),

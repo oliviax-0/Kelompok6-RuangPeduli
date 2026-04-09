@@ -143,6 +143,7 @@ class LaporanItemModel {
   final int amount;
   final String unit;
   final bool isMasuk;
+  final String tanggal; // YYYY-MM-DD extracted from created_at
 
   const LaporanItemModel({
     required this.categoryName,
@@ -150,17 +151,23 @@ class LaporanItemModel {
     required this.amount,
     required this.unit,
     required this.isMasuk,
+    required this.tanggal,
   });
 
   String get formattedAmount => '${isMasuk ? '+' : '-'}$amount$unit';
 
-  factory LaporanItemModel.fromJson(Map<String, dynamic> json) => LaporanItemModel(
-        categoryName: json['category_name'] ?? '',
-        productName: json['product_name'] ?? '',
-        amount: json['amount'] ?? 0,
-        unit: json['unit'] ?? 'pcs',
-        isMasuk: json['type'] == 'masuk',
-      );
+  factory LaporanItemModel.fromJson(Map<String, dynamic> json) {
+    final createdAt = json['created_at'] as String? ?? '';
+    final tanggal = createdAt.length >= 10 ? createdAt.substring(0, 10) : createdAt;
+    return LaporanItemModel(
+      categoryName: json['category_name'] ?? '',
+      productName: json['product_name'] ?? '',
+      amount: json['amount'] ?? 0,
+      unit: json['unit'] ?? 'pcs',
+      isMasuk: json['type'] == 'masuk',
+      tanggal: tanggal,
+    );
+  }
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────

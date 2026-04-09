@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
 import 'package:ruangpeduliapp/services/inventory_notification_service.dart';
@@ -63,11 +64,37 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
   List<CategoryModel> _categories = [];
   bool _loading = true;
   String? _error;
+  final _searchController = TextEditingController();
+  Timer? _refreshTimer;
+
+  List<CategoryModel> get _filtered {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _categories;
+    return _categories.where((c) => c.name.toLowerCase().contains(query)).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _fetchCategories();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) _fetchCategoriesSilent();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchCategoriesSilent() async {
+    if (widget.pantiId == null) return;
+    try {
+      final cats = await InventoryApi().fetchCategories(widget.pantiId!);
+      if (mounted) setState(() => _categories = cats);
+    } catch (_) {}
   }
 
   Future<void> _fetchCategories() async {
@@ -86,7 +113,7 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
 
   void _toggleEditMode() => setState(() => _isEditMode = !_isEditMode);
 
-  void _confirmDelete(int index) {
+  void _confirmDelete(int categoryId) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.35),
@@ -96,7 +123,7 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
           Navigator.pop(context);
           if (widget.userId == null) return;
           try {
-            await InventoryApi().deleteCategory(widget.userId!, _categories[index].id);
+            await InventoryApi().deleteCategory(widget.userId!, categoryId);
             _fetchCategories();
           } catch (e) {
             if (mounted) {
@@ -158,7 +185,7 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: _buildSearchBar(),
+            child: _buildSearchBar(_searchController, () => setState(() {})),
           ),
           const SizedBox(height: 12),
           Padding(
@@ -169,7 +196,7 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
                 style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
                 children: [
                   TextSpan(
-                    text: _loading ? '...' : '${_categories.length}',
+                    text: _loading ? '...' : '${_filtered.length}',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ],
@@ -192,7 +219,7 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
                           textAlign: TextAlign.center,
                         ),
                       )
-                    : _categories.isEmpty
+                    : _filtered.isEmpty
                         ? const Center(
                             child: Text(
                               'Belum ada kategori.',
@@ -201,10 +228,10 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            itemCount: _categories.length,
+                            itemCount: _filtered.length,
                             separatorBuilder: (_, __) => const SizedBox(height: 10),
                             itemBuilder: (context, index) {
-                              final cat = _categories[index];
+                              final cat = _filtered[index];
                               if (_isEditMode) {
                                 return ColorFiltered(
                                   colorFilter: const ColorFilter.matrix(_greyscaleMatrix),
@@ -213,7 +240,7 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
                                     jumlahJenis: cat.itemCount,
                                     hasAlert: cat.hasAlert,
                                     isEditMode: true,
-                                    onDelete: () => _confirmDelete(index),
+                                    onDelete: () => _confirmDelete(cat.id),
                                     onTap: null,
                                   ),
                                 );
@@ -223,7 +250,7 @@ class _StokDetailScreenState extends State<StokDetailScreen> {
                                 jumlahJenis: cat.itemCount,
                                 hasAlert: cat.hasAlert,
                                 isEditMode: false,
-                                onDelete: () => _confirmDelete(index),
+                                onDelete: () => _confirmDelete(cat.id),
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -310,11 +337,40 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
   bool _loading = true;
   String? _error;
   bool _isEditMode = false;
+  final _searchController = TextEditingController();
+  Timer? _refreshTimer;
+
+  List<InventoryItemModel> get _filtered {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _items;
+    return _items.where((i) => i.name.toLowerCase().contains(query)).toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _fetchItems();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) _fetchItemsSilent();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchItemsSilent() async {
+    try {
+      final items = await InventoryApi().fetchItems(widget.categoryId);
+      if (mounted) setState(() => _items = items);
+      // Also re-check notifications silently
+      if (widget.pantiId != null) {
+        InventoryNotificationService.checkAndNotify(widget.pantiId!);
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchItems() async {
@@ -457,7 +513,7 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: _buildSearchBar(),
+            child: _buildSearchBar(_searchController, () => setState(() {})),
           ),
           const SizedBox(height: 12),
           Padding(
@@ -468,7 +524,7 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF888888)),
                 children: [
                   TextSpan(
-                    text: _loading ? '...' : '${_items.length}',
+                    text: _loading ? '...' : '${_filtered.length}',
                     style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF888888)),
                   ),
                 ],
@@ -491,7 +547,7 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
                           textAlign: TextAlign.center,
                         ),
                       )
-                    : _items.isEmpty
+                    : _filtered.isEmpty
                         ? const Center(
                             child: Text(
                               'Belum ada produk.',
@@ -506,13 +562,13 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
                               mainAxisSpacing: 12,
                               childAspectRatio: 0.95,
                             ),
-                            itemCount: _items.length,
+                            itemCount: _filtered.length,
                             itemBuilder: (context, index) {
-                              final item = _items[index];
+                              final item = _filtered[index];
                               return _ItemGridCard(
                                 item: item,
                                 isEditMode: _isEditMode,
-                                onDelete: () => _confirmDeleteItem(index),
+                                onDelete: () => _confirmDeleteItem(_items.indexOf(item)),
                                 onEdit: () => _showEditItemDialog(item),
                                 onTap: () => _showStokMasukSheet(item),
                               );
@@ -546,7 +602,7 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
 
 // ─── Search Bar ───────────────────────────────────────────────────────────────
 
-Widget _buildSearchBar() {
+Widget _buildSearchBar(TextEditingController controller, VoidCallback onChanged) {
   return Container(
     height: 44,
     decoration: BoxDecoration(
@@ -554,10 +610,12 @@ Widget _buildSearchBar() {
       borderRadius: BorderRadius.circular(30),
     ),
     child: TextField(
+      controller: controller,
+      onChanged: (_) => onChanged(),
       decoration: InputDecoration(
         hintText: 'Search',
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-        prefixIcon: Icon(Icons.mic_none_rounded, color: Colors.grey[400], size: 20),
+        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
         border: InputBorder.none,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
       ),
