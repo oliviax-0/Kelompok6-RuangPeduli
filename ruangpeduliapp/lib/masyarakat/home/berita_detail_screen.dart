@@ -132,40 +132,25 @@ class _BeritaDetailScreenState extends State<BeritaDetailScreen> {
                   ),
                   const SizedBox(height: 32),
 
-                  // ── Lihat Profil button ──
-                  Center(
-                    child: SizedBox(
-                      width: 200,
-                      height: 46,
-                      child: ElevatedButton(
-                        onPressed: (widget.berita.pantiId == null || _loadingProfile)
-                            ? null
-                            : _onLihatProfil,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE8848A),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
+                  // ── Action button ──
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: (widget.berita.pantiId == null || _loadingProfile)
+                          ? null
+                          : _onLihatProfil,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE8848A),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                        child: _loadingProfile
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Lihat Profil',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
                       ),
+                      child: _loadingProfile
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Lihat Profil', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(height: 16),

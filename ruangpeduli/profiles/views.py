@@ -18,11 +18,29 @@ class SocietyProfileViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(user_id=user_id)
         return queryset
 
+    def partial_update(self, request, *args, **kwargs):
+        if request.data.get('remove_profile_picture') == 'true':
+            instance = self.get_object()
+            if instance.profile_picture:
+                instance.profile_picture.delete(save=False)
+                instance.profile_picture = None
+                instance.save(update_fields=['profile_picture'])
+        return super().partial_update(request, *args, **kwargs)
+
 
 class OrphanageProfileViewSet(viewsets.ModelViewSet):
     queryset = OrphanageProfile.objects.all()
     serializer_class = OrphanageProfileSerializer
     permission_classes = [AllowAny]
+
+    def partial_update(self, request, *args, **kwargs):
+        if request.data.get('remove_profile_picture') == 'true':
+            instance = self.get_object()
+            if instance.profile_picture:
+                instance.profile_picture.delete(save=False)
+                instance.profile_picture = None
+                instance.save(update_fields=['profile_picture'])
+        return super().partial_update(request, *args, **kwargs)
 
 
 class PantiMediaView(APIView):

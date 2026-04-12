@@ -53,7 +53,7 @@ class PantiMedia(models.Model):
         related_name='media'
     )
     media_type = models.CharField(max_length=10, choices=MEDIA_TYPES)
-    file = models.ImageField(upload_to='panti/media/', blank=True, null=True)
+    file = models.FileField(upload_to='panti/media/', blank=True, null=True)
     video_url = models.URLField(blank=True)
     order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

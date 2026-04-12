@@ -5,10 +5,6 @@ import 'package:ruangpeduliapp/masyarakat/home/berita_detail_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/home/video_player_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/home/kebutuhan_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/transaksi/konfirmasi_pembayaran_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/history/riwayat_donasi_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
 // ─────────────────────────────────────────────────────────────
 //  PANTI DETAIL SCREEN  (foto ke-3)
@@ -49,7 +45,6 @@ class PantiDetailScreen extends StatefulWidget {
 }
 
 class _PantiDetailScreenState extends State<PantiDetailScreen> {
-  static const Color _navPink = Color(0xFFF47B8C);
   static const Color _btnPink = Color(0xFFF28695);
 
   List<BeritaModel> _beritas = [];
@@ -57,10 +52,12 @@ class _PantiDetailScreenState extends State<PantiDetailScreen> {
   List<VideoModel> _videos = [];
   bool _loadingVideos = true;
   List<PantiMediaModel> _media = [];
+  late String _terkumpul;
 
   @override
   void initState() {
     super.initState();
+    _terkumpul = widget.terkumpul;
     _fetchContent();
   }
 
@@ -89,27 +86,6 @@ class _PantiDetailScreenState extends State<PantiDetailScreen> {
     });
   }
 
-  void _onNavTap(int index) {
-    if (index == 0) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => HomeMasyarakatScreen(userId: widget.userId)),
-        (route) => false,
-      );
-    } else if (index == 1) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)),
-      );
-    } else if (index == 2) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => RiwayatDonasiScreen(userId: widget.userId)),
-      );
-    } else if (index == 3) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -131,15 +107,14 @@ class _PantiDetailScreenState extends State<PantiDetailScreen> {
                       color: Color(0xFF1A1A1A),
                     ),
                   ),
-                  if (!widget.showNavBar)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.arrow_back,
-                            color: Color(0xFF1A1A1A)),
-                      ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(Icons.arrow_back,
+                          color: Color(0xFF1A1A1A)),
                     ),
+                  ),
                 ],
               ),
             ),
@@ -261,18 +236,29 @@ class _PantiDetailScreenState extends State<PantiDetailScreen> {
                                     borderRadius: BorderRadius.circular(30)),
                                 elevation: 0,
                               ),
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => KonfirmasiPembayaranScreen(
-                                    namaPanti: widget.namaPanti,
-                                    terkumpul: widget.terkumpul,
-                                    imagePath: widget.profilePicture ?? '',
-                                    pantiId: widget.pantiId,
-                                    userId: widget.userId,
+                              onPressed: () async {
+                                final result = await Navigator.push<bool>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => KonfirmasiPembayaranScreen(
+                                      namaPanti: widget.namaPanti,
+                                      terkumpul: _terkumpul,
+                                      imagePath: widget.profilePicture ?? '',
+                                      pantiId: widget.pantiId,
+                                      userId: widget.userId,
+                                    ),
                                   ),
-                                ),
-                              ),
+                                );
+                                if (result == true && mounted) {
+                                  if (widget.pantiId != null) {
+                                    try {
+                                      final updated = await ProfileApi().fetchPantiProfile(widget.pantiId!);
+                                      if (mounted) setState(() => _terkumpul = updated.formattedTotalTerkumpul);
+                                    } catch (_) {}
+                                  }
+                                  _fetchContent();
+                                }
+                              },
                               child: const Text('Donasi',
                                   style: TextStyle(
                                       fontSize: 15,
@@ -358,7 +344,6 @@ class _PantiDetailScreenState extends State<PantiDetailScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: widget.showNavBar ? _buildNavBar() : null,
     );
   }
 
@@ -682,47 +667,6 @@ class _PantiDetailScreenState extends State<PantiDetailScreen> {
     );
   }
 
-  Widget _buildNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _navPink,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 12,
-            offset: const Offset(0, -3),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(
-                  icon: Icons.home_rounded,
-                  selected: false,
-                  onTap: () => _onNavTap(0)),
-              _NavItem(
-                  icon: Icons.search_rounded,
-                  selected: false,
-                  onTap: () => _onNavTap(1)),
-              _NavItem(
-                  icon: Icons.history_rounded,
-                  selected: false,
-                  onTap: () => _onNavTap(2)),
-              _NavItem(
-                  icon: Icons.person_rounded,
-                  selected: false,
-                  onTap: () => _onNavTap(3)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 // ── Section label ──
@@ -740,44 +684,6 @@ class _SectionLabel extends StatelessWidget {
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: Color(0xFF1A1A1A),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Nav Item ──
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _NavItem(
-      {required this.icon, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 60,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon,
-                size: 28,
-                color: selected
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.60)),
-            if (selected)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                width: 5,
-                height: 5,
-                decoration: const BoxDecoration(
-                    color: Colors.white, shape: BoxShape.circle),
-              ),
-          ],
         ),
       ),
     );

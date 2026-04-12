@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ruangpeduliapp/data/donation_api.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/masyarakat/transaksi/transaksi_sukses_screen.dart';
 
 class KonfirmasiMetodeScreen extends StatefulWidget {
@@ -26,6 +28,7 @@ class KonfirmasiMetodeScreen extends StatefulWidget {
 
 class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
   String _selectedMetode = 'GoPay';
+  bool _loading = false;
 
   final List<Map<String, dynamic>> _metodeList = [
     {'nama': 'GoPay', 'color': const Color(0xFF00AED6), 'icon': Icons.account_balance_wallet_rounded},
@@ -56,7 +59,47 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
   }
 
   Future<void> _onKonfirmasi() async {
+    if (_loading) return;
+    setState(() => _loading = true);
     final noRef = 'REF${DateTime.now().millisecondsSinceEpoch % 100000}';
+    String username = '';
+    String? profilePicture;
+
+    // Save donation first (must succeed before proceeding)
+    try {
+      if (widget.userId != null) {
+        await DonationApi().createDonation(
+          userId: widget.userId!,
+          pantiId: widget.pantiId,
+          namaPanti: widget.namaPanti,
+          jumlah: _nominalInt,
+          metodePembayaran: _selectedMetode,
+          noReferensi: noRef,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal menyimpan donasi, coba lagi')),
+        );
+        setState(() => _loading = false);
+      }
+      return;
+    }
+
+    // Fetch user profile for invoice display (best-effort, don't block)
+    if (widget.userId != null) {
+      try {
+        final profile = await ProfileApi().fetchMasyarakatProfile(widget.userId!);
+        if (profile != null) {
+          username = profile.username.isNotEmpty ? profile.username : profile.namaPengguna;
+          profilePicture = profile.profilePicture;
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() => _loading = false);
     final result = await Navigator.push<bool>(
       context,
       PageRouteBuilder(
@@ -68,6 +111,8 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
           noReferensi: noRef,
           pantiId: widget.pantiId,
           userId: widget.userId,
+          username: username,
+          profilePicture: profilePicture,
         ),
         transitionsBuilder: (_, anim, __, child) {
           return SlideTransition(
@@ -135,7 +180,7 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
                         border: Border.all(color: const Color(0xFFEEEEEE)),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
+                              color: Colors.black.withValues(alpha: 0.04),
                               blurRadius: 6,
                               offset: const Offset(0, 2))
                         ],
@@ -257,7 +302,7 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
                                         height: 32,
                                         decoration: BoxDecoration(
                                           color: (m['color'] as Color)
-                                              .withOpacity(0.15),
+                                              .withValues(alpha: 0.15),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -301,11 +346,13 @@ class _KonfirmasiMetodeScreenState extends State<KonfirmasiMetodeScreen> {
                               borderRadius: BorderRadius.circular(30)),
                           elevation: 0,
                         ),
-                        onPressed: _onKonfirmasi,
-                        child: const Text('Konfirmasi',
-                            style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600)),
+                        onPressed: _loading ? null : _onKonfirmasi,
+                        child: _loading
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Konfirmasi',
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600)),
                       ),
                     ),
                     const SizedBox(height: 32),

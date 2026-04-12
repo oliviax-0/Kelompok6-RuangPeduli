@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/kebutuhan_api.dart';
-import 'package:ruangpeduliapp/masyarakat/home/home_masyarakat_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/history/riwayat_donasi_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
 // ─────────────────────────────────────────────────────────────
 //  KEBUTUHAN SCREEN
@@ -50,27 +46,6 @@ class _KebutuhanScreenState extends State<KebutuhanScreen> {
       if (mounted) setState(() { _items = data; _loading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = '$e'; _loading = false; });
-    }
-  }
-
-  void _onNavTap(int index) {
-    if (index == 0) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => HomeMasyarakatScreen(userId: widget.userId)),
-        (route) => false,
-      );
-    } else if (index == 1) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)),
-      );
-    } else if (index == 2) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => RiwayatDonasiScreen(userId: widget.userId)),
-      );
-    } else if (index == 3) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)),
-      );
     }
   }
 
@@ -162,7 +137,6 @@ class _KebutuhanScreenState extends State<KebutuhanScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildNavBar(),
     );
   }
 
@@ -220,36 +194,6 @@ class _KebutuhanScreenState extends State<KebutuhanScreen> {
         color: Colors.grey.shade200,
         child: Icon(Icons.business_rounded, size: 28, color: Colors.grey.shade400),
       );
-
-  Widget _buildNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF47B8C),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 12,
-            offset: const Offset(0, -3),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(icon: Icons.home_rounded, selected: false, onTap: () => _onNavTap(0)),
-              _NavItem(icon: Icons.search_rounded, selected: false, onTap: () => _onNavTap(1)),
-              _NavItem(icon: Icons.history_rounded, selected: false, onTap: () => _onNavTap(2)),
-              _NavItem(icon: Icons.person_rounded, selected: false, onTap: () => _onNavTap(3)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -315,38 +259,4 @@ IconData _iconFor(String nama) {
   if (n.contains('gula') || n.contains('garam') || n.contains('tepung')) return Icons.science_rounded;
   if (n.contains('popok') || n.contains('pampers')) return Icons.child_care_rounded;
   return Icons.inventory_2_rounded;
-}
-
-// ── Nav Item ──
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _NavItem({required this.icon, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 60,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon,
-                size: 28,
-                color: selected ? Colors.white : Colors.white.withValues(alpha: 0.60)),
-            if (selected)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                width: 5,
-                height: 5,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }

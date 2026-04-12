@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:ruangpeduliapp/masyarakat/notification/notification_screen.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
 import 'package:ruangpeduliapp/masyarakat/home/berita_detail_screen.dart';
@@ -26,10 +28,87 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
   List<VideoModel> _videos = [];
   bool _isLoading = true;
 
+  final _stt = SpeechToText();
+  bool _sttReady = false;
+  bool _listening = false;
+  String? _sttLocale;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _initStt();
+  }
+
+  Future<void> _initStt() async {
+    final ok = await _stt.initialize(
+      onStatus: (s) {
+        if ((s == 'done' || s == 'notListening') && mounted) {
+          setState(() => _listening = false);
+        }
+      },
+      onError: (e) {
+        if (mounted) setState(() => _listening = false);
+      },
+    );
+    if (!mounted) return;
+    if (ok) {
+      final locales = await _stt.locales();
+      final idLocale = locales.firstWhere(
+        (l) => l.localeId.startsWith('id'),
+        orElse: () => locales.first,
+      );
+      setState(() { _sttReady = true; _sttLocale = idLocale.localeId; });
+    } else {
+      setState(() => _sttReady = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _stt.cancel();
+    super.dispose();
+  }
+
+  Future<void> _toggleMic() async {
+    if (!_sttReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mikrofon tidak tersedia. Periksa izin aplikasi.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (_listening) {
+      await _stt.stop();
+      setState(() => _listening = false);
+      return;
+    }
+    setState(() => _listening = true);
+    await _stt.listen(
+      localeId: _sttLocale,
+      onResult: (r) async {
+        if (r.finalResult && mounted) {
+          setState(() => _listening = false);
+          final query = r.recognizedWords;
+          if (query.isNotEmpty) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SearchScreen(userId: widget.userId, initialQuery: query),
+              ),
+            );
+          }
+          if (mounted) setState(() => _selectedIndex = 0);
+        }
+      },
+      listenOptions: SpeechListenOptions(
+        partialResults: false,
+        cancelOnError: true,
+        listenMode: ListenMode.search,
+      ),
+    );
   }
 
   Future<void> _loadData() async {
@@ -163,7 +242,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)),
-              ),
+              ).then((_) { if (mounted) setState(() => _selectedIndex = 0); }),
               child: Container(
                 height: 42,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -173,22 +252,39 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
                 ),
                 child: Row(
                   children: [
-                    Image.asset(
-                      'assets/images/Mic.png',
-                      width: 16,
-                      height: 16,
-                      color: Colors.grey.shade500,
-                      errorBuilder: (_, __, ___) =>
-                          Icon(Icons.mic_rounded, size: 18, color: Colors.grey.shade500),
+                    GestureDetector(
+                      onTap: _toggleMic,
+                      child: Icon(
+                        _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                        size: 18,
+                        color: _listening ? const Color(0xFFF47B8C) : Colors.grey.shade500,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Search',
-                      style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                      _listening ? 'Mendengarkan...' : 'Search',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _listening ? const Color(0xFFF47B8C) : Colors.grey.shade400,
+                      ),
                     ),
                   ],
                 ),
               ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => NotificationScreen(userId: widget.userId),
+              ),
+            ),
+            child: Icon(
+              Icons.notifications_none_rounded,
+              size: 28,
+              color: const Color(0xFF1A1A1A),
             ),
           ),
         ],
@@ -246,7 +342,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
           return GestureDetector(
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => BeritaDetailScreen(berita: item)),
+              MaterialPageRoute(builder: (_) => BeritaDetailScreen(berita: item, userId: widget.userId)),
             ),
             child: Container(
               width: 215,

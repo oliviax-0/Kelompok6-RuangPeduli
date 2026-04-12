@@ -24,6 +24,7 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
   late String _currentEmail;
   bool _saving = false;
   File? _pickedImage;
+  bool _removePhoto = false;
 
   @override
   void initState() {
@@ -51,8 +52,73 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
       imageQuality: 80,
     );
     if (picked != null && mounted) {
-      setState(() => _pickedImage = File(picked.path));
+      setState(() {
+        _pickedImage = File(picked.path);
+        _removePhoto = false;
+      });
     }
+  }
+
+  void _removeProfilePhoto() {
+    setState(() {
+      _pickedImage = null;
+      _removePhoto = true;
+    });
+  }
+
+  void _showPhotoOptions() {
+    final hasPhoto = _pickedImage != null || (widget.profile?.profilePicture != null && !_removePhoto);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDDDDDD),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFF2F2F2),
+                  child: Icon(Icons.photo_library_rounded, color: Color(0xFF1A1A1A), size: 20),
+                ),
+                title: const Text('Ganti Foto', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage();
+                },
+              ),
+              if (hasPhoto)
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.red.shade50,
+                    child: Icon(Icons.delete_rounded, color: Colors.red.shade500, size: 20),
+                  ),
+                  title: Text(
+                    'Hapus Foto',
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red.shade500),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeProfilePhoto();
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showError(String msg) {
@@ -129,6 +195,7 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
         nomorTelepon: _teleponCtrl.text.trim(),
         jenisKelamin: _jenisKelaminCtrl.text.trim(),
         profilePicture: _pickedImage,
+        removeProfilePicture: _removePhoto,
       );
 
       if (!mounted) return;
@@ -186,8 +253,8 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
             // ── Avatar ──
             Center(
               child: GestureDetector(
-                onTap: _pickImage,
-                child: Stack(
+                onTap: _showPhotoOptions,
+                child: Column(
                   children: [
                     Container(
                       width: 90,
@@ -200,7 +267,7 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
                       child: ClipOval(
                         child: _pickedImage != null
                             ? Image.file(_pickedImage!, fit: BoxFit.cover)
-                            : (widget.profile?.profilePicture != null
+                            : (widget.profile?.profilePicture != null && !_removePhoto
                                 ? Image.network(
                                     widget.profile!.profilePicture!,
                                     fit: BoxFit.cover,
@@ -217,18 +284,15 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
                                   )),
                       ),
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        width: 26,
-                        height: 26,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1A1A1A),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.camera_alt_rounded,
-                            color: Colors.white, size: 14),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Ubah foto',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _kPink,
+                        decoration: TextDecoration.underline,
+                        decorationColor: _kPink,
                       ),
                     ),
                   ],

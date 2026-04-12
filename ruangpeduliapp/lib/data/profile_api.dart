@@ -207,6 +207,7 @@ class ProfileApi {
     String? nomorTelepon,
     String? jenisKelamin,
     File? profilePicture,
+    bool removeProfilePicture = false,
   }) async {
     final uri = Uri.parse('$_base/profiles/masyarakat/$profileId/');
     try {
@@ -217,7 +218,9 @@ class ProfileApi {
       if (email != null) req.fields['email'] = email;
       if (nomorTelepon != null) req.fields['nomor_telepon'] = nomorTelepon;
       if (jenisKelamin != null) req.fields['jenis_kelamin'] = jenisKelamin;
-      if (profilePicture != null) {
+      if (removeProfilePicture) {
+        req.fields['remove_profile_picture'] = 'true';
+      } else if (profilePicture != null) {
         req.files.add(await http.MultipartFile.fromPath(
             'profile_picture', profilePicture.path));
       }
@@ -273,6 +276,7 @@ class ProfileApi {
     String? email,
     String? password,
     File? profilePicture,
+    bool removeProfilePicture = false,
   }) async {
     final uri = Uri.parse('$_base/profiles/panti/$pantiId/');
     try {
@@ -287,7 +291,9 @@ class ProfileApi {
       if (password != null && password.isNotEmpty) {
         req.fields['password'] = password;
       }
-      if (profilePicture != null) {
+      if (removeProfilePicture) {
+        req.fields['remove_profile_picture'] = 'true';
+      } else if (profilePicture != null) {
         req.files.add(await http.MultipartFile.fromPath(
             'profile_picture', profilePicture.path));
       }
@@ -333,7 +339,10 @@ class ProfileApi {
       req.files
           .add(await http.MultipartFile.fromPath('file', file.path));
 
-      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      final timeout = mediaType == 'video'
+          ? const Duration(seconds: 120)
+          : const Duration(seconds: 30);
+      final streamed = await req.send().timeout(timeout);
       final res = await http.Response.fromStream(streamed);
       if (res.statusCode != 201) throw Exception('Gagal mengunggah media');
       return PantiMediaModel.fromJson(

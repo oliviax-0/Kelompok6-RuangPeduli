@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
+import 'package:ruangpeduliapp/data/donation_api.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 
@@ -143,6 +144,24 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         }
       }
     } catch (_) {}
+
+    // User's own donation summary
+    if (widget.userId != null) {
+      try {
+        final donations = await DonationApi().fetchDonations(widget.userId!);
+        final totalInt = donations.fold<int>(0, (sum, d) => sum + d.jumlah);
+        final pantiSet = donations.map((d) => d.namaPanti).toSet();
+        final formatted = _formatRp(totalInt);
+        buffer.writeln('\n=== RIWAYAT DONASI PENGGUNA INI ===');
+        buffer.writeln('Total donasi: Rp$formatted');
+        buffer.writeln('Jumlah transaksi: ${donations.length}');
+        if (pantiSet.isNotEmpty) {
+          buffer.writeln('Panti yang pernah didonasi: ${pantiSet.join(', ')}');
+        } else {
+          buffer.writeln('Belum pernah berdonasi.');
+        }
+      } catch (_) {}
+    }
 
     _history.add({'role': 'system', 'content': buffer.toString()});
     if (mounted) setState(() => _loadingContext = false);
@@ -385,6 +404,16 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  String _formatRp(int amount) {
+    final s = amount.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 
   @override

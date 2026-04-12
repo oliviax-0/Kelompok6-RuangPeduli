@@ -300,18 +300,26 @@ class _FotoVideoDialogState extends State<_FotoVideoDialog> {
     _media = List.from(widget.initialMedia);
   }
 
-  Future<void> _upload() async {
-    final picker = ImagePicker();
-    final XFile? picked =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked == null) return;
+  static const _videoExtensions = {
+    'mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', '3gp', 'm4v',
+  };
 
+  Future<void> _pickAndUpload() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickMedia();
+    if (picked == null) return;
+    final ext = picked.path.split('.').last.toLowerCase();
+    final mediaType = _videoExtensions.contains(ext) ? 'video' : 'photo';
+    await _doUpload(File(picked.path), mediaType);
+  }
+
+  Future<void> _doUpload(File file, String mediaType) async {
     setState(() => _isUploading = true);
     try {
       final newMedia = await ProfileApi().uploadPantiMedia(
         widget.pantiId,
-        file: File(picked.path),
-        mediaType: 'photo',
+        file: file,
+        mediaType: mediaType,
         order: _media.length,
       );
       setState(() => _media.add(newMedia));
@@ -349,36 +357,32 @@ class _FotoVideoDialogState extends State<_FotoVideoDialog> {
         children: [
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isUploading ? null : _upload,
+            child: ElevatedButton.icon(
+              onPressed: _isUploading ? null : _pickAndUpload,
+              icon: const Icon(Icons.perm_media_rounded, size: 18),
+              label: const Text(
+                'Unggah Foto / Video',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPink.withValues(alpha: 0.18),
                 foregroundColor: const Color(0xFFD0607A),
-                disabledBackgroundColor:
-                    kPink.withValues(alpha: 0.08),
+                disabledBackgroundColor: kPink.withValues(alpha: 0.08),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
               ),
-              child: _isUploading
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Color(0xFFD0607A)),
-                      ),
-                    )
-                  : const Text(
-                      'Unggah Foto',
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600),
-                    ),
             ),
           ),
+          if (_isUploading) ...[
+            const SizedBox(height: 10),
+            const LinearProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(kPink),
+              backgroundColor: Color(0xFFFFE0E6),
+            ),
+          ],
           const SizedBox(height: 14),
           if (_media.isEmpty)
             Padding(
@@ -422,42 +426,57 @@ class _MediaTile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          item.file != null
-              ? Image.network(
-                  item.file!,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (_, child, progress) => progress == null
-                      ? child
-                      : Container(
-                          color: const Color(0xFFE0E0E0),
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(kPink),
-                            ),
-                          ),
-                        ),
-                  errorBuilder: (_, __, ___) => Container(
-                    color: const Color(0xFFE0E0E0),
-                    child: const Icon(Icons.broken_image_outlined,
-                        color: Colors.grey),
-                  ),
-                )
-              : Container(
-                  color: const Color(0xFFE0E0E0),
-                  child: const Icon(Icons.image_not_supported_outlined,
-                      color: Colors.grey),
-                ),
+          // Background: video placeholder OR photo
           if (item.isVideo)
             Container(
-              color: Colors.black.withValues(alpha: 0.22),
-              child: const Center(
-                child: CircleAvatar(
-                  radius: 22,
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.play_arrow_rounded,
-                      color: Color(0xFF1A1A1A), size: 26),
-                ),
+              color: const Color(0xFF1A1A2E),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.videocam_rounded, color: Colors.white54, size: 36),
+                  SizedBox(height: 4),
+                  Text(
+                    'Video',
+                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+              ),
+            )
+          else if (item.file != null)
+            Image.network(
+              item.file!,
+              fit: BoxFit.cover,
+              loadingBuilder: (_, child, progress) => progress == null
+                  ? child
+                  : Container(
+                      color: const Color(0xFFE0E0E0),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(kPink),
+                        ),
+                      ),
+                    ),
+              errorBuilder: (_, __, ___) => Container(
+                color: const Color(0xFFE0E0E0),
+                child: const Icon(Icons.broken_image_outlined,
+                    color: Colors.grey),
+              ),
+            )
+          else
+            Container(
+              color: const Color(0xFFE0E0E0),
+              child: const Icon(Icons.image_not_supported_outlined,
+                  color: Colors.grey),
+            ),
+          // Play overlay for video
+          if (item.isVideo)
+            const Center(
+              child: CircleAvatar(
+                radius: 22,
+                backgroundColor: Colors.white24,
+                child: Icon(Icons.play_arrow_rounded,
+                    color: Colors.white, size: 26),
               ),
             ),
           // Delete button

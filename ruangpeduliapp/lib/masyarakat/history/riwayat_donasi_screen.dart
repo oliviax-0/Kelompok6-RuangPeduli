@@ -52,7 +52,9 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
     if (_filterDate == null) return _allRiwayat;
     return _allRiwayat.where((r) {
       final d = r.tanggalDateTime;
-      return d.year == _filterDate!.year && d.month == _filterDate!.month;
+      return d.year == _filterDate!.year &&
+          d.month == _filterDate!.month &&
+          d.day == _filterDate!.day;
     }).toList();
   }
 
@@ -78,10 +80,10 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
   String _filterLabel() {
     if (_filterDate == null) return '';
     const bulan = [
-      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
     ];
-    return '${bulan[_filterDate!.month]} ${_filterDate!.year}';
+    return '${_filterDate!.day} ${bulan[_filterDate!.month]} ${_filterDate!.year}';
   }
 
   void _onNavTap(int index) {
@@ -257,7 +259,7 @@ class _RiwayatDonasiScreenState extends State<RiwayatDonasiScreen> {
                                         const SizedBox(height: 12),
                                         Text(
                                           _filterDate != null
-                                              ? 'Tidak ada riwayat di bulan ini'
+                                              ? 'Tidak ada riwayat pada tanggal ini'
                                               : 'Belum ada riwayat donasi',
                                           style: TextStyle(
                                               fontSize: 14,
@@ -455,7 +457,6 @@ class _FilterSheet extends StatefulWidget {
 
 class _FilterSheetState extends State<_FilterSheet> {
   late DateTime _selectedDate;
-  bool _showCalendar = false;
 
   @override
   void initState() {
@@ -463,12 +464,12 @@ class _FilterSheetState extends State<_FilterSheet> {
     _selectedDate = widget.initialDate ?? DateTime.now();
   }
 
-  String _formatBulanTahun(DateTime d) {
+  String _formatTanggal(DateTime d) {
     const bulan = [
       '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
     ];
-    return '${bulan[d.month]} ${d.year}';
+    return '${d.day} ${bulan[d.month]} ${d.year}';
   }
 
   @override
@@ -498,56 +499,49 @@ class _FilterSheetState extends State<_FilterSheet> {
             const SizedBox(height: 20),
 
             const Text(
-              'Waktu',
+              'Pilih Tanggal',
               style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF1A1A1A)),
             ),
+            const SizedBox(height: 4),
+            Text(
+              'Filter riwayat donasi berdasarkan tanggal',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            ),
             const SizedBox(height: 16),
 
-            // Input field bulan-tahun
-            GestureDetector(
-              onTap: () => setState(() => _showCalendar = !_showCalendar),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Color(0xFFCCCCCC), width: 1.2),
+            // Selected label
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFDE8EA),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_month_outlined,
+                      size: 18, color: Color(0xFFF28695)),
+                  const SizedBox(width: 8),
+                  Text(
+                    _formatTanggal(_selectedDate),
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A)),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _formatBulanTahun(_selectedDate),
-                        style: const TextStyle(
-                            fontSize: 15, color: Color(0xFF1A1A1A)),
-                      ),
-                    ),
-                    const Icon(Icons.calendar_month_outlined,
-                        size: 22, color: Color(0xFF1A1A1A)),
-                  ],
-                ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // Kalender inline
-            if (_showCalendar) ...[
-              _InlineCalendar(
-                selectedDate: _selectedDate,
-                onDateSelected: (d) {
-                  setState(() {
-                    _selectedDate = d;
-                    _showCalendar = false;
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            const SizedBox(height: 8),
+            // Calendar always shown
+            _InlineCalendar(
+              selectedDate: _selectedDate,
+              onDateSelected: (d) => setState(() => _selectedDate = d),
+            ),
+            const SizedBox(height: 20),
 
             // Tombol Simpan
             SizedBox(
@@ -562,7 +556,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                   elevation: 0,
                 ),
                 onPressed: () => widget.onSimpan(_selectedDate),
-                child: const Text('Simpan',
+                child: const Text('Terapkan Filter',
                     style: TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600)),
               ),
@@ -748,11 +742,13 @@ class _InlineCalendarState extends State<_InlineCalendar> {
               children: List.generate(12, (i) {
                 final isSelected = (i + 1) == _viewMonth;
                 return GestureDetector(
-                  onTap: () => setState(() {
-                    _viewMonth = i + 1;
-                    _selectedDay = 1;
-                    _showMonthPicker = false;
-                  }),
+                  onTap: () {
+                    setState(() {
+                      _viewMonth = i + 1;
+                      _selectedDay = 1;
+                      _showMonthPicker = false;
+                    });
+                  },
                   child: Container(
                     decoration: BoxDecoration(
                       color: isSelected
@@ -790,11 +786,13 @@ class _InlineCalendarState extends State<_InlineCalendar> {
                   final year = DateTime.now().year - 2 + i;
                   final isSelected = year == _viewYear;
                   return GestureDetector(
-                    onTap: () => setState(() {
-                      _viewYear = year;
-                      _selectedDay = 1;
-                      _showYearPicker = false;
-                    }),
+                    onTap: () {
+                      setState(() {
+                        _viewYear = year;
+                        _selectedDay = 1;
+                        _showYearPicker = false;
+                      });
+                    },
                     child: Container(
                       decoration: BoxDecoration(
                         color: isSelected
