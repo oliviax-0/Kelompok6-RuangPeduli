@@ -175,7 +175,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _sendWithText('Panti mana yang paling dekat dengan saya?');
+        _sendSilent('Panti mana yang paling dekat dengan saya?', 'Panti terdekat');
         return;
       }
       LocationPermission perm = await Geolocator.checkPermission();
@@ -183,14 +183,13 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         perm = await Geolocator.requestPermission();
       }
       if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
-        _sendWithText('Panti mana yang paling dekat dengan saya?');
+        _sendSilent('Panti mana yang paling dekat dengan saya?', 'Panti terdekat');
         return;
       }
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
       ).timeout(const Duration(seconds: 10));
 
-      // sort panti by distance
       final withDist = <MapEntry<PantiProfileModel, double>>[];
       for (final p in _pantiList) {
         if (p.lat != null && p.lng != null) {
@@ -200,9 +199,9 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
       }
       withDist.sort((a, b) => a.value.compareTo(b.value));
 
-      String msg;
+      String hiddenContext;
       if (withDist.isEmpty) {
-        msg = 'Panti mana yang paling dekat dengan saya?';
+        hiddenContext = 'Panti mana yang paling dekat dengan saya?';
       } else {
         final top = withDist.take(3).toList();
         final buf = StringBuffer('Lokasi saya saat ini: ${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}.\n'
@@ -211,12 +210,12 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
           final km = (e.value / 1000).toStringAsFixed(1);
           buf.writeln('- ${e.key.namaPanti}: $km km');
         }
-        buf.write('Tolong rekomendasikan panti mana yang sebaiknya saya kunjungi atau donasikan dan berikan informasi lebih lanjut.');
-        msg = buf.toString();
+        buf.write('Rekomendasikan panti mana yang sebaiknya saya kunjungi atau donasikan dan berikan informasi lebih lanjut.');
+        hiddenContext = buf.toString();
       }
-      _sendWithText(msg);
+      _sendSilent(hiddenContext, 'Panti terdekat');
     } catch (_) {
-      _sendWithText('Panti mana yang paling dekat dengan lokasi saya?');
+      _sendSilent('Panti mana yang paling dekat dengan lokasi saya?', 'Panti terdekat');
     } finally {
       if (mounted) setState(() => _loadingNearest = false);
     }
@@ -228,7 +227,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
     if (_loadingUrgent || _isLoading || _loadingContext) return;
     setState(() => _loadingUrgent = true);
     try {
-      final buf = StringBuffer('Berikut data kebutuhan mendesak (stok habis) dari setiap panti:\n');
+      final buf = StringBuffer('Data kebutuhan mendesak (stok habis/kritis) terkini per panti:\n');
       bool hasData = false;
       for (final p in _pantiList) {
         try {
@@ -241,19 +240,25 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         } catch (_) {}
       }
       if (!hasData) buf.writeln('(tidak ada data kebutuhan mendesak saat ini)');
-      buf.write('\nPanti mana yang paling membutuhkan bantuan segera dan apa yang bisa saya donasikan?');
-      _sendWithText(buf.toString());
+      buf.write('\nBerdasarkan data ini, jelaskan panti mana yang paling membutuhkan bantuan segera dan apa yang bisa didonasikan.');
+      _sendSilent(buf.toString(), 'Kebutuhan mendesak');
     } catch (_) {
-      _sendWithText('Panti mana yang paling membutuhkan bantuan segera saat ini?');
+      _sendSilent('Panti mana yang paling membutuhkan bantuan segera saat ini?', 'Kebutuhan mendesak');
     } finally {
       if (mounted) setState(() => _loadingUrgent = false);
     }
   }
 
-  void _sendWithText(String text) {
+  /// Sends [hiddenPrompt] to the AI but only shows [displayLabel] in the chat bubble.
+  void _sendSilent(String hiddenPrompt, String displayLabel) {
     if (!mounted) return;
-    _inputCtrl.text = text;
-    _sendMessage();
+    setState(() {
+      _messages.add(_ChatMsg(text: displayLabel, isUser: true));
+      _isLoading = true;
+    });
+    _history.add({'role': 'user', 'content': hiddenPrompt});
+    _scrollToBottom();
+    _callAI();
   }
 
   Future<void> _pickImage() async {
@@ -355,7 +360,10 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
     _inputCtrl.clear();
     _history.add({'role': 'user', 'content': text});
     _scrollToBottom();
+    await _callAI();
+  }
 
+  Future<void> _callAI() async {
     try {
       final apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
       if (apiKey.isEmpty || apiKey == 'your_groq_api_key_here') {
