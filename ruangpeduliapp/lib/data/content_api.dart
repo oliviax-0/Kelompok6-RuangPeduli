@@ -73,6 +73,7 @@ class VideoModel {
   final String videoUrl;
   final String? thumbnail;
   final String pantiName;
+  final int? pantiId;
   final String authorName;
   final String createdAt;
 
@@ -83,6 +84,7 @@ class VideoModel {
     required this.videoUrl,
     this.thumbnail,
     required this.pantiName,
+    this.pantiId,
     required this.authorName,
     required this.createdAt,
   });
@@ -95,6 +97,7 @@ class VideoModel {
       videoUrl: json['video_url'],
       thumbnail: json['thumbnail'],
       pantiName: json['panti_name'] ?? '',
+      pantiId: json['panti'] as int?,
       authorName: json['author_name'] ?? '',
       createdAt: json['created_at'] ?? '',
     );
@@ -298,6 +301,16 @@ class ContentApi {
         throw Exception(firstMsg.toString());
       }
       throw Exception('Gagal membuat berita');
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  Future<void> deleteBerita(int beritaId) async {
+    final uri = Uri.parse('$_base/content/berita/$beritaId/');
+    try {
+      final res = await http.delete(uri).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 204) throw Exception('Gagal menghapus postingan');
     } on SocketException {
       throw Exception('Tidak bisa konek ke server');
     }

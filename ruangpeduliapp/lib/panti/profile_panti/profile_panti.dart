@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart' show canLaunchUrl, launchUrl, LaunchMode;
 import 'package:ruangpeduliapp/panti/profile_panti/edit_profile_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/popup_panti.dart';
 import 'package:ruangpeduliapp/panti/profile_panti/kebutuhan_panti.dart';
@@ -6,6 +7,7 @@ import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
 import 'package:ruangpeduliapp/auth/role_selection_screen.dart';
 import 'package:ruangpeduliapp/panti/home_panti/home_beritabaru.dart';
+import 'package:ruangpeduliapp/panti/profile_panti/video_baru_panti.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -26,7 +28,8 @@ class ProfilePanti extends StatefulWidget {
 
 class _ProfilePantiState extends State<ProfilePanti> {
   PantiProfileModel? _profile;
-  List<PantiMediaModel> _media = [];
+  List<PantiMediaModel> _fotos = [];
+  List<PantiMediaModel> _videos = [];
   List<BeritaModel> _beritas = [];
 
   @override
@@ -47,9 +50,11 @@ class _ProfilePantiState extends State<ProfilePanti> {
 
     final results = await Future.wait([profileFuture, mediaFuture, beritaFuture]);
     if (!mounted) return;
+    final allMedia = results[1] as List<PantiMediaModel>;
     setState(() {
       _profile = results[0] as PantiProfileModel;
-      _media   = results[1] as List<PantiMediaModel>;
+      _fotos   = allMedia.where((m) => !m.isVideo).toList();
+      _videos  = allMedia.where((m) => m.isVideo).toList();
       _beritas = results[2] as List<BeritaModel>;
     });
   }
@@ -245,13 +250,13 @@ class _ProfilePantiState extends State<ProfilePanti> {
 
           const SizedBox(height: 20),
 
-          // Foto & Video
+          // Foto
           _SectionHeader(
-            title: 'Foto & Video',
-            onAdd: widget.pantiId == null ? null : () => _editMedia(),
+            title: 'Foto',
+            onAdd: widget.pantiId == null ? null : () => _editFoto(),
           ),
           const SizedBox(height: 8),
-          _buildMediaGallery(),
+          _buildFotoGallery(),
 
           const SizedBox(height: 20),
 
@@ -262,6 +267,16 @@ class _ProfilePantiState extends State<ProfilePanti> {
           ),
           const SizedBox(height: 8),
           _GreyContainer(child: Text(_profile?.description ?? '...', style: _bodyStyle())),
+
+          const SizedBox(height: 20),
+
+          // Video
+          _SectionHeader(
+            title: 'Video',
+            onAdd: widget.pantiId == null ? null : () => _editVideo(),
+          ),
+          const SizedBox(height: 8),
+          _buildVideoGallery(),
 
           const SizedBox(height: 20),
 
@@ -334,78 +349,79 @@ class _ProfilePantiState extends State<ProfilePanti> {
     }
   }
 
-  Future<void> _editMedia() async {
-    final updatedMedia = await showFotoVideoPopup(
+  Future<void> _editFoto() async {
+    final updated = await showFotoPopup(
       context,
       pantiId: widget.pantiId!,
-      media: _media,
+      media: _fotos,
     );
-    if (updatedMedia != null && mounted) {
-      setState(() => _media = updatedMedia);
-    }
+    if (updated != null && mounted) setState(() => _fotos = updated);
   }
 
-  // ─── Media Gallery ────────────────────────────────────────────────────────
+  Future<void> _editVideo() async {
+    final added = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VideoBaruPanti(pantiId: widget.pantiId!),
+      ),
+    );
+    if (added == true && mounted) _loadAll(widget.pantiId!);
+  }
 
-  Widget _buildMediaGallery() {
-    if (_media.isEmpty) {
-      return _GreyContainer(
-        child: Text('Belum ada foto & video.', style: _bodyStyle()),
-      );
+  // ─── Foto Gallery ─────────────────────────────────────────────────────────
+
+  Widget _buildFotoGallery() {
+    if (_fotos.isEmpty) {
+      return _GreyContainer(child: Text('Belum ada foto.', style: _bodyStyle()));
     }
     return SizedBox(
       height: 100,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: _media.length,
+        itemCount: _fotos.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final item = _media[index];
-          final imageUrl = item.file;
+        itemBuilder: (_, index) {
+          final item = _fotos[index];
           return ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Stack(
-              children: [
-                imageUrl != null
-                    ? Image.network(
-                        imageUrl,
-                        width: 100,
-                        height: 100,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (_, child, progress) => progress == null
-                            ? child
-                            : Container(
-                                width: 100,
-                                height: 100,
-                                color: Colors.grey[200],
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(kPink),
-                                  ),
-                                ),
-                              ),
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 100, height: 100, color: Colors.grey[200],
-                          child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
-                        ),
-                      )
-                    : Container(
-                        width: 100, height: 100, color: Colors.grey[200],
-                        child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey),
-                      ),
-                if (item.isVideo)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      child: const Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 32),
+            child: item.file != null
+                ? Image.network(
+                    item.file!,
+                    width: 100,
+                    height: 100,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : Container(
+                            width: 100, height: 100, color: Colors.grey[200],
+                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(kPink))),
+                          ),
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 100, height: 100, color: Colors.grey[200],
+                      child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
                     ),
-                  ),
-              ],
-            ),
+                  )
+                : Container(width: 100, height: 100, color: Colors.grey[200],
+                    child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey)),
           );
         },
       ),
+    );
+  }
+
+  // ─── Video Gallery ────────────────────────────────────────────────────────
+
+  Widget _buildVideoGallery() {
+    if (_videos.isEmpty) {
+      return _GreyContainer(child: Text('Belum ada video.', style: _bodyStyle()));
+    }
+    return Column(
+      children: _videos.map((item) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _VideoCard(item: item, onDelete: () => _deleteVideo(item)),
+        );
+      }).toList(),
     );
   }
 
@@ -421,10 +437,64 @@ class _ProfilePantiState extends State<ProfilePanti> {
       children: _beritas.map((berita) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: _PostCard(berita: berita),
+          child: _PostCard(
+            berita: berita,
+            onDelete: () => _deleteBerita(berita),
+          ),
         );
       }).toList(),
     );
+  }
+
+  Future<void> _deleteBerita(BeritaModel berita) async {
+    final confirm = await _confirmDelete(context, 'postingan ini');
+    if (!confirm || !mounted) return;
+    try {
+      await ContentApi().deleteBerita(berita.id);
+      if (!mounted) return;
+      setState(() => _beritas.removeWhere((b) => b.id == berita.id));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  Future<void> _deleteVideo(PantiMediaModel video) async {
+    final confirm = await _confirmDelete(context, 'video ini');
+    if (!confirm || !mounted) return;
+    try {
+      await ProfileApi().deletePantiMedia(widget.pantiId!, video.id);
+      if (!mounted) return;
+      setState(() => _videos.removeWhere((v) => v.id == video.id));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  Future<bool> _confirmDelete(BuildContext ctx, String target) async {
+    return await showDialog<bool>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.w800)),
+        content: Text('Yakin ingin menghapus $target?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 }
 
@@ -488,11 +558,119 @@ class _GreyContainer extends StatelessWidget {
   }
 }
 
+// ─── Video Card ───────────────────────────────────────────────────────────────
+
+class _VideoCard extends StatelessWidget {
+  final PantiMediaModel item;
+  final VoidCallback onDelete;
+  const _VideoCard({required this.item, required this.onDelete});
+
+  Future<void> _open() async {
+    final url = item.file ?? (item.videoUrl.isNotEmpty ? item.videoUrl : null);
+    if (url == null) return;
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _open,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Thumbnail area
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(
+                    color: const Color(0xFF1A1A2E),
+                    child: const Center(
+                      child: Icon(Icons.videocam_rounded, color: Colors.white24, size: 48),
+                    ),
+                  ),
+                  const Center(
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Colors.white24,
+                      child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 30),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Title + description + delete
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (item.title.isNotEmpty)
+                          Text(
+                            item.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.5,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        if (item.title.isNotEmpty && item.description.isNotEmpty)
+                          const SizedBox(height: 6),
+                        if (item.description.isNotEmpty)
+                          Text(
+                            item.description,
+                            style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.45),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Post Card ────────────────────────────────────────────────────────────────
 
 class _PostCard extends StatelessWidget {
   final BeritaModel berita;
-  const _PostCard({required this.berita});
+  final VoidCallback onDelete;
+  const _PostCard({required this.berita, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -542,25 +720,36 @@ class _PostCard extends StatelessWidget {
                   ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    berita.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14.5,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        berita.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.5,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        berita.formattedDate,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  berita.formattedDate,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),

@@ -43,7 +43,17 @@ class SocietyProfileSerializer(serializers.ModelSerializer):
 class PantiMediaSerializer(serializers.ModelSerializer):
     class Meta:
         model = PantiMedia
-        fields = ['id', 'media_type', 'file', 'video_url', 'order', 'created_at']
+        fields = ['id', 'media_type', 'file', 'video_url', 'title', 'description', 'order', 'created_at']
+        read_only_fields = ['created_at']
+
+
+class PantiVideoSerializer(serializers.ModelSerializer):
+    panti_id   = serializers.IntegerField(source='panti.id', read_only=True)
+    panti_name = serializers.CharField(source='panti.nama_panti', read_only=True)
+
+    class Meta:
+        model  = PantiMedia
+        fields = ['id', 'panti_id', 'panti_name', 'file', 'video_url', 'title', 'description', 'order', 'created_at']
         read_only_fields = ['created_at']
 
 

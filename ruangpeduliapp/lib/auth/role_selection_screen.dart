@@ -142,7 +142,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                     ),
 
                     // Spacer to push content into white area
-                    SizedBox(height: size.height * 0.18),
+                    const Spacer(),
 
                     // Konten putih
                     Padding(

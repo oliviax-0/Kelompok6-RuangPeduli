@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:ruangpeduliapp/data/data.dart';
 
@@ -153,6 +154,8 @@ class PantiMediaModel {
   final String? file;
   final String videoUrl;
   final int order;
+  final String title;
+  final String description;
 
   PantiMediaModel({
     required this.id,
@@ -160,6 +163,8 @@ class PantiMediaModel {
     this.file,
     required this.videoUrl,
     required this.order,
+    this.title = '',
+    this.description = '',
   });
 
   bool get isVideo => mediaType == 'video';
@@ -171,6 +176,40 @@ class PantiMediaModel {
       file: json['file'],
       videoUrl: json['video_url'] ?? '',
       order: json['order'] ?? 0,
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+    );
+  }
+}
+
+class PantiUploadedVideo {
+  final int id;
+  final int pantiId;
+  final String pantiName;
+  final String? file;
+  final String videoUrl;
+  final String title;
+  final String description;
+
+  PantiUploadedVideo({
+    required this.id,
+    required this.pantiId,
+    required this.pantiName,
+    this.file,
+    required this.videoUrl,
+    required this.title,
+    required this.description,
+  });
+
+  factory PantiUploadedVideo.fromJson(Map<String, dynamic> json) {
+    return PantiUploadedVideo(
+      id: json['id'],
+      pantiId: json['panti_id'],
+      pantiName: json['panti_name'] ?? '',
+      file: json['file'],
+      videoUrl: json['video_url'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
     );
   }
 }
@@ -327,26 +366,55 @@ class ProfileApi {
 
   Future<PantiMediaModel> uploadPantiMedia(
     int pantiId, {
-    required File file,
+    File? file,
+    String? videoUrl,
     String mediaType = 'photo',
     int order = 0,
+    String title = '',
+    String description = '',
   }) async {
     final uri = Uri.parse('$_base/profiles/panti/$pantiId/media/');
     try {
       final req = http.MultipartRequest('POST', uri);
       req.fields['media_type'] = mediaType;
       req.fields['order'] = order.toString();
-      req.files
-          .add(await http.MultipartFile.fromPath('file', file.path));
+      if (title.isNotEmpty) req.fields['title'] = title;
+      if (description.isNotEmpty) req.fields['description'] = description;
+      if (videoUrl != null && videoUrl.isNotEmpty) {
+        req.fields['video_url'] = videoUrl;
+      }
+      if (file != null) {
+        req.files.add(await http.MultipartFile.fromPath('file', file.path));
+      }
 
       final timeout = mediaType == 'video'
           ? const Duration(seconds: 120)
           : const Duration(seconds: 30);
       final streamed = await req.send().timeout(timeout);
       final res = await http.Response.fromStream(streamed);
-      if (res.statusCode != 201) throw Exception('Gagal mengunggah media');
+      if (res.statusCode != 201) {
+        debugPrint('❌ uploadPantiMedia ${res.statusCode}: ${res.body}');
+        throw Exception('Gagal mengunggah media [${res.statusCode}]: ${res.body}');
+      }
       return PantiMediaModel.fromJson(
           jsonDecode(res.body) as Map<String, dynamic>);
+    } on SocketException {
+      throw Exception('Tidak bisa konek ke server');
+    }
+  }
+
+  Future<List<PantiUploadedVideo>> fetchAllPantiVideos() async {
+    final uri = Uri.parse('$_base/profiles/media/videos/');
+    try {
+      final res = await http.get(uri).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Koneksi timeout'),
+      );
+      if (res.statusCode != 200) throw Exception('Gagal memuat video panti');
+      final List data = jsonDecode(res.body);
+      return data
+          .map((e) => PantiUploadedVideo.fromJson(e as Map<String, dynamic>))
+          .toList();
     } on SocketException {
       throw Exception('Tidak bisa konek ke server');
     }

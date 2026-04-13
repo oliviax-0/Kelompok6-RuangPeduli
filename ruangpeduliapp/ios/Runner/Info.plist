@@ -46,6 +46,10 @@
 	<string>Lokasi digunakan untuk menemukan panti asuhan terdekat dari Anda</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Mikrofon digunakan untuk mencari berita dengan suara</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Akses galeri diperlukan untuk mengunggah foto dan video</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Akses galeri diperlukan untuk menyimpan foto</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Pengenalan suara digunakan untuk mencari berita</string>
 	<key>UIApplicationSceneManifest</key>

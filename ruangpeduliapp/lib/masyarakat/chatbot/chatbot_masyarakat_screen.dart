@@ -82,11 +82,22 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
   Future<void> _initContext() async {
     final buffer = StringBuffer();
     buffer.writeln(
-      'Kamu adalah asisten AI untuk aplikasi RuangPeduli, platform donasi panti asuhan di Indonesia. '
-      'Tugasmu adalah membantu donatur (masyarakat umum) mengetahui kebutuhan paling mendesak di panti asuhan '
-      'agar bantuan dapat disalurkan secara tepat sasaran. '
-      'Jawab dalam Bahasa Indonesia yang ramah, hangat, dan informatif. '
-      'Jangan gunakan tabel kecuali diminta. Fokus pada kebutuhan prioritas penghuni.',
+      'Kamu adalah asisten AI khusus untuk aplikasi RuangPeduli, platform donasi panti asuhan di Indonesia.\n'
+      '\n'
+      'ATURAN MUTLAK — TIDAK BOLEH DILANGGAR:\n'
+      '1. Kamu HANYA boleh menjawab pertanyaan yang berkaitan langsung dengan RuangPeduli, yaitu:\n'
+      '   - Informasi panti asuhan yang terdaftar di RuangPeduli\n'
+      '   - Kebutuhan barang, inventaris, dan stok panti\n'
+      '   - Donasi: cara berdonasi, jumlah donasi, riwayat donasi pengguna\n'
+      '   - Informasi kontak dan lokasi panti asuhan\n'
+      '2. Jika pengguna bertanya tentang topik APA PUN di luar daftar di atas — termasuk namun tidak terbatas pada: '
+      'matematika, sains, teknologi umum, politik, hiburan, kesehatan umum, resep masakan, olahraga, cuaca, '
+      'atau topik umum lainnya — kamu WAJIB menolak dan TIDAK BOLEH menjawab pertanyaan tersebut.\n'
+      '3. Saat menolak, gunakan respons ini persis: '
+      '"Maaf, saya hanya dapat membantu pertanyaan seputar RuangPeduli dan panti asuhan. '
+      'Ada yang bisa saya bantu terkait donasi atau kebutuhan panti?"\n'
+      '\n'
+      'Jawab dalam Bahasa Indonesia yang ramah dan informatif. Jangan gunakan tabel kecuali diminta.',
     );
 
     try {
@@ -370,6 +381,19 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         throw Exception('GROQ_API_KEY belum diisi di file .env');
       }
 
+      // Inject a scope reminder before the latest user message so the model
+      // cannot "forget" the restriction mid-conversation.
+      final messages = List<Map<String, String>>.from(_history);
+      final lastUserIdx = messages.lastIndexWhere((m) => m['role'] == 'user');
+      if (lastUserIdx != -1) {
+        messages.insert(lastUserIdx, {
+          'role': 'system',
+          'content':
+              'Pengingat wajib: Hanya jawab topik RuangPeduli (panti asuhan, donasi, kebutuhan panti, inventaris). '
+              'Tolak semua pertanyaan di luar topik tersebut dengan kalimat penolakan yang sudah ditentukan.',
+        });
+      }
+
       final res = await http.post(
         Uri.parse(_groqUrl),
         headers: {
@@ -378,8 +402,8 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         },
         body: jsonEncode({
           'model': _model,
-          'messages': _history,
-          'temperature': 0.7,
+          'messages': messages,
+          'temperature': 0.3,
           'max_tokens': 1024,
         }),
       ).timeout(const Duration(seconds: 30));
