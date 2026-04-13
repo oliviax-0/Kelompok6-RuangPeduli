@@ -93,21 +93,22 @@ class RegisterData {
 }
 
 class AppConfig {
-  // ✏️ Kalau testing di iPhone FISIK, isi URL localhost.run kamu di sini
-  // Kalau pakai Simulator, biarkan kosong
-  static const String localhostRunUrl = ''; // contoh: 'https://abcd1234.lhr.life'
-
-  // ✏️ IP laptop kamu
+  // ✏️ IP laptop kamu — dipakai untuk physical device + simulator sekaligus
+  // Kosongkan kalau mau pakai emulator Android saja (10.0.2.2)
   static const String devIp = '192.168.18.138';
 
+  // Set ke true untuk pakai LAN IP (physical device + simulator bersamaan)
+  // Set ke false untuk emulator-only mode
+  static const bool useLanIp = true;
+
   static String get baseUrl {
+    if (useLanIp && devIp.isNotEmpty) {
+      return 'http://$devIp:8000/api'; // works for ALL: emulator, simulator, physical
+    }
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:8000/api';
+      return 'http://10.0.2.2:8000/api'; // Android emulator only
     }
-    if (localhostRunUrl.isNotEmpty) {
-      return '$localhostRunUrl/api';
-    }
-    return 'http://localhost:8000/api'; // iOS Simulator
+    return 'http://localhost:8000/api'; // iOS Simulator only
   }
 }
 

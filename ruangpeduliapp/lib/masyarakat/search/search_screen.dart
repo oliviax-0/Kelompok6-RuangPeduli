@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
-import 'package:ruangpeduliapp/masyarakat/notification/notification_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/transaksi/lokasi_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/home/panti_detail_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/history/riwayat_donasi_screen.dart';
@@ -9,7 +9,8 @@ import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   final int? userId;
-  const SearchScreen({super.key, this.userId});
+  final String initialQuery;
+  const SearchScreen({super.key, this.userId, this.initialQuery = ''});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -19,6 +20,11 @@ class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   int _selectedIndex = 1;
+
+  final _stt = SpeechToText();
+  bool _sttReady = false;
+  bool _listening = false;
+  String? _sttLocale;
 
   Position? _userPosition;
   bool _loadingLocation = true;
@@ -161,21 +167,89 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() => _selectedIndex = index);
   }
 
+  Future<void> _toggleMic() async {
+    if (!_sttReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mikrofon tidak tersedia. Periksa izin aplikasi.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (_listening) {
+      await _stt.stop();
+      setState(() => _listening = false);
+      return;
+    }
+    // Dismiss keyboard so it doesn't interfere with STT
+    _focusNode.unfocus();
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+
+    setState(() => _listening = true);
+    await _stt.listen(
+      localeId: _sttLocale,
+      onResult: (r) {
+        if (!mounted) return;
+        if (r.recognizedWords.isNotEmpty) {
+          _searchController.value = TextEditingValue(
+            text: r.recognizedWords,
+            selection: TextSelection.collapsed(offset: r.recognizedWords.length),
+          );
+        }
+        if (r.finalResult) {
+          setState(() => _listening = false);
+        }
+      },
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: ListenMode.search,
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
+    if (widget.initialQuery.isNotEmpty) {
+      _searchController.text = widget.initialQuery;
+    }
     _fetchLocation();
     _fetchPanti();
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) _focusNode.requestFocus();
-    });
+    // Only auto-focus keyboard when opened without a pre-filled query
+    if (widget.initialQuery.isEmpty) {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
     _searchController.addListener(() => setState(() {}));
+    _stt.initialize(
+      onStatus: (s) {
+        if ((s == 'done' || s == 'notListening') && mounted) {
+          setState(() => _listening = false);
+        }
+      },
+      onError: (_) { if (mounted) setState(() => _listening = false); },
+    ).then((ok) async {
+      if (!mounted) return;
+      if (ok) {
+        final locales = await _stt.locales();
+        final idLocale = locales.firstWhere(
+          (l) => l.localeId.startsWith('id'),
+          orElse: () => locales.first,
+        );
+        if (mounted) setState(() { _sttReady = true; _sttLocale = idLocale.localeId; });
+      }
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     _focusNode.dispose();
+    _stt.cancel();
     super.dispose();
   }
 
@@ -202,25 +276,6 @@ class _SearchScreenState extends State<SearchScreen> {
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF1A1A1A))),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) =>
-                              NotificationScreen(userId: widget.userId)),
-                    ),
-                    child: Image.asset(
-                      'assets/images/bell_notification.png',
-                      width: 26,
-                      height: 26,
-                      color: const Color(0xFF1A1A1A),
-                      errorBuilder: (_, __, ___) => const Icon(
-                          Icons.notifications_none_rounded,
-                          size: 26,
-                          color: Color(0xFF1A1A1A)),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -237,8 +292,14 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: Row(
                   children: [
                     const SizedBox(width: 16),
-                    Icon(Icons.mic_rounded,
-                        size: 20, color: Colors.grey.shade500),
+                    GestureDetector(
+                      onTap: _toggleMic,
+                      child: Icon(
+                        _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                        size: 20,
+                        color: _listening ? const Color(0xFFF47B8C) : Colors.grey.shade500,
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(

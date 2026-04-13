@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
+import 'package:ruangpeduliapp/data/donation_api.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
 import 'package:ruangpeduliapp/data/profile_api.dart';
 
@@ -81,11 +82,22 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
   Future<void> _initContext() async {
     final buffer = StringBuffer();
     buffer.writeln(
-      'Kamu adalah asisten AI untuk aplikasi RuangPeduli, platform donasi panti asuhan di Indonesia. '
-      'Tugasmu adalah membantu donatur (masyarakat umum) mengetahui kebutuhan paling mendesak di panti asuhan '
-      'agar bantuan dapat disalurkan secara tepat sasaran. '
-      'Jawab dalam Bahasa Indonesia yang ramah, hangat, dan informatif. '
-      'Jangan gunakan tabel kecuali diminta. Fokus pada kebutuhan prioritas penghuni.',
+      'Kamu adalah asisten AI khusus untuk aplikasi RuangPeduli, platform donasi panti asuhan di Indonesia.\n'
+      '\n'
+      'ATURAN MUTLAK — TIDAK BOLEH DILANGGAR:\n'
+      '1. Kamu HANYA boleh menjawab pertanyaan yang berkaitan langsung dengan RuangPeduli, yaitu:\n'
+      '   - Informasi panti asuhan yang terdaftar di RuangPeduli\n'
+      '   - Kebutuhan barang, inventaris, dan stok panti\n'
+      '   - Donasi: cara berdonasi, jumlah donasi, riwayat donasi pengguna\n'
+      '   - Informasi kontak dan lokasi panti asuhan\n'
+      '2. Jika pengguna bertanya tentang topik APA PUN di luar daftar di atas — termasuk namun tidak terbatas pada: '
+      'matematika, sains, teknologi umum, politik, hiburan, kesehatan umum, resep masakan, olahraga, cuaca, '
+      'atau topik umum lainnya — kamu WAJIB menolak dan TIDAK BOLEH menjawab pertanyaan tersebut.\n'
+      '3. Saat menolak, gunakan respons ini persis: '
+      '"Maaf, saya hanya dapat membantu pertanyaan seputar RuangPeduli dan panti asuhan. '
+      'Ada yang bisa saya bantu terkait donasi atau kebutuhan panti?"\n'
+      '\n'
+      'Jawab dalam Bahasa Indonesia yang ramah dan informatif. Jangan gunakan tabel kecuali diminta.',
     );
 
     try {
@@ -144,6 +156,24 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
       }
     } catch (_) {}
 
+    // User's own donation summary
+    if (widget.userId != null) {
+      try {
+        final donations = await DonationApi().fetchDonations(widget.userId!);
+        final totalInt = donations.fold<int>(0, (sum, d) => sum + d.jumlah);
+        final pantiSet = donations.map((d) => d.namaPanti).toSet();
+        final formatted = _formatRp(totalInt);
+        buffer.writeln('\n=== RIWAYAT DONASI PENGGUNA INI ===');
+        buffer.writeln('Total donasi: Rp$formatted');
+        buffer.writeln('Jumlah transaksi: ${donations.length}');
+        if (pantiSet.isNotEmpty) {
+          buffer.writeln('Panti yang pernah didonasi: ${pantiSet.join(', ')}');
+        } else {
+          buffer.writeln('Belum pernah berdonasi.');
+        }
+      } catch (_) {}
+    }
+
     _history.add({'role': 'system', 'content': buffer.toString()});
     if (mounted) setState(() => _loadingContext = false);
   }
@@ -156,7 +186,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        _sendWithText('Panti mana yang paling dekat dengan saya?');
+        _sendSilent('Panti mana yang paling dekat dengan saya?', 'Panti terdekat');
         return;
       }
       LocationPermission perm = await Geolocator.checkPermission();
@@ -164,14 +194,13 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         perm = await Geolocator.requestPermission();
       }
       if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
-        _sendWithText('Panti mana yang paling dekat dengan saya?');
+        _sendSilent('Panti mana yang paling dekat dengan saya?', 'Panti terdekat');
         return;
       }
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
       ).timeout(const Duration(seconds: 10));
 
-      // sort panti by distance
       final withDist = <MapEntry<PantiProfileModel, double>>[];
       for (final p in _pantiList) {
         if (p.lat != null && p.lng != null) {
@@ -181,9 +210,9 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
       }
       withDist.sort((a, b) => a.value.compareTo(b.value));
 
-      String msg;
+      String hiddenContext;
       if (withDist.isEmpty) {
-        msg = 'Panti mana yang paling dekat dengan saya?';
+        hiddenContext = 'Panti mana yang paling dekat dengan saya?';
       } else {
         final top = withDist.take(3).toList();
         final buf = StringBuffer('Lokasi saya saat ini: ${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}.\n'
@@ -192,12 +221,12 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
           final km = (e.value / 1000).toStringAsFixed(1);
           buf.writeln('- ${e.key.namaPanti}: $km km');
         }
-        buf.write('Tolong rekomendasikan panti mana yang sebaiknya saya kunjungi atau donasikan dan berikan informasi lebih lanjut.');
-        msg = buf.toString();
+        buf.write('Rekomendasikan panti mana yang sebaiknya saya kunjungi atau donasikan dan berikan informasi lebih lanjut.');
+        hiddenContext = buf.toString();
       }
-      _sendWithText(msg);
+      _sendSilent(hiddenContext, 'Panti terdekat');
     } catch (_) {
-      _sendWithText('Panti mana yang paling dekat dengan lokasi saya?');
+      _sendSilent('Panti mana yang paling dekat dengan lokasi saya?', 'Panti terdekat');
     } finally {
       if (mounted) setState(() => _loadingNearest = false);
     }
@@ -209,7 +238,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
     if (_loadingUrgent || _isLoading || _loadingContext) return;
     setState(() => _loadingUrgent = true);
     try {
-      final buf = StringBuffer('Berikut data kebutuhan mendesak (stok habis) dari setiap panti:\n');
+      final buf = StringBuffer('Data kebutuhan mendesak (stok habis/kritis) terkini per panti:\n');
       bool hasData = false;
       for (final p in _pantiList) {
         try {
@@ -222,19 +251,25 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         } catch (_) {}
       }
       if (!hasData) buf.writeln('(tidak ada data kebutuhan mendesak saat ini)');
-      buf.write('\nPanti mana yang paling membutuhkan bantuan segera dan apa yang bisa saya donasikan?');
-      _sendWithText(buf.toString());
+      buf.write('\nBerdasarkan data ini, jelaskan panti mana yang paling membutuhkan bantuan segera dan apa yang bisa didonasikan.');
+      _sendSilent(buf.toString(), 'Kebutuhan mendesak');
     } catch (_) {
-      _sendWithText('Panti mana yang paling membutuhkan bantuan segera saat ini?');
+      _sendSilent('Panti mana yang paling membutuhkan bantuan segera saat ini?', 'Kebutuhan mendesak');
     } finally {
       if (mounted) setState(() => _loadingUrgent = false);
     }
   }
 
-  void _sendWithText(String text) {
+  /// Sends [hiddenPrompt] to the AI but only shows [displayLabel] in the chat bubble.
+  void _sendSilent(String hiddenPrompt, String displayLabel) {
     if (!mounted) return;
-    _inputCtrl.text = text;
-    _sendMessage();
+    setState(() {
+      _messages.add(_ChatMsg(text: displayLabel, isUser: true));
+      _isLoading = true;
+    });
+    _history.add({'role': 'user', 'content': hiddenPrompt});
+    _scrollToBottom();
+    _callAI();
   }
 
   Future<void> _pickImage() async {
@@ -336,11 +371,27 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
     _inputCtrl.clear();
     _history.add({'role': 'user', 'content': text});
     _scrollToBottom();
+    await _callAI();
+  }
 
+  Future<void> _callAI() async {
     try {
       final apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
       if (apiKey.isEmpty || apiKey == 'your_groq_api_key_here') {
         throw Exception('GROQ_API_KEY belum diisi di file .env');
+      }
+
+      // Inject a scope reminder before the latest user message so the model
+      // cannot "forget" the restriction mid-conversation.
+      final messages = List<Map<String, String>>.from(_history);
+      final lastUserIdx = messages.lastIndexWhere((m) => m['role'] == 'user');
+      if (lastUserIdx != -1) {
+        messages.insert(lastUserIdx, {
+          'role': 'system',
+          'content':
+              'Pengingat wajib: Hanya jawab topik RuangPeduli (panti asuhan, donasi, kebutuhan panti, inventaris). '
+              'Tolak semua pertanyaan di luar topik tersebut dengan kalimat penolakan yang sudah ditentukan.',
+        });
       }
 
       final res = await http.post(
@@ -351,8 +402,8 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         },
         body: jsonEncode({
           'model': _model,
-          'messages': _history,
-          'temperature': 0.7,
+          'messages': messages,
+          'temperature': 0.3,
           'max_tokens': 1024,
         }),
       ).timeout(const Duration(seconds: 30));
@@ -385,6 +436,16 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  String _formatRp(int amount) {
+    final s = amount.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('.');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 
   @override

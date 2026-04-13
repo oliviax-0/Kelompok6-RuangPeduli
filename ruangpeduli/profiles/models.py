@@ -52,11 +52,13 @@ class PantiMedia(models.Model):
         on_delete=models.CASCADE,
         related_name='media'
     )
-    media_type = models.CharField(max_length=10, choices=MEDIA_TYPES)
-    file = models.ImageField(upload_to='panti/media/', blank=True, null=True)
-    video_url = models.URLField(blank=True)
-    order = models.PositiveIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
+    media_type  = models.CharField(max_length=10, choices=MEDIA_TYPES)
+    file        = models.FileField(upload_to='panti/media/', blank=True, null=True)
+    video_url   = models.URLField(blank=True)
+    title       = models.CharField(max_length=200, blank=True, default='')
+    description = models.TextField(blank=True, default='')
+    order       = models.PositiveIntegerField(default=0)
+    created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['order', '-created_at']

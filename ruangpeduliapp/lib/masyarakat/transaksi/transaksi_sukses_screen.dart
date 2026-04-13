@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ruangpeduliapp/data/donation_api.dart';
-import 'package:ruangpeduliapp/data/profile_api.dart';
+import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 
 class TransaksiSuksesScreen extends StatefulWidget {
   final String namaPanti;
@@ -10,6 +9,8 @@ class TransaksiSuksesScreen extends StatefulWidget {
   final String noReferensi;
   final int? pantiId;
   final int? userId;
+  final String username;
+  final String? profilePicture;
 
   const TransaksiSuksesScreen({
     super.key,
@@ -20,6 +21,8 @@ class TransaksiSuksesScreen extends StatefulWidget {
     required this.noReferensi,
     this.pantiId,
     this.userId,
+    this.username = '',
+    this.profilePicture,
   });
 
   @override
@@ -36,12 +39,14 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
 
   // Phase 2: sukses page fade in
   bool _showSukses = false;
-  String _username = '';
-  String? _profilePicture;
+  late String _username;
+  late String? _profilePicture;
 
   @override
   void initState() {
     super.initState();
+    _username = widget.username;
+    _profilePicture = widget.profilePicture;
 
     _slideController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 600));
@@ -57,33 +62,6 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
   }
 
   Future<void> _runSequence() async {
-    // Fetch username
-    if (widget.userId != null) {
-      final profile = await ProfileApi().fetchMasyarakatProfile(widget.userId!);
-      if (mounted && profile != null) {
-        setState(() {
-          _username = profile.username;
-          _profilePicture = profile.profilePicture;
-        });
-      }
-    }
-
-    // Save donation to backend (fire-and-forget, don't block UI)
-    if (widget.userId != null) {
-      DonationApi().createDonation(
-        userId: widget.userId!,
-        pantiId: widget.pantiId,
-        namaPanti: widget.namaPanti,
-        jumlah: widget.jumlahDonasi,
-        metodePembayaran: widget.metodePembayaran,
-        noReferensi: widget.noReferensi,
-      ).catchError((_) => DonasiModel(
-            id: 0, namaPanti: '', jumlah: 0,
-            metodePembayaran: '', noReferensi: '',
-            tanggal: '', tanggalLabel: '',
-          )); // silently ignore errors — UI already shows success
-    }
-
     // Centang slide masuk dari kanan
     await Future.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
@@ -96,7 +74,10 @@ class _TransaksiSuksesScreenState extends State<TransaksiSuksesScreen>
   }
 
   void _onSelesai() {
-    Navigator.of(context).pop(true); // signals donation completed
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)),
+      (route) => route.isFirst,
+    );
   }
 
   @override

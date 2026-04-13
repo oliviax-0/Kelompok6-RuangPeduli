@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:ruangpeduliapp/data/finance_api.dart';
 import 'package:ruangpeduliapp/data/residents_api.dart';
@@ -31,6 +32,7 @@ class _InventarisPantiState extends State<InventarisPanti> {
   int? _pegawaiCount;
   int? _penghuniCount;
   int  _lowStockCount = 0;
+  Timer? _countsTimer;
 
   @override
   void initState() {
@@ -38,6 +40,15 @@ class _InventarisPantiState extends State<InventarisPanti> {
     _fetchCounts();
     _checkLowStock();
     _checkFinance();
+    _countsTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) _fetchCounts();
+    });
+  }
+
+  @override
+  void dispose() {
+    _countsTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchCounts() async {

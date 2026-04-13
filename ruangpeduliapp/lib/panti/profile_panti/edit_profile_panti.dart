@@ -33,6 +33,7 @@ class _EditProfilePantiState extends State<EditProfilePanti> {
 
   late String _currentEmail;
   File? _selectedImage;
+  bool _removePhoto = false;
   bool _isSaving = false;
 
   @override
@@ -58,8 +59,18 @@ class _EditProfilePantiState extends State<EditProfilePanti> {
     final XFile? picked =
         await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) {
-      setState(() => _selectedImage = File(picked.path));
+      setState(() {
+        _selectedImage = File(picked.path);
+        _removePhoto = false;
+      });
     }
+  }
+
+  void _removeProfilePhoto() {
+    setState(() {
+      _selectedImage = null;
+      _removePhoto = true;
+    });
   }
 
   Future<void> _save() async {
@@ -82,6 +93,7 @@ class _EditProfilePantiState extends State<EditProfilePanti> {
         username: username,
         nomorPanti: phone,
         profilePicture: _selectedImage,
+        removeProfilePicture: _removePhoto,
       );
       if (!mounted) return;
       Navigator.pop(context, updated);
@@ -265,39 +277,98 @@ class _EditProfilePantiState extends State<EditProfilePanti> {
 
   // ─── Avatar Picker ────────────────────────────────────────────────────────
 
-  Widget _buildAvatarPicker(String? currentPicUrl) {
-    return Center(
-      child: Stack(
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: kPink, width: 2.5),
-              color: Colors.grey[200],
-              image: _selectedImage != null
-                  ? DecorationImage(image: FileImage(_selectedImage!), fit: BoxFit.cover)
-                  : (currentPicUrl != null
-                      ? DecorationImage(image: NetworkImage(currentPicUrl), fit: BoxFit.cover)
-                      : null),
-            ),
-            child: (_selectedImage == null && currentPicUrl == null)
-                ? const Icon(Icons.home_work_rounded, size: 48, color: Colors.grey)
-                : null,
+  void _showPhotoOptions(String? currentPicUrl) {
+    final hasPhoto = _selectedImage != null || (currentPicUrl != null && !_removePhoto);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDDDDDD),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFF2F2F2),
+                  child: Icon(Icons.photo_library_rounded, color: Color(0xFF1A1A1A), size: 20),
+                ),
+                title: const Text('Ganti Foto', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage();
+                },
+              ),
+              if (hasPhoto)
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.red.shade50,
+                    child: Icon(Icons.delete_rounded, color: Colors.red.shade500, size: 20),
+                  ),
+                  title: Text(
+                    'Hapus Foto',
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red.shade500),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeProfilePhoto();
+                  },
+                ),
+              const SizedBox(height: 8),
+            ],
           ),
-          Positioned(
-            bottom: 2, right: 2,
-            child: GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                width: 28, height: 28,
-                decoration: const BoxDecoration(color: Color(0xFF1A1A1A), shape: BoxShape.circle),
-                child: const Icon(Icons.camera_alt_rounded, size: 15, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarPicker(String? currentPicUrl) {
+    final hasPhoto = _selectedImage != null || (currentPicUrl != null && !_removePhoto);
+    return Center(
+      child: GestureDetector(
+        onTap: () => _showPhotoOptions(currentPicUrl),
+        child: Column(
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: kPink, width: 2.5),
+                color: Colors.grey[200],
+                image: _selectedImage != null
+                    ? DecorationImage(image: FileImage(_selectedImage!), fit: BoxFit.cover)
+                    : (currentPicUrl != null && !_removePhoto
+                        ? DecorationImage(image: NetworkImage(currentPicUrl), fit: BoxFit.cover)
+                        : null),
+              ),
+              child: !hasPhoto
+                  ? const Icon(Icons.home_work_rounded, size: 48, color: Colors.grey)
+                  : null,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Ubah foto',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: kPink,
+                decoration: TextDecoration.underline,
+                decorationColor: kPink,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

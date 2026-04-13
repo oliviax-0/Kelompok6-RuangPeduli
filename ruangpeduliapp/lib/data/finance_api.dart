@@ -29,6 +29,7 @@ class TransactionModel {
   final double jumlah;
   final bool isIncome;
   final String tanggal;
+  final String createdAt;
 
   const TransactionModel({
     required this.id,
@@ -37,6 +38,7 @@ class TransactionModel {
     required this.jumlah,
     required this.isIncome,
     required this.tanggal,
+    required this.createdAt,
   });
 
   String get formattedAmount {
@@ -91,6 +93,7 @@ class FinanceApi {
           jumlah: double.parse(e['jumlah'].toString()),
           isIncome: true,
           tanggal: e['tanggal'],
+          createdAt: e['created_at'] ?? '',
         ));
 
     final expenses = (jsonDecode(results[1].body) as List).map((e) => TransactionModel(
@@ -100,13 +103,14 @@ class FinanceApi {
           jumlah: double.parse(e['jumlah'].toString()),
           isIncome: false,
           tanggal: e['tanggal'],
+          createdAt: e['created_at'] ?? '',
         ));
 
     final all = [...incomes, ...expenses];
     all.sort((a, b) {
       final dateCmp = b.tanggal.compareTo(a.tanggal);
       if (dateCmp != 0) return dateCmp;
-      return b.id.compareTo(a.id); // newer id = added later on same date
+      return b.createdAt.compareTo(a.createdAt);
     });
     return all;
   }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:ruangpeduliapp/masyarakat/notification/notification_screen.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/masyarakat/home/berita_detail_screen.dart';
-import 'package:ruangpeduliapp/masyarakat/home/video_player_screen.dart';
+import 'package:ruangpeduliapp/masyarakat/home/panti_detail_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/profile/profile_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/history/riwayat_donasi_screen.dart';
@@ -24,27 +26,156 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
 
   List<BeritaModel> _beritas = [];
   List<VideoModel> _videos = [];
+  List<PantiUploadedVideo> _pantiVideos = [];
   bool _isLoading = true;
+  String? _profilePictureUrl;
+
+  final _stt = SpeechToText();
+  bool _sttReady = false;
+  bool _listening = false;
+  String? _sttLocale;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _initStt();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    if (widget.userId == null) return;
+    final profile = await ProfileApi().fetchMasyarakatProfile(widget.userId!);
+    if (mounted) setState(() => _profilePictureUrl = profile?.profilePicture);
+  }
+
+  Future<void> _initStt() async {
+    final ok = await _stt.initialize(
+      onStatus: (s) {
+        if ((s == 'done' || s == 'notListening') && mounted) {
+          setState(() => _listening = false);
+        }
+      },
+      onError: (e) {
+        if (mounted) setState(() => _listening = false);
+      },
+    );
+    if (!mounted) return;
+    if (ok) {
+      final locales = await _stt.locales();
+      final idLocale = locales.firstWhere(
+        (l) => l.localeId.startsWith('id'),
+        orElse: () => locales.first,
+      );
+      setState(() { _sttReady = true; _sttLocale = idLocale.localeId; });
+    } else {
+      setState(() => _sttReady = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _stt.cancel();
+    super.dispose();
+  }
+
+  Future<void> _toggleMic() async {
+    if (!_sttReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mikrofon tidak tersedia. Periksa izin aplikasi.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (_listening) {
+      await _stt.stop();
+      setState(() => _listening = false);
+      return;
+    }
+    setState(() => _listening = true);
+    await _stt.listen(
+      localeId: _sttLocale,
+      onResult: (r) async {
+        if (r.finalResult && mounted) {
+          setState(() => _listening = false);
+          final query = r.recognizedWords;
+          if (query.isNotEmpty) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SearchScreen(userId: widget.userId, initialQuery: query),
+              ),
+            );
+          }
+          if (mounted) setState(() => _selectedIndex = 0);
+        }
+      },
+      listenOptions: SpeechListenOptions(
+        partialResults: false,
+        cancelOnError: true,
+        listenMode: ListenMode.search,
+      ),
+    );
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final api = ContentApi();
+    final contentApi = ContentApi();
+    final profileApi = ProfileApi();
     final results = await Future.wait([
-      api.fetchBeritas(),
-      api.fetchVideos(),
+      contentApi.fetchBeritas(),
+      contentApi.fetchVideos(),
+      profileApi.fetchAllPantiVideos(),
     ]);
     if (mounted) {
       setState(() {
         _beritas = results[0] as List<BeritaModel>;
         _videos = results[1] as List<VideoModel>;
+        _pantiVideos = results[2] as List<PantiUploadedVideo>;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _openPantiDetail(int pantiId) async {
+    try {
+      final api = ProfileApi();
+      final results = await Future.wait([
+        api.fetchPantiProfile(pantiId),
+        api.fetchPantiMedia(pantiId),
+      ]);
+      if (!mounted) return;
+      final profile = results[0] as PantiProfileModel;
+      final media = results[1] as List<PantiMediaModel>;
+      final mediaUrls = media
+          .where((m) => m.file != null && m.file!.isNotEmpty)
+          .map((m) => m.file!)
+          .toList();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PantiDetailScreen(
+            pantiId: pantiId,
+            namaPanti: profile.namaPanti,
+            username: '@${profile.username}',
+            nomorPanti: profile.nomorPanti,
+            alamatPanti: profile.alamatPanti,
+            description: profile.description,
+            profilePicture: profile.profilePicture,
+            terkumpul: profile.formattedTotalTerkumpul,
+            userId: widget.userId,
+            mediaUrls: mediaUrls,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memuat profil panti')),
+        );
+      }
     }
   }
 
@@ -143,7 +274,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)),
-            ),
+            ).then((_) => _loadUserProfile()),
             child: Container(
               width: 46,
               height: 46,
@@ -153,7 +284,14 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
                 color: Colors.grey.shade200,
               ),
               child: ClipOval(
-                child: Icon(Icons.person_rounded, size: 28, color: Colors.grey.shade500),
+                child: _profilePictureUrl != null && _profilePictureUrl!.isNotEmpty
+                    ? Image.network(
+                        _profilePictureUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Icon(Icons.person_rounded, size: 28, color: Colors.grey.shade500),
+                      )
+                    : Icon(Icons.person_rounded, size: 28, color: Colors.grey.shade500),
               ),
             ),
           ),
@@ -163,7 +301,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => SearchScreen(userId: widget.userId)),
-              ),
+              ).then((_) { if (mounted) setState(() => _selectedIndex = 0); }),
               child: Container(
                 height: 42,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -173,22 +311,39 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
                 ),
                 child: Row(
                   children: [
-                    Image.asset(
-                      'assets/images/Mic.png',
-                      width: 16,
-                      height: 16,
-                      color: Colors.grey.shade500,
-                      errorBuilder: (_, __, ___) =>
-                          Icon(Icons.mic_rounded, size: 18, color: Colors.grey.shade500),
+                    GestureDetector(
+                      onTap: _toggleMic,
+                      child: Icon(
+                        _listening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                        size: 18,
+                        color: _listening ? const Color(0xFFF47B8C) : Colors.grey.shade500,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Search',
-                      style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                      _listening ? 'Mendengarkan...' : 'Search',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _listening ? const Color(0xFFF47B8C) : Colors.grey.shade400,
+                      ),
                     ),
                   ],
                 ),
               ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => NotificationScreen(userId: widget.userId),
+              ),
+            ),
+            child: Icon(
+              Icons.notifications_none_rounded,
+              size: 28,
+              color: const Color(0xFF1A1A1A),
             ),
           ),
         ],
@@ -246,7 +401,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
           return GestureDetector(
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => BeritaDetailScreen(berita: item)),
+              MaterialPageRoute(builder: (_) => BeritaDetailScreen(berita: item, userId: widget.userId)),
             ),
             child: Container(
               width: 215,
@@ -313,7 +468,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
     );
   }
 
-  // ── Video list ──
+  // ── Video list (content videos + panti uploaded videos combined) ──
   Widget _buildVideoList() {
     if (_isLoading) {
       return const SizedBox(
@@ -321,7 +476,8 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
         child: Center(child: CircularProgressIndicator(color: Color(0xFFF43D5E))),
       );
     }
-    if (_videos.isEmpty) {
+    final totalCount = _videos.length + _pantiVideos.length;
+    if (totalCount == 0) {
       return SizedBox(
         height: 215,
         child: Center(
@@ -335,104 +491,131 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _videos.length,
+        itemCount: totalCount,
         itemBuilder: (context, i) {
-          final video = _videos[i];
-          final videoId = YoutubePlayer.convertUrlToId(video.videoUrl);
-          final ytThumb = videoId != null
-              ? 'https://img.youtube.com/vi/$videoId/mqdefault.jpg'
-              : null;
-
-          return GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => VideoPlayerScreen(video: video)),
-            ),
-            child: Container(
-              width: 178,
-              margin: const EdgeInsets.only(right: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.07),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+          // First show content videos, then panti videos
+          if (i < _videos.length) {
+            final video = _videos[i];
+            final videoId = RegExp(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})').firstMatch(video.videoUrl)?.group(1);
+            final ytThumb = videoId != null
+                ? 'https://img.youtube.com/vi/$videoId/mqdefault.jpg'
+                : null;
+            return GestureDetector(
+              onTap: video.pantiId != null ? () => _openPantiDetail(video.pantiId!) : null,
+              child: _videoCard(
+                thumbnail: _videoThumbnail(video.thumbnail, ytThumb),
+                label: video.pantiName,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    ),
-                    child: Stack(
-                      children: [
-                        // Thumbnail: custom → YouTube auto → placeholder
-                        _videoThumbnail(video.thumbnail, ytThumb),
-                        // Play button overlay
-                        Positioned.fill(
-                          child: Center(
-                            child: Container(
-                              width: 42,
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.play_arrow_rounded,
-                                color: Color(0xFFF43D5E),
-                                size: 30,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Channel info
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF43D5E).withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_circle_outline_rounded,
-                            size: 15,
-                            color: Color(0xFFF43D5E),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            video.pantiName,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF1A1A1A)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            );
+          } else {
+            final video = _pantiVideos[i - _videos.length];
+            final videoId = RegExp(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})').firstMatch(video.videoUrl)?.group(1);
+            final ytThumb = videoId != null
+                ? 'https://img.youtube.com/vi/$videoId/mqdefault.jpg'
+                : null;
+            return GestureDetector(
+              onTap: () => _openPantiDetail(video.pantiId),
+              child: _videoCard(
+                thumbnail: _videoThumbnail(null, ytThumb),
+                label: video.title.isNotEmpty ? video.title : video.pantiName,
+                sublabel: video.title.isNotEmpty ? video.pantiName : null,
               ),
-            ),
-          );
+            );
+          }
         },
+      ),
+    );
+  }
+
+  Widget _videoCard({
+    required Widget thumbnail,
+    required String label,
+    String? sublabel,
+  }) {
+    return Container(
+      width: 178,
+      margin: const EdgeInsets.only(right: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            ),
+            child: Stack(
+              children: [
+                thumbnail,
+                Positioned.fill(
+                  child: Center(
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.play_arrow_rounded, color: Color(0xFFF43D5E), size: 30),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF43D5E).withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.play_circle_outline_rounded, size: 15, color: Color(0xFFF43D5E)),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF1A1A1A)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                if (sublabel != null) ...[
+                  const SizedBox(height: 2),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 30),
+                    child: Text(
+                      sublabel,
+                      style: TextStyle(fontSize: 10.5, color: Colors.grey.shade500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -456,7 +639,14 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
         errorBuilder: (_, __, ___) => _imagePlaceholder(145, color: const Color(0xFFBFB0B3)),
       );
     }
-    return _imagePlaceholder(145, color: const Color(0xFFBFB0B3));
+    return Container(
+      height: 145,
+      width: double.infinity,
+      color: const Color(0xFF1A1A2E),
+      child: const Center(
+        child: Icon(Icons.videocam_rounded, color: Colors.white24, size: 40),
+      ),
+    );
   }
 
   Widget _imagePlaceholder(double height, {Color color = const Color(0xFFCFBFC2)}) {

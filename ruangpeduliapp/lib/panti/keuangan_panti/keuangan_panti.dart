@@ -105,6 +105,36 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
     return 'Rp $formatted';
   }
 
+  String _formatDateLabel(String tanggal) {
+    const months = [
+      '', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+    ];
+    try {
+      final parts = tanggal.split('-');
+      final day = int.parse(parts[2]).toString().padLeft(2, '0');
+      final month = months[int.parse(parts[1])];
+      final year = parts[0];
+      return '$day $month $year';
+    } catch (_) {
+      return tanggal;
+    }
+  }
+
+  // Returns a flat list of items: either a String (date header) or TransactionModel
+  List<Object> _buildGroupedItems() {
+    final List<Object> items = [];
+    String? lastDate;
+    for (final tx in _transactions) {
+      if (tx.tanggal != lastDate) {
+        items.add(tx.tanggal); // date header marker
+        lastDate = tx.tanggal;
+      }
+      items.add(tx);
+    }
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -166,7 +196,7 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
         _dashboard != null ? _formatRp(_dashboard!.totalPemasukan) : 'Rp ——';
     final pengeluaran =
         _dashboard != null ? _formatRp(_dashboard!.totalPengeluaran) : 'Rp ——';
-    final saldo = _dashboard != null ? _formatRp(_dashboard!.saldo) : 'Rp ——';
+    final saldo = _dashboard != null ? _formatRp(_dashboard!.saldo.clamp(0, double.infinity)) : 'Rp ——';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -335,34 +365,53 @@ class _KeuanganPantiState extends State<KeuanganPanti> {
                             : RefreshIndicator(
                                 onRefresh: () => _fetchData(),
                                 color: kPink,
-                                child: ListView.separated(
-                                  controller: scrollController,
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                                  itemCount: _transactions.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 10),
-                                  itemBuilder: (context, index) {
-                                    final tx = _transactions[index];
-                                    return Dismissible(
-                                      key: ValueKey('${tx.isIncome}-${tx.id}'),
-                                      direction: DismissDirection.endToStart,
-                                      background: Container(
-                                        alignment: Alignment.centerRight,
-                                        padding: const EdgeInsets.only(right: 20),
-                                        decoration: BoxDecoration(
-                                          color: kRed,
-                                          borderRadius: BorderRadius.circular(50),
+                                child: Builder(builder: (context) {
+                                  final grouped = _buildGroupedItems();
+                                  return ListView.builder(
+                                    controller: scrollController,
+                                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                                    itemCount: grouped.length,
+                                    itemBuilder: (context, index) {
+                                      final item = grouped[index];
+                                      if (item is String) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                              top: 12, bottom: 6),
+                                          child: Text(
+                                            _formatDateLabel(item),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white70,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      final tx = item as TransactionModel;
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 10),
+                                        child: Dismissible(
+                                          key: ValueKey('${tx.isIncome}-${tx.id}'),
+                                          direction: DismissDirection.endToStart,
+                                          background: Container(
+                                            alignment: Alignment.centerRight,
+                                            padding: const EdgeInsets.only(right: 20),
+                                            decoration: BoxDecoration(
+                                              color: kRed,
+                                              borderRadius: BorderRadius.circular(50),
+                                            ),
+                                            child: const Icon(
+                                                Icons.delete_outline_rounded,
+                                                color: Colors.white),
+                                          ),
+                                          onDismissed: (_) => _deleteTransaction(tx),
+                                          child: _TransactionTile(item: tx),
                                         ),
-                                        child: const Icon(
-                                            Icons.delete_outline_rounded,
-                                            color: Colors.white),
-                                      ),
-                                      onDismissed: (_) => _deleteTransaction(tx),
-                                      child: _TransactionTile(item: tx),
-                                    );
-                                  },
-                                ),
+                                      );
+                                    },
+                                  );
+                                }),
                               ),
               ),
             ],

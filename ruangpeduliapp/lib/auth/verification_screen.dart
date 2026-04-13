@@ -195,9 +195,9 @@ class _VerificationScreenState extends State<VerificationScreen>
                       padding: EdgeInsets.only(left: 16, top: 8),
                       child: AuthBackButton(),
                     ),
-                    SizedBox(height: size.height * 0.28),
+                    Flexible(child: SizedBox(height: size.height * 0.28)),
                     Expanded(
-                      child: Padding(
+                      child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 28),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,7 +280,7 @@ class _VerificationScreenState extends State<VerificationScreen>
                                     ),
                             ),
 
-                            const Spacer(),
+                            const SizedBox(height: 32),
 
                             // Tombol Verifikasi
                             Center(
