@@ -69,14 +69,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
   void initState() {
     super.initState();
     _initContext();
-    _stt.initialize(
-      onStatus: (s) {
-        if ((s == 'done' || s == 'notListening') && mounted) {
-          setState(() => _listening = false);
-        }
-      },
-      onError: (_) { if (mounted) setState(() => _listening = false); },
-    ).then((ok) { if (mounted) setState(() => _sttReady = ok); });
+    _initStt();
   }
 
   Future<void> _initContext() async {
@@ -318,12 +311,37 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
     _scrollToBottom();
   }
 
+  Future<void> _initStt() async {
+    final ok = await _stt.initialize(
+      onStatus: (s) {
+        if ((s == 'done' || s == 'notListening') && mounted) {
+          setState(() => _listening = false);
+        }
+      },
+      onError: (e) {
+        debugPrint('STT error: ${e.errorMsg}');
+        if (mounted) setState(() => _listening = false);
+      },
+      debugLogging: true,
+    );
+    if (mounted) setState(() => _sttReady = ok);
+    debugPrint('STT initialized: $ok');
+  }
+
   Future<void> _toggleMic() async {
     if (!_sttReady) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mikrofon tidak tersedia')),
-      );
-      return;
+      // Try re-initializing (handles cases where permission was granted after app launch)
+      await _initStt();
+      if (!_sttReady) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mikrofon tidak tersedia. Pastikan izin mikrofon sudah diberikan di Pengaturan.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
     }
     if (_listening) {
       await _stt.stop();
@@ -335,6 +353,8 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
     for (final l in locales) {
       if (l.localeId.startsWith('id')) { localeId = l.localeId; break; }
     }
+    localeId ??= locales.isNotEmpty ? locales.first.localeId : null;
+
     setState(() { _listening = true; _inputCtrl.clear(); });
     await _stt.listen(
       onResult: (result) {
@@ -345,6 +365,11 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
       listenFor: const Duration(seconds: 10),
       pauseFor: const Duration(seconds: 3),
       localeId: localeId,
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: ListenMode.dictation,
+      ),
     );
   }
 
@@ -459,9 +484,8 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _kPinkLight,
-      bottomNavigationBar: _buildInputBar(),
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        bottom: false,
         child: Column(
           children: [
             _buildHeader(),
@@ -480,6 +504,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
                 ),
               ),
             ),
+            _buildInputBar(),
           ],
         ),
       ),
@@ -707,10 +732,6 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
 
   Widget _buildInputBar() {
     return Container(
-      color: Colors.white,
-      child: SafeArea(
-      top: false,
-      child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -787,8 +808,6 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
             ),
           ],
         ),
-      ),
-    ),
     );
   }
 }
