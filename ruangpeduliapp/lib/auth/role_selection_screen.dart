@@ -62,7 +62,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final logoSize = size.width * 0.48;
+    final logoSize = size.width * 0.65;
 
     return Scaffold(
       body: Stack(

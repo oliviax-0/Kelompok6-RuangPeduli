@@ -3,6 +3,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:ruangpeduliapp/masyarakat/notification/notification_screen.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
+import 'package:ruangpeduliapp/data/profile_api.dart';
 import 'package:ruangpeduliapp/masyarakat/home/berita_detail_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/home/video_player_screen.dart';
 import 'package:ruangpeduliapp/masyarakat/search/search_screen.dart';
@@ -27,6 +28,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
   List<BeritaModel> _beritas = [];
   List<VideoModel> _videos = [];
   bool _isLoading = true;
+  String? _profilePictureUrl;
 
   final _stt = SpeechToText();
   bool _sttReady = false;
@@ -38,6 +40,13 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
     super.initState();
     _loadData();
     _initStt();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    if (widget.userId == null) return;
+    final profile = await ProfileApi().fetchMasyarakatProfile(widget.userId!);
+    if (mounted) setState(() => _profilePictureUrl = profile?.profilePicture);
   }
 
   Future<void> _initStt() async {
@@ -222,7 +231,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId)),
-            ),
+            ).then((_) => _loadUserProfile()),
             child: Container(
               width: 46,
               height: 46,
@@ -232,7 +241,14 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
                 color: Colors.grey.shade200,
               ),
               child: ClipOval(
-                child: Icon(Icons.person_rounded, size: 28, color: Colors.grey.shade500),
+                child: _profilePictureUrl != null && _profilePictureUrl!.isNotEmpty
+                    ? Image.network(
+                        _profilePictureUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Icon(Icons.person_rounded, size: 28, color: Colors.grey.shade500),
+                      )
+                    : Icon(Icons.person_rounded, size: 28, color: Colors.grey.shade500),
               ),
             ),
           ),
