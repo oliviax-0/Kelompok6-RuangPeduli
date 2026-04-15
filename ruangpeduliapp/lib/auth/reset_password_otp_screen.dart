@@ -20,9 +20,9 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
   late Animation<double> _fade;
   late Animation<Offset> _slide;
 
-  final List<TextEditingController> _otpControllers =
-      List.generate(5, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(5, (_) => FocusNode());
+  // Single hidden TextField — keyboard stays open without animation between digits
+  final TextEditingController _otpController = TextEditingController();
+  final FocusNode _otpFocusNode = FocusNode();
 
   final _api = AuthApi();
   bool _loading = false;
@@ -62,8 +62,8 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
   void dispose() {
     _timer?.cancel();
     _controller.dispose();
-    for (var c in _otpControllers) c.dispose();
-    for (var f in _focusNodes) f.dispose();
+    _otpController.dispose();
+    _otpFocusNode.dispose();
     super.dispose();
   }
 
@@ -78,7 +78,7 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
   }
 
   Future<void> _onVerify() async {
-    final otp = _otpControllers.map((c) => c.text).join();
+    final otp = _otpController.text;
     if (otp.length != 5) {
       _showSnackBar('Kode OTP harus 5 digit', isError: true);
       return;
@@ -87,8 +87,6 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
     setState(() => _loading = true);
 
     try {
-      // Verify OTP by attempting reset with a temporary check — navigate and
-      // pass otp to the next screen where actual reset happens
       if (!mounted) return;
       Navigator.push(
         context,
@@ -111,8 +109,8 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
     try {
       await _api.forgotPassword(widget.email);
       if (!mounted) return;
-      for (var c in _otpControllers) c.clear();
-      _focusNodes[0].requestFocus();
+      _otpController.clear();
+      _otpFocusNode.requestFocus();
       _startCountdown();
       _showSnackBar('OTP baru telah dikirim ke email kamu');
     } catch (e) {
@@ -129,10 +127,7 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
+      body: Stack(
         children: [
           Container(
             decoration: const BoxDecoration(
@@ -156,6 +151,29 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
               child: CustomPaint(painter: _WavePainter()),
             ),
           ),
+
+          // Hidden TextField — captures all input, keeps keyboard static
+          Opacity(
+            opacity: 0,
+            child: SizedBox(
+              width: 0,
+              height: 0,
+              child: TextField(
+                controller: _otpController,
+                focusNode: _otpFocusNode,
+                keyboardType: TextInputType.number,
+                maxLength: 5,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (val) {
+                  setState(() {});
+                  if (val.length == 5) {
+                    _otpFocusNode.unfocus();
+                  }
+                },
+              ),
+            ),
+          ),
+
           SafeArea(
             child: FadeTransition(
               opacity: _fade,
@@ -203,9 +221,12 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
                             ),
                             const SizedBox(height: 40),
 
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: List.generate(5, (i) => _buildOtpBox(i)),
+                            GestureDetector(
+                              onTap: () => _otpFocusNode.requestFocus(),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: List.generate(5, (i) => _buildOtpBox(i)),
+                              ),
                             ),
                             const SizedBox(height: 8),
                             InlineMessage(message: _otpError),
@@ -292,44 +313,34 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
             ),
           ),
         ],
-        ),
       ),
     );
   }
 
   Widget _buildOtpBox(int index) {
-    return SizedBox(
+    final otp = _otpController.text;
+    final char = index < otp.length ? otp[index] : '';
+    final isFocused = _otpFocusNode.hasFocus && index == otp.length.clamp(0, 4);
+
+    return Container(
       width: 58,
       height: 72,
-      child: TextField(
-        controller: _otpControllers[index],
-        focusNode: _focusNodes[index],
-        textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
-        maxLength: 1,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: const TextStyle(
-            fontSize: 22, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
-        decoration: InputDecoration(
-          counterText: '',
-          filled: true,
-          fillColor: const Color(0xFFF0E8EA),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
-          ),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0E8EA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isFocused ? const Color(0xFFF43D5E) : Colors.transparent,
+          width: 1.5,
         ),
-        onChanged: (val) {
-          if (val.isNotEmpty && index < 4) {
-            _focusNodes[index + 1].requestFocus();
-          } else if (val.isEmpty && index > 0) {
-            _focusNodes[index - 1].requestFocus();
-          }
-        },
+      ),
+      child: Text(
+        char,
+        style: const TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF1A1A1A),
+        ),
       ),
     );
   }

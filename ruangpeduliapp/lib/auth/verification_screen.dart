@@ -27,9 +27,9 @@ class _VerificationScreenState extends State<VerificationScreen>
   late Animation<double> _fade;
   late Animation<Offset> _slide;
 
-  final List<TextEditingController> _otpControllers =
-      List.generate(5, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(5, (_) => FocusNode());
+  // Single hidden TextField — keyboard stays open without animation between digits
+  final TextEditingController _otpController = TextEditingController();
+  final FocusNode _otpFocusNode = FocusNode();
 
   final _authApi = AuthApi();
   bool _loading = false;
@@ -70,8 +70,8 @@ class _VerificationScreenState extends State<VerificationScreen>
   void dispose() {
     _timer?.cancel();
     _controller.dispose();
-    for (var c in _otpControllers) c.dispose();
-    for (var f in _focusNodes) f.dispose();
+    _otpController.dispose();
+    _otpFocusNode.dispose();
     super.dispose();
   }
 
@@ -87,7 +87,7 @@ class _VerificationScreenState extends State<VerificationScreen>
 
   // ─── VERIFY OTP ────────────────────────────────────────────────────
   Future<void> _onVerify() async {
-    final otp = _otpControllers.map((c) => c.text).join();
+    final otp = _otpController.text;
 
     if (otp.length != 5) {
       _showSnackBar('Kode OTP harus 5 digit', isError: true);
@@ -100,7 +100,6 @@ class _VerificationScreenState extends State<VerificationScreen>
       final result = await _authApi.verifyOtp(widget.pendingId, otp);
       if (!mounted) return;
 
-      // ✅ Berhasil → ke SuccessScreen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -115,10 +114,8 @@ class _VerificationScreenState extends State<VerificationScreen>
       if (!mounted) return;
       print('❌ Verify OTP error: $e');
       _showSnackBar('$e', isError: true);
-
-      // Kosongkan kotak OTP agar user bisa coba lagi
-      for (var c in _otpControllers) { c.clear(); }
-      _focusNodes[0].requestFocus();
+      _otpController.clear();
+      _otpFocusNode.requestFocus();
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -134,8 +131,8 @@ class _VerificationScreenState extends State<VerificationScreen>
       await _authApi.resendOtp(widget.email);
       if (!mounted) return;
 
-      for (var c in _otpControllers) c.clear();
-      _focusNodes[0].requestFocus();
+      _otpController.clear();
+      _otpFocusNode.requestFocus();
       _startCountdown();
 
       _showSnackBar('OTP baru telah dikirim ke email kamu');
@@ -153,10 +150,7 @@ class _VerificationScreenState extends State<VerificationScreen>
     final size = MediaQuery.of(context).size;
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
+      body: Stack(
         children: [
           // Gradient background
           Container(
@@ -181,6 +175,28 @@ class _VerificationScreenState extends State<VerificationScreen>
               height: size.height * 0.85,
               width: size.width,
               child: CustomPaint(painter: _VerifWavePainter()),
+            ),
+          ),
+
+          // Hidden TextField — captures all input, keeps keyboard static
+          Opacity(
+            opacity: 0,
+            child: SizedBox(
+              width: 0,
+              height: 0,
+              child: TextField(
+                controller: _otpController,
+                focusNode: _otpFocusNode,
+                keyboardType: TextInputType.number,
+                maxLength: 5,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (val) {
+                  setState(() {});
+                  if (val.length == 5) {
+                    _otpFocusNode.unfocus();
+                  }
+                },
+              ),
             ),
           ),
 
@@ -234,10 +250,13 @@ class _VerificationScreenState extends State<VerificationScreen>
                             ),
                             const SizedBox(height: 40),
 
-                            // 5 OTP boxes
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: List.generate(5, (i) => _buildOtpBox(i)),
+                            // 5 OTP display boxes
+                            GestureDetector(
+                              onTap: () => _otpFocusNode.requestFocus(),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: List.generate(5, (i) => _buildOtpBox(i)),
+                              ),
                             ),
                             const SizedBox(height: 8),
                             InlineMessage(message: _otpError),
@@ -326,46 +345,34 @@ class _VerificationScreenState extends State<VerificationScreen>
             ),
           ),
         ],
-        ),
       ),
     );
   }
 
   Widget _buildOtpBox(int index) {
-    return SizedBox(
+    final otp = _otpController.text;
+    final char = index < otp.length ? otp[index] : '';
+    final isFocused = _otpFocusNode.hasFocus && index == otp.length.clamp(0, 4);
+
+    return Container(
       width: 58,
       height: 72,
-      child: TextField(
-        controller: _otpControllers[index],
-        focusNode: _focusNodes[index],
-        textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
-        maxLength: 1,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A1A)),
-        decoration: InputDecoration(
-          counterText: '',
-          filled: true,
-          fillColor: const Color(0xFFF0E8EA),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFF43D5E), width: 1.5),
-          ),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0E8EA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isFocused ? const Color(0xFFF43D5E) : Colors.transparent,
+          width: 1.5,
         ),
-        onChanged: (val) {
-          if (val.isNotEmpty && index < 4) {
-            _focusNodes[index + 1].requestFocus();
-          } else if (val.isEmpty && index > 0) {
-            _focusNodes[index - 1].requestFocus();
-          }
-        },
+      ),
+      child: Text(
+        char,
+        style: const TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF1A1A1A),
+        ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:ruangpeduliapp/data/finance_api.dart';
 import 'package:ruangpeduliapp/data/inventory_api.dart';
@@ -66,6 +67,9 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   bool _sttReady = false;
   bool _listening = false;
 
+  static const _kMsgKey = 'panti_chat_messages';
+  static const _kTsKey  = 'panti_chat_timestamp';
+
   final List<ChatMessage> _messages = [
     const ChatMessage(text: 'Halo! Saya Bobi. Ada yang bisa saya bantu?', isUser: false),
   ];
@@ -73,6 +77,7 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   @override
   void initState() {
     super.initState();
+    _loadHistory();
     _initContext();
     _contextTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) _refreshContext();
@@ -85,6 +90,33 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
       },
       onError: (_) { if (mounted) setState(() => _listening = false); },
     ).then((ok) { if (mounted) setState(() => _sttReady = ok); });
+  }
+
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ts = prefs.getInt(_kTsKey) ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - ts > const Duration(hours: 24).inMilliseconds) {
+      await prefs.remove(_kMsgKey);
+      await prefs.remove(_kTsKey);
+      return;
+    }
+    final raw = prefs.getStringList(_kMsgKey);
+    if (raw == null || raw.isEmpty) return;
+    final loaded = raw.map((s) {
+      final m = jsonDecode(s) as Map<String, dynamic>;
+      return ChatMessage(text: m['text'] as String, isUser: m['isUser'] as bool);
+    }).toList();
+    if (mounted) setState(() { _messages
+      ..clear()
+      ..addAll(loaded); });
+  }
+
+  Future<void> _saveHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = _messages.map((m) => jsonEncode({'text': m.text, 'isUser': m.isUser})).toList();
+    await prefs.setStringList(_kMsgKey, raw);
+    await prefs.setInt(_kTsKey, DateTime.now().millisecondsSinceEpoch);
   }
 
   Future<String> _buildDynamicContext() async {
@@ -265,6 +297,7 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
       _messages.add(ChatMessage(text: text, isUser: true));
       _isLoading = true;
     });
+    _saveHistory();
     _inputController.clear();
     _history.add({'role': 'user', 'content': text});
     _scrollToBottom();
@@ -295,6 +328,7 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
         _history.add({'role': 'assistant', 'content': reply});
         if (!mounted) return;
         setState(() => _messages.add(ChatMessage(text: reply, isUser: false)));
+        _saveHistory();
       } else {
         final err = jsonDecode(res.body);
         throw Exception(err['error']?['message'] ?? 'Status ${res.statusCode}');
@@ -320,7 +354,7 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPinkLight,
-      bottomNavigationBar: _buildInputBar(),
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -340,6 +374,7 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
                 ),
               ),
             ),
+            _buildInputBar(),
           ],
         ),
       ),
@@ -536,16 +571,13 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
   }
 
   Widget _buildInputBar() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
-      color: Colors.white,
-      child: SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+      padding: EdgeInsets.fromLTRB(16, 10, 16, 12 + bottomPadding),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -601,8 +633,6 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
             ),
           ],
         ),
-      ),
-    ),
     );
   }
 }

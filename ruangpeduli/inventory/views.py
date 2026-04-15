@@ -4,9 +4,8 @@ import requests as req_lib
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
 from django.shortcuts import get_object_or_404
-from accounts.models import User
 from profiles.models import OrphanageProfile
 from .models import InventoryCategory, InventoryItem, StokLaporan
 from .serializers import (
@@ -17,16 +16,23 @@ from .serializers import (
 )
 
 
+def _get_panti(user):
+    if user.role != 'panti':
+        return None, Response({'error': 'Hanya akun panti yang dapat mengakses fitur ini'}, status=status.HTTP_403_FORBIDDEN)
+    panti = get_object_or_404(OrphanageProfile, user=user)
+    return panti, None
+
+
 # ─── Categories ───────────────────────────────────────────────────────────────
 
 class CategoryListView(APIView):
     """
-    GET  /api/inventory/categories/            → list all categories (all pantis) — public
-    GET  /api/inventory/categories/?panti=<id> → filter by panti
-    POST /api/inventory/categories/            → create category (panti only)
-      Body: { user_id, name }
+    GET  /api/inventory/categories/            → list all categories — public
+    GET  /api/inventory/categories/?panti=<id> → filter by panti — public
+    POST /api/inventory/categories/            → create category (panti only, requires JWT)
+      Body: { name }
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request):
         qs = InventoryCategory.objects.select_related('panti')
@@ -37,20 +43,14 @@ class CategoryListView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        user_id = request.data.get('user_id')
-        name    = request.data.get('name', '').strip()
-        if not user_id or not name:
-            return Response({'error': 'user_id dan name wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            user = User.objects.get(id=user_id, role='panti')
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
-
-        panti = get_object_or_404(OrphanageProfile, user=user)
+        panti, err = _get_panti(request.user)
+        if err:
+            return err
+        name = request.data.get('name', '').strip()
+        if not name:
+            return Response({'error': 'name wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
         if InventoryCategory.objects.filter(panti=panti, name__iexact=name).exists():
             return Response({'error': 'Kategori dengan nama ini sudah ada'}, status=status.HTTP_400_BAD_REQUEST)
-
         category = InventoryCategory.objects.create(panti=panti, name=name)
         return Response(InventoryCategoryLightSerializer(category).data, status=status.HTTP_201_CREATED)
 
@@ -58,12 +58,11 @@ class CategoryListView(APIView):
 class CategoryDetailView(APIView):
     """
     GET    /api/inventory/categories/<id>/  → detail with full item list — public
-    PUT    /api/inventory/categories/<id>/  → rename category (panti owner only)
-      Body: { user_id, name }
-    DELETE /api/inventory/categories/<id>/  → delete category + all its items
-      Body: { user_id }
+    PUT    /api/inventory/categories/<id>/  → rename category (panti owner only, requires JWT)
+      Body: { name }
+    DELETE /api/inventory/categories/<id>/  → delete (panti owner only, requires JWT)
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, pk):
         category = get_object_or_404(InventoryCategory, pk=pk)
@@ -71,20 +70,16 @@ class CategoryDetailView(APIView):
         return Response(serializer.data)
 
     def _check_owner(self, request, category):
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return None, Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            user = User.objects.get(id=user_id, role='panti')
-        except User.DoesNotExist:
-            return None, Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
-        if category.panti.user_id != user.id:
-            return None, Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
-        return user, None
+        panti, err = _get_panti(request.user)
+        if err:
+            return err
+        if category.panti.user_id != request.user.id:
+            return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
+        return None
 
     def put(self, request, pk):
         category = get_object_or_404(InventoryCategory, pk=pk)
-        _, err = self._check_owner(request, category)
+        err = self._check_owner(request, category)
         if err:
             return err
         name = request.data.get('name', '').strip()
@@ -96,7 +91,7 @@ class CategoryDetailView(APIView):
 
     def delete(self, request, pk):
         category = get_object_or_404(InventoryCategory, pk=pk)
-        _, err = self._check_owner(request, category)
+        err = self._check_owner(request, category)
         if err:
             return err
         category.delete()
@@ -107,12 +102,11 @@ class CategoryDetailView(APIView):
 
 class ItemListView(APIView):
     """
-    GET  /api/inventory/categories/<cat_id>/items/                     → all items — public
-    GET  /api/inventory/categories/<cat_id>/items/?status=out_of_stock → filter by status
-    POST /api/inventory/categories/<cat_id>/items/                     → add item (panti owner only)
-      Body: { user_id, name, quantity, unit?, description? }
+    GET  /api/inventory/categories/<cat_id>/items/  → all items — public
+    POST /api/inventory/categories/<cat_id>/items/  → add item (panti owner, requires JWT)
+      Body: { name, quantity, unit?, description? }
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, cat_id):
         category = get_object_or_404(InventoryCategory, pk=cat_id)
@@ -126,14 +120,7 @@ class ItemListView(APIView):
 
     def post(self, request, cat_id):
         category = get_object_or_404(InventoryCategory, pk=cat_id)
-        user_id  = request.data.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            user = User.objects.get(id=user_id, role='panti')
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
-        if category.panti.user_id != user.id:
+        if request.user.role != 'panti' or category.panti.user_id != request.user.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = InventoryItemSerializer(data=request.data)
@@ -146,32 +133,24 @@ class ItemListView(APIView):
 class ItemDetailView(APIView):
     """
     GET    /api/inventory/items/<id>/  → item detail — public
-    PUT    /api/inventory/items/<id>/  → update (panti owner only)
-      Body: { user_id, name?, quantity?, unit?, description? }
-    DELETE /api/inventory/items/<id>/  → delete (panti owner only)
-      Body: { user_id }
+    PUT    /api/inventory/items/<id>/  → update (panti owner, requires JWT)
+      Body: { name?, quantity?, unit?, description? }
+    DELETE /api/inventory/items/<id>/  → delete (panti owner, requires JWT)
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
-    def _get_item_and_check(self, request, pk):
-        item    = get_object_or_404(InventoryItem, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return item, None, Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            user = User.objects.get(id=user_id, role='panti')
-        except User.DoesNotExist:
-            return item, None, Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
-        if item.category.panti.user_id != user.id:
-            return item, None, Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
-        return item, user, None
+    def _check_owner(self, request, item):
+        if request.user.role != 'panti' or item.category.panti.user_id != request.user.id:
+            return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
+        return None
 
     def get(self, request, pk):
         item = get_object_or_404(InventoryItem, pk=pk)
         return Response(InventoryItemSerializer(item).data)
 
     def put(self, request, pk):
-        item, _, err = self._get_item_and_check(request, pk)
+        item = get_object_or_404(InventoryItem, pk=pk)
+        err = self._check_owner(request, item)
         if err:
             return err
         serializer = InventoryItemSerializer(item, data=request.data, partial=True)
@@ -181,7 +160,8 @@ class ItemDetailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
-        item, _, err = self._get_item_and_check(request, pk)
+        item = get_object_or_404(InventoryItem, pk=pk)
+        err = self._check_owner(request, item)
         if err:
             return err
         item.delete()
@@ -192,11 +172,11 @@ class ItemDetailView(APIView):
 
 class LaporanView(APIView):
     """
-    GET  /api/inventory/laporan/?panti=<id>  → list all laporan for a panti
-    POST /api/inventory/laporan/             → record a stok masuk or keluar entry
-      Body: { user_id, item_id, amount, type }   (type: 'masuk' | 'keluar')
+    GET  /api/inventory/laporan/?panti=<id>  → list all laporan for a panti — public
+    POST /api/inventory/laporan/             → record stok masuk/keluar (panti owner, requires JWT)
+      Body: { item_id, amount, type }   (type: 'masuk' | 'keluar')
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request):
         panti_id = request.query_params.get('panti')
@@ -208,26 +188,23 @@ class LaporanView(APIView):
         return Response(StokLaporanSerializer(qs, many=True).data)
 
     def post(self, request):
-        user_id = request.data.get('user_id')
+        if request.user.role != 'panti':
+            return Response({'error': 'Hanya akun panti yang dapat mencatat laporan'}, status=status.HTTP_403_FORBIDDEN)
+
         item_id = request.data.get('item_id')
         amount  = request.data.get('amount')
         tipe    = request.data.get('type')
 
-        if not all([user_id, item_id, amount, tipe]):
+        if not all([item_id, amount, tipe]):
             return Response(
-                {'error': 'user_id, item_id, amount, dan type wajib diisi'},
+                {'error': 'item_id, amount, dan type wajib diisi'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if tipe not in (StokLaporan.MASUK, StokLaporan.KELUAR):
             return Response({'error': "type harus 'masuk' atau 'keluar'"}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            user = User.objects.get(id=user_id, role='panti')
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
-
         item = get_object_or_404(InventoryItem, pk=item_id)
-        if item.category.panti.user_id != user.id:
+        if item.category.panti.user_id != request.user.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
 
         try:

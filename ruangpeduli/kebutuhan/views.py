@@ -1,9 +1,8 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.shortcuts import get_object_or_404
-from accounts.models import User
 from profiles.models import OrphanageProfile
 from .models import KebutuhanItem
 from .serializers import KebutuhanItemSerializer, KebutuhanItemWithPantiSerializer
@@ -12,7 +11,6 @@ from .serializers import KebutuhanItemSerializer, KebutuhanItemWithPantiSerializ
 class KebutuhanAllView(APIView):
     """
     GET /api/kebutuhan/all/ → list all kebutuhan across every panti (public)
-    Returns each item with panti_id and panti_name included.
     """
     permission_classes = [AllowAny]
 
@@ -23,9 +21,9 @@ class KebutuhanAllView(APIView):
 
 class KebutuhanListView(APIView):
     """
-    GET  /api/kebutuhan/?panti=<id>  → list all kebutuhan for a panti
-    POST /api/kebutuhan/             → add item
-      Body: { user_id, nama, satuan, jumlah }
+    GET  /api/kebutuhan/?panti=<id>  → list kebutuhan for a panti (public)
+    POST /api/kebutuhan/             → add item (panti only, requires JWT)
+      Body: { nama, satuan, jumlah }
     """
     permission_classes = [AllowAny]
 
@@ -37,20 +35,19 @@ class KebutuhanListView(APIView):
         return Response(KebutuhanItemSerializer(qs, many=True).data)
 
     def post(self, request):
-        user_id = request.data.get('user_id')
-        nama    = request.data.get('nama', '').strip()
-        satuan  = request.data.get('satuan', '').strip()
-        jumlah  = request.data.get('jumlah')
+        if not request.user.is_authenticated:
+            return Response({'error': 'Login diperlukan'}, status=status.HTTP_401_UNAUTHORIZED)
+        if request.user.role != 'panti':
+            return Response({'error': 'Hanya akun panti yang dapat menambah kebutuhan'}, status=status.HTTP_403_FORBIDDEN)
 
-        if not all([user_id, nama, satuan, jumlah]):
-            return Response({'error': 'user_id, nama, satuan, jumlah wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+        nama   = request.data.get('nama', '').strip()
+        satuan = request.data.get('satuan', '').strip()
+        jumlah = request.data.get('jumlah')
 
-        try:
-            user = User.objects.get(id=user_id, role='panti')
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
+        if not all([nama, satuan, jumlah]):
+            return Response({'error': 'nama, satuan, jumlah wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
-        panti = get_object_or_404(OrphanageProfile, user=user)
+        panti = get_object_or_404(OrphanageProfile, user=request.user)
 
         try:
             jumlah = int(jumlah)
@@ -65,21 +62,15 @@ class KebutuhanListView(APIView):
 
 class KebutuhanDetailView(APIView):
     """
-    DELETE /api/kebutuhan/<id>/  → delete item (panti owner only)
-      Body: { user_id }
+    DELETE /api/kebutuhan/<id>/  → delete item (panti owner only, requires JWT)
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
+        if request.user.role != 'panti':
+            return Response({'error': 'Hanya akun panti yang dapat menghapus kebutuhan'}, status=status.HTTP_403_FORBIDDEN)
         item = get_object_or_404(KebutuhanItem, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            user = User.objects.get(id=user_id, role='panti')
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
-        if item.panti.user_id != user.id:
+        if item.panti.user_id != request.user.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

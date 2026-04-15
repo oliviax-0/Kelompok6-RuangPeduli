@@ -1,10 +1,9 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from accounts.models import User
 from profiles.models import OrphanageProfile
 from .models import Berita, BeritaImage, BeritaVote, Video
 from .serializers import BeritaSerializer, BeritaImageSerializer, VideoSerializer
@@ -14,12 +13,12 @@ from .serializers import BeritaSerializer, BeritaImageSerializer, VideoSerialize
 
 class BeritaListView(APIView):
     """
-    GET  /api/content/berita/           → list published beritas (all pantis)
-    GET  /api/content/berita/?panti=<id> → filter by panti
-    POST /api/content/berita/           → create (panti user only)
-      Body: { user_id, panti_id, title, content, thumbnail?, is_published? }
+    GET  /api/content/berita/            → list published beritas (all pantis) — public
+    GET  /api/content/berita/?panti=<id> → filter by panti — public
+    POST /api/content/berita/            → create (panti only, requires JWT)
+      Body: { panti_id, title, content, thumbnail?, is_published? }
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request):
         qs = Berita.objects.filter(is_published=True).select_related('author', 'panti')
@@ -37,27 +36,19 @@ class BeritaListView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            user = User.objects.get(id=user_id, role='panti')
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
+        user = request.user
+        if user.role != 'panti':
+            return Response({'error': 'Hanya akun panti yang dapat membuat berita'}, status=status.HTTP_403_FORBIDDEN)
 
         panti = get_object_or_404(OrphanageProfile, user=user)
 
-        # Use .dict() to flatten QueryDict (multipart) so values are scalars, not lists
         data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
-        # Explicitly extract uploaded files (dict.update on MultiValueDict returns lists, not files)
         if 'thumbnail' in request.FILES:
             data['thumbnail'] = request.FILES.get('thumbnail')
         data['author'] = user.id
         data['panti']  = panti.id
 
         serializer = BeritaSerializer(data=data, context={'request': request})
-
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -66,13 +57,11 @@ class BeritaListView(APIView):
 
 class BeritaDetailView(APIView):
     """
-    GET    /api/content/berita/<id>/  → detail
-    PUT    /api/content/berita/<id>/  → update (owner panti only)
-      Body: { user_id, ...fields }
-    DELETE /api/content/berita/<id>/  → delete (owner panti only)
-      Body: { user_id }
+    GET    /api/content/berita/<id>/  → detail — public
+    PUT    /api/content/berita/<id>/  → update (owner panti only, requires JWT)
+    DELETE /api/content/berita/<id>/  → delete (owner panti only, requires JWT)
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, pk):
         berita = get_object_or_404(Berita, pk=pk)
@@ -81,8 +70,7 @@ class BeritaDetailView(APIView):
 
     def put(self, request, pk):
         berita = get_object_or_404(Berita, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id or berita.author_id != int(user_id):
+        if berita.author_id != request.user.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = BeritaSerializer(berita, data=request.data, partial=True, context={'request': request})
@@ -93,8 +81,7 @@ class BeritaDetailView(APIView):
 
     def delete(self, request, pk):
         berita = get_object_or_404(Berita, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id or berita.author_id != int(user_id):
+        if berita.author_id != request.user.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
         berita.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -102,26 +89,19 @@ class BeritaDetailView(APIView):
 
 class BeritaVoteView(APIView):
     """
-    GET  /api/content/berita/<id>/vote/?user_id=<id> → current vote state
-    POST /api/content/berita/<id>/vote/
-    Body: { user_id, vote_type: 'up'|'down' }
-    - If same vote_type → remove vote (toggle off)
-    - If different vote_type → switch vote
+    GET  /api/content/berita/<id>/vote/ → current vote state — public (shows user_vote if JWT sent)
+    POST /api/content/berita/<id>/vote/ → vote (requires JWT)
+      Body: { vote_type: 'up'|'down' }
     """
     permission_classes = [AllowAny]
 
     def get(self, request, pk):
         berita = get_object_or_404(Berita, pk=pk)
-        user_id = request.query_params.get('user_id')
         user_vote = None
-        if user_id:
-            try:
-                user = User.objects.get(id=user_id)
-                existing = BeritaVote.objects.filter(berita=berita, user=user).first()
-                if existing:
-                    user_vote = existing.vote_type
-            except User.DoesNotExist:
-                pass
+        if request.user.is_authenticated:
+            existing = BeritaVote.objects.filter(berita=berita, user=request.user).first()
+            if existing:
+                user_vote = existing.vote_type
         return Response({
             'upvote_count': berita.upvote_count,
             'downvote_count': berita.downvote_count,
@@ -129,19 +109,16 @@ class BeritaVoteView(APIView):
         })
 
     def post(self, request, pk):
+        if not request.user.is_authenticated:
+            return Response({'error': 'Login diperlukan untuk vote'}, status=status.HTTP_401_UNAUTHORIZED)
+
         berita = get_object_or_404(Berita, pk=pk)
-        user_id = request.data.get('user_id')
         vote_type = request.data.get('vote_type')
 
-        if not user_id or vote_type not in ('up', 'down'):
-            return Response({'error': 'user_id dan vote_type (up/down) wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+        if vote_type not in ('up', 'down'):
+            return Response({'error': 'vote_type harus up atau down'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan'}, status=status.HTTP_404_NOT_FOUND)
-
-        existing = BeritaVote.objects.filter(berita=berita, user=user).first()
+        existing = BeritaVote.objects.filter(berita=berita, user=request.user).first()
 
         if existing:
             if existing.vote_type == vote_type:
@@ -154,7 +131,7 @@ class BeritaVoteView(APIView):
                 action = 'switched'
                 user_vote = vote_type
         else:
-            BeritaVote.objects.create(berita=berita, user=user, vote_type=vote_type)
+            BeritaVote.objects.create(berita=berita, user=request.user, vote_type=vote_type)
             action = 'added'
             user_vote = vote_type
 
@@ -170,12 +147,12 @@ class BeritaVoteView(APIView):
 
 class VideoListView(APIView):
     """
-    GET  /api/content/video/            → list published videos (all pantis)
-    GET  /api/content/video/?panti=<id> → filter by panti
-    POST /api/content/video/            → create (panti user only)
-      Body: { user_id, panti_id, title, video_url, description?, thumbnail?, is_published? }
+    GET  /api/content/video/            → list published videos — public
+    GET  /api/content/video/?panti=<id> → filter by panti — public
+    POST /api/content/video/            → create (panti only, requires JWT)
+      Body: { title, video_url, description?, thumbnail?, is_published? }
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request):
         qs = Video.objects.filter(is_published=True).select_related('author', 'panti')
@@ -186,14 +163,9 @@ class VideoListView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            user = User.objects.get(id=user_id, role='panti')
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
+        user = request.user
+        if user.role != 'panti':
+            return Response({'error': 'Hanya akun panti yang dapat mengunggah video'}, status=status.HTTP_403_FORBIDDEN)
 
         panti = get_object_or_404(OrphanageProfile, user=user)
 
@@ -211,11 +183,11 @@ class VideoListView(APIView):
 
 class VideoDetailView(APIView):
     """
-    GET    /api/content/video/<id>/
-    PUT    /api/content/video/<id>/  → update (owner only)
-    DELETE /api/content/video/<id>/  → delete (owner only)
+    GET    /api/content/video/<id>/  → detail — public
+    PUT    /api/content/video/<id>/  → update (owner only, requires JWT)
+    DELETE /api/content/video/<id>/  → delete (owner only, requires JWT)
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, pk):
         video = get_object_or_404(Video, pk=pk)
@@ -224,8 +196,7 @@ class VideoDetailView(APIView):
 
     def put(self, request, pk):
         video = get_object_or_404(Video, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id or video.author_id != int(user_id):
+        if video.author_id != request.user.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = VideoSerializer(video, data=request.data, partial=True, context={'request': request})
@@ -236,8 +207,7 @@ class VideoDetailView(APIView):
 
     def delete(self, request, pk):
         video = get_object_or_404(Video, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id or video.author_id != int(user_id):
+        if video.author_id != request.user.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
         video.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -247,19 +217,15 @@ class VideoDetailView(APIView):
 
 class BeritaImageUploadView(APIView):
     """
-    POST /api/content/berita/<id>/images/
-    Multipart form: { user_id, image, caption?, order? }
-    Adds an image to a berita post (owner only).
-
-    DELETE /api/content/berita/<id>/images/<image_id>/
-    Body: { user_id }
+    POST   /api/content/berita/<id>/images/             → add image (owner only, requires JWT)
+      Multipart form: { image, caption?, order? }
+    DELETE /api/content/berita/<id>/images/<image_id>/  → delete image (owner only, requires JWT)
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         berita = get_object_or_404(Berita, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id or berita.author_id != int(user_id):
+        if berita.author_id != request.user.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = BeritaImageSerializer(data={
@@ -275,8 +241,7 @@ class BeritaImageUploadView(APIView):
 
     def delete(self, request, pk, image_id):
         berita = get_object_or_404(Berita, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id or berita.author_id != int(user_id):
+        if berita.author_id != request.user.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
 
         image = get_object_or_404(BeritaImage, pk=image_id, berita=berita)
