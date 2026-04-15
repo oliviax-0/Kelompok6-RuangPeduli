@@ -434,6 +434,43 @@ class _EditPegawaiDialogState extends State<_EditPegawaiDialog> {
     }
   }
 
+  Future<void> _confirmAndDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: const Text(
+          'Apakah Anda yakin ingin menghapus pegawai tersebut?',
+          style: TextStyle(fontSize: 14),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFFDDDDDD)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+            ),
+            child: const Text('Ya', style: TextStyle(color: Color(0xFF1A1A1A))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE8848A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+            ),
+            child: const Text('Tidak'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) _delete();
+  }
+
   Future<void> _delete() async {
     setState(() => _saving = true);
     try {
@@ -513,7 +550,7 @@ class _EditPegawaiDialogState extends State<_EditPegawaiDialog> {
                 ),
                 const SizedBox(width: 10),
                 GestureDetector(
-                  onTap: _saving ? null : _delete,
+                  onTap: _saving ? null : _confirmAndDelete,
                   child: Container(
                     width: 44,
                     height: 44,
@@ -796,6 +833,43 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
     }
   }
 
+  Future<void> _confirmAndDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: const Text(
+          'Apakah Anda yakin ingin menghapus penghuni tersebut?',
+          style: TextStyle(fontSize: 14),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFFDDDDDD)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+            ),
+            child: const Text('Ya', style: TextStyle(color: Color(0xFF1A1A1A))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE8848A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+            ),
+            child: const Text('Tidak'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) _delete();
+  }
+
   Future<void> _delete() async {
     setState(() => _saving = true);
     try {
@@ -888,7 +962,7 @@ class _EditPenghuniDialogState extends State<_EditPenghuniDialog> {
                 ),
                 const SizedBox(width: 10),
                 GestureDetector(
-                  onTap: _saving ? null : _delete,
+                  onTap: _saving ? null : _confirmAndDelete,
                   child: Container(
                     width: 44,
                     height: 44,

@@ -7,6 +7,7 @@ dj-database-url==3.1.2
 Django==6.0.3
 django-cors-headers==4.9.0
 djangorestframework==3.17.0
+djangorestframework-simplejwt==5.4.0
 google-auth==2.49.1
 idna==3.11
 pillow==12.1.1

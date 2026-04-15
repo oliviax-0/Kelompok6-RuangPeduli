@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
@@ -12,6 +13,14 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from accounts.models import User, PendingRegistration, PasswordResetPending
 from .serializers import RegisterStartSerializer
+
+def _get_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+    }
+
 
 OTP_HTML = """
     <div style="font-family: Arial, sans-serif; max-width: 420px;
@@ -216,14 +225,16 @@ class VerifyOtpView(APIView):
             except OrphanageProfile.DoesNotExist:
                 pass
 
+        tokens = _get_tokens_for_user(user)
         return Response(
             {
                 'success': True,
-                'message': 'Registrasi berhasil! Silakan login.',
+                'message': 'Registrasi berhasil!',
                 'user_id': user.id,
                 'username': user.username,
                 'role': user.role,
                 'panti_id': panti_id,
+                **tokens,
             },
             status=status.HTTP_201_CREATED
         )
@@ -264,6 +275,7 @@ class LoginView(APIView):
             except OrphanageProfile.DoesNotExist:
                 pass
 
+        tokens = _get_tokens_for_user(user)
         return Response({
             'success': True,
             'user_id': user.id,
@@ -271,6 +283,7 @@ class LoginView(APIView):
             'email': user.email,
             'role': user.role,
             'panti_id': panti_id,
+            **tokens,
         }, status=status.HTTP_200_OK)
 
 
@@ -408,26 +421,22 @@ class ResendOtpView(APIView):
 class ChangePasswordView(APIView):
     """
     POST /api/change-password/
-    Body: { "user_id": 1, "current_password": "...", "new_password": "..." }
+    Header: Authorization: Bearer <access_token>
+    Body: { "current_password": "...", "new_password": "..." }
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        user_id          = request.data.get('user_id')
         current_password = request.data.get('current_password', '').strip()
         new_password     = request.data.get('new_password', '').strip()
 
-        if not user_id or not current_password or not new_password:
+        if not current_password or not new_password:
             return Response({'error': 'Semua kolom wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
         if len(new_password) < 8:
             return Response({'error': 'Kata sandi baru minimal 8 karakter'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan'}, status=status.HTTP_404_NOT_FOUND)
-
+        user = request.user
         if not user.check_password(current_password):
             return Response({'error': 'Kata sandi saat ini salah'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -439,17 +448,14 @@ class ChangePasswordView(APIView):
 class RequestEmailChangeView(APIView):
     """
     POST /api/request-email-change/
-    Body: { "user_id": 1 }
+    Header: Authorization: Bearer <access_token>
     Sends OTP to user's current email so they can verify before changing it.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        user_id = request.data.get('user_id')
-        try:
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan'}, status=status.HTTP_404_NOT_FOUND)
+        user = request.user
+        user_id = user.id
 
         key = f'emailchange:{user_id}'
         PasswordResetPending.objects.filter(email=key).delete()
@@ -471,18 +477,19 @@ class RequestEmailChangeView(APIView):
 class RequestNewEmailVerifyView(APIView):
     """
     POST /api/request-new-email-verify/
-    Body: { "user_id": 1, "otp_current": "12345", "new_email": "new@example.com" }
+    Header: Authorization: Bearer <access_token>
+    Body: { "otp_current": "12345", "new_email": "new@example.com" }
     Verifies OTP from current email, then sends a new OTP to the new email.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        user_id   = request.data.get('user_id')
+        user_id   = request.user.id
         otp_current = request.data.get('otp_current', '').strip()
         new_email = request.data.get('new_email', '').strip()
 
-        if not user_id or not otp_current or not new_email:
-            return Response({'error': 'user_id, otp_current, dan new_email wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+        if not otp_current or not new_email:
+            return Response({'error': 'otp_current dan new_email wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Verify current email OTP
         key_old = f'emailchange:{user_id}'
@@ -502,7 +509,7 @@ class RequestNewEmailVerifyView(APIView):
         if User.objects.filter(email=new_email).exclude(pk=user_id).exists():
             return Response({'error': 'Email sudah digunakan akun lain'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Send OTP to new email
+        # Send OTP to new email (user_id already set above from request.user.id)
         key_new = f'emailchange_new:{user_id}'
         PasswordResetPending.objects.filter(email=key_new).delete()
         otp_new = ''.join(random.choices(string.digits, k=5))
@@ -524,18 +531,19 @@ class RequestNewEmailVerifyView(APIView):
 class ConfirmEmailChangeView(APIView):
     """
     POST /api/confirm-email-change/
-    Body: { "user_id": 1, "otp_new": "12345", "new_email": "new@example.com" }
+    Header: Authorization: Bearer <access_token>
+    Body: { "otp_new": "12345", "new_email": "new@example.com" }
     Verifies OTP sent to new email then updates email.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        user_id   = request.data.get('user_id')
+        user_id   = request.user.id
         otp_new   = request.data.get('otp_new', '').strip()
         new_email = request.data.get('new_email', '').strip()
 
-        if not user_id or not otp_new or not new_email:
-            return Response({'error': 'user_id, otp_new, dan new_email wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
+        if not otp_new or not new_email:
+            return Response({'error': 'otp_new dan new_email wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
         key_new = f'emailchange_new:{user_id}'
         try:
@@ -553,11 +561,7 @@ class ConfirmEmailChangeView(APIView):
         if User.objects.filter(email=new_email).exclude(pk=user_id).exists():
             return Response({'error': 'Email sudah digunakan akun lain'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response({'error': 'User tidak ditemukan'}, status=status.HTTP_404_NOT_FOUND)
-
+        user = request.user
         user.email = new_email
         user.save()
         pending.delete()
@@ -601,6 +605,7 @@ class GoogleAuthView(APIView):
                     panti_id = OrphanageProfile.objects.get(user=user).id
                 except OrphanageProfile.DoesNotExist:
                     pass
+            tokens = _get_tokens_for_user(user)
             return Response({
                 'exists': True,
                 'user_id': user.id,
@@ -608,6 +613,7 @@ class GoogleAuthView(APIView):
                 'email': user.email,
                 'role': user.role,
                 'panti_id': panti_id,
+                **tokens,
             }, status=status.HTTP_200_OK)
         else:
             return Response({
@@ -684,6 +690,7 @@ class GoogleRegisterView(APIView):
                     )
 
             panti_id = profile.id if role == 'panti' else None
+            tokens = _get_tokens_for_user(user)
             return Response({
                 'success': True,
                 'user_id': user.id,
@@ -691,6 +698,7 @@ class GoogleRegisterView(APIView):
                 'email': user.email,
                 'role': user.role,
                 'panti_id': panti_id,
+                **tokens,
             }, status=status.HTTP_201_CREATED)
 
         except IntegrityError:

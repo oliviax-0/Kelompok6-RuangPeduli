@@ -1,40 +1,36 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum
 from django.utils import timezone
-from accounts.models import User
 from profiles.models import OrphanageProfile
 from .models import JenisPemasukan, Pemasukan, Pengeluaran
 from .serializers import JenisPemasukanSerializer, PemasukanSerializer, PengeluaranSerializer
 
 
-def _get_panti_user(user_id):
-    try:
-        user = User.objects.get(id=user_id, role='panti')
-    except User.DoesNotExist:
-        return None, None, Response({'error': 'User tidak ditemukan atau bukan panti'}, status=status.HTTP_403_FORBIDDEN)
+def _get_panti(user):
+    """Return (panti, error_response). error_response is None on success."""
+    if user.role != 'panti':
+        return None, Response({'error': 'Hanya akun panti yang dapat mengakses fitur ini'}, status=status.HTTP_403_FORBIDDEN)
     panti = get_object_or_404(OrphanageProfile, user=user)
-    return user, panti, None
+    return panti, None
 
 
 # ─── Dashboard ────────────────────────────────────────────────────────────────
 
 class DashboardView(APIView):
     """
-    GET /api/finance/dashboard/?user_id=<id>
-    GET /api/finance/dashboard/?user_id=<id>&month=3&year=2026
+    GET /api/finance/dashboard/
+    GET /api/finance/dashboard/?month=3&year=2026
     Returns: total_pemasukan, total_pengeluaran, saldo for the given month.
+    Requires JWT (panti role).
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user_id = request.query_params.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
             return err
 
@@ -50,7 +46,6 @@ class DashboardView(APIView):
             panti=panti, tanggal__month=month, tanggal__year=year
         ).aggregate(total=Sum('jumlah'))['total'] or 0
 
-        # Saldo = cumulative all-time balance
         all_pemasukan   = Pemasukan.objects.filter(panti=panti).aggregate(total=Sum('jumlah'))['total'] or 0
         all_pengeluaran = Pengeluaran.objects.filter(panti=panti).aggregate(total=Sum('jumlah'))['total'] or 0
 
@@ -67,30 +62,26 @@ class DashboardView(APIView):
 
 class JenisPemasukanListView(APIView):
     """
-    GET  /api/finance/jenis-pemasukan/?user_id=<id>  → list dropdown options
-    POST /api/finance/jenis-pemasukan/               → add new option
-      Body: { user_id, nama }
+    GET  /api/finance/jenis-pemasukan/  → list dropdown options (requires JWT)
+    POST /api/finance/jenis-pemasukan/  → add new option (requires JWT)
+      Body: { nama }
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user_id = request.query_params.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
             return err
         qs = JenisPemasukan.objects.filter(panti=panti)
         return Response(JenisPemasukanSerializer(qs, many=True).data)
 
     def post(self, request):
-        user_id = request.data.get('user_id')
-        nama    = request.data.get('nama', '').strip()
-        if not user_id or not nama:
-            return Response({'error': 'user_id dan nama wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
             return err
+        nama = request.data.get('nama', '').strip()
+        if not nama:
+            return Response({'error': 'nama wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
         if JenisPemasukan.objects.filter(panti=panti, nama__iexact=nama).exists():
             return Response({'error': 'Jenis ini sudah ada'}, status=status.HTTP_400_BAD_REQUEST)
         obj = JenisPemasukan.objects.create(panti=panti, nama=nama)
@@ -99,18 +90,15 @@ class JenisPemasukanListView(APIView):
 
 class JenisPemasukanDetailView(APIView):
     """
-    DELETE /api/finance/jenis-pemasukan/<id>/  Body: { user_id }
+    DELETE /api/finance/jenis-pemasukan/<id>/  (requires JWT)
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
-        obj     = get_object_or_404(JenisPemasukan, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
             return err
+        obj = get_object_or_404(JenisPemasukan, pk=pk)
         if obj.panti_id != panti.id:
             return Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
         obj.delete()
@@ -121,17 +109,14 @@ class JenisPemasukanDetailView(APIView):
 
 class PemasukanListView(APIView):
     """
-    GET  /api/finance/pemasukan/?user_id=<id>              → all records
-    GET  /api/finance/pemasukan/?user_id=<id>&month=3&year=2026 → filter by month
-    POST /api/finance/pemasukan/  Body: { user_id, jenis_pemasukan, jumlah, catatan, tanggal }
+    GET  /api/finance/pemasukan/              → all records (requires JWT)
+    GET  /api/finance/pemasukan/?month=3&year=2026 → filter by month
+    POST /api/finance/pemasukan/  Body: { jenis_pemasukan, jumlah, catatan, tanggal }
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user_id = request.query_params.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
             return err
         qs = Pemasukan.objects.filter(panti=panti)
@@ -144,10 +129,7 @@ class PemasukanListView(APIView):
         return Response(PemasukanSerializer(qs, many=True).data)
 
     def post(self, request):
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
             return err
         serializer = PemasukanSerializer(data=request.data)
@@ -159,21 +141,18 @@ class PemasukanListView(APIView):
 
 class PemasukanDetailView(APIView):
     """
-    PUT    /api/finance/pemasukan/<id>/  Body: { user_id, ...fields }
-    DELETE /api/finance/pemasukan/<id>/  Body: { user_id }
+    PUT    /api/finance/pemasukan/<id>/  Body: { ...fields }  (requires JWT)
+    DELETE /api/finance/pemasukan/<id>/                       (requires JWT)
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def _check(self, request, pk):
-        obj     = get_object_or_404(Pemasukan, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return obj, Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
-            return obj, err
+            return None, err
+        obj = get_object_or_404(Pemasukan, pk=pk)
         if obj.panti_id != panti.id:
-            return obj, Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
+            return None, Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
         return obj, None
 
     def put(self, request, pk):
@@ -198,17 +177,14 @@ class PemasukanDetailView(APIView):
 
 class PengeluaranListView(APIView):
     """
-    GET  /api/finance/pengeluaran/?user_id=<id>
-    GET  /api/finance/pengeluaran/?user_id=<id>&month=3&year=2026
-    POST /api/finance/pengeluaran/  Body: { user_id, kategori, jumlah, catatan, tanggal }
+    GET  /api/finance/pengeluaran/              (requires JWT)
+    GET  /api/finance/pengeluaran/?month=3&year=2026
+    POST /api/finance/pengeluaran/  Body: { kategori, jumlah, catatan, tanggal }
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user_id = request.query_params.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
             return err
         qs = Pengeluaran.objects.filter(panti=panti)
@@ -221,10 +197,7 @@ class PengeluaranListView(APIView):
         return Response(PengeluaranSerializer(qs, many=True).data)
 
     def post(self, request):
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
             return err
         serializer = PengeluaranSerializer(data=request.data)
@@ -236,21 +209,18 @@ class PengeluaranListView(APIView):
 
 class PengeluaranDetailView(APIView):
     """
-    PUT    /api/finance/pengeluaran/<id>/  Body: { user_id, ...fields }
-    DELETE /api/finance/pengeluaran/<id>/  Body: { user_id }
+    PUT    /api/finance/pengeluaran/<id>/  Body: { ...fields }  (requires JWT)
+    DELETE /api/finance/pengeluaran/<id>/                       (requires JWT)
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def _check(self, request, pk):
-        obj     = get_object_or_404(Pengeluaran, pk=pk)
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return obj, Response({'error': 'user_id wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
-        _, panti, err = _get_panti_user(user_id)
+        panti, err = _get_panti(request.user)
         if err:
-            return obj, err
+            return None, err
+        obj = get_object_or_404(Pengeluaran, pk=pk)
         if obj.panti_id != panti.id:
-            return obj, Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
+            return None, Response({'error': 'Tidak diizinkan'}, status=status.HTTP_403_FORBIDDEN)
         return obj, None
 
     def put(self, request, pk):

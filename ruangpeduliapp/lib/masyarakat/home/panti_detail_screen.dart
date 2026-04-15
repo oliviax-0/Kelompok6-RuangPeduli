@@ -18,6 +18,7 @@ class PantiDetailScreen extends StatefulWidget {
   final int? userId;
   final bool showNavBar;
   final List<String> mediaUrls;
+  final bool isPantiViewer;
 
   const PantiDetailScreen({
     super.key,
@@ -32,6 +33,7 @@ class PantiDetailScreen extends StatefulWidget {
     this.userId,
     this.showNavBar = true,
     this.mediaUrls = const [],
+    this.isPantiViewer = false,
   });
 
   @override
@@ -162,30 +164,32 @@ class _PantiDetailScreenState extends State<PantiDetailScreen> {
                               ),
                             )),
                           ),
-                          const SizedBox(height: 10),
-                          _PinkButton(
-                            label: 'Donasi',
-                            onPressed: () async {
-                              final result = await Navigator.push<bool>(context, MaterialPageRoute(
-                                builder: (_) => KonfirmasiPembayaranScreen(
-                                  namaPanti: widget.namaPanti,
-                                  terkumpul: _terkumpul,
-                                  imagePath: widget.profilePicture ?? '',
-                                  pantiId: widget.pantiId,
-                                  userId: widget.userId,
-                                ),
-                              ));
-                              if (result == true && mounted) {
-                                if (widget.pantiId != null) {
-                                  try {
-                                    final updated = await ProfileApi().fetchPantiProfile(widget.pantiId!);
-                                    if (mounted) setState(() => _terkumpul = updated.formattedTotalTerkumpul);
-                                  } catch (_) {}
+                          if (!widget.isPantiViewer) ...[
+                            const SizedBox(height: 10),
+                            _PinkButton(
+                              label: 'Donasi',
+                              onPressed: () async {
+                                final result = await Navigator.push<bool>(context, MaterialPageRoute(
+                                  builder: (_) => KonfirmasiPembayaranScreen(
+                                    namaPanti: widget.namaPanti,
+                                    terkumpul: _terkumpul,
+                                    imagePath: widget.profilePicture ?? '',
+                                    pantiId: widget.pantiId,
+                                    userId: widget.userId,
+                                  ),
+                                ));
+                                if (result == true && mounted) {
+                                  if (widget.pantiId != null) {
+                                    try {
+                                      final updated = await ProfileApi().fetchPantiProfile(widget.pantiId!);
+                                      if (mounted) setState(() => _terkumpul = updated.formattedTotalTerkumpul);
+                                    } catch (_) {}
+                                  }
+                                  _fetchContent();
                                 }
-                                _fetchContent();
-                              }
-                            },
-                          ),
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),

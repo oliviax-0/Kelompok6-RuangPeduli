@@ -7,6 +7,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:ruangpeduliapp/data/content_api.dart';
 import 'package:ruangpeduliapp/data/donation_api.dart';
@@ -55,21 +56,49 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
   bool _sttReady = false;
   bool _listening = false;
 
+  static const _kMsgKey = 'masyarakat_chat_messages';
+  static const _kTsKey  = 'masyarakat_chat_timestamp';
+
+  static const _kWelcome = 'Halo 👋\n'
+      'Terima kasih atas niat baik Anda untuk membantu.\n'
+      'Saya dapat membantu menunjukkan kebutuhan paling mendesak dari panti yang membutuhkan saat ini.\n'
+      'Apakah Anda ingin mengetahui kebutuhan prioritas sekarang?';
+
   final List<_ChatMsg> _messages = [
-    const _ChatMsg(
-      text: 'Halo 👋\n'
-          'Terima kasih atas niat baik Anda untuk membantu.\n'
-          'Saya dapat membantu menunjukkan kebutuhan paling mendesak dari panti yang membutuhkan saat ini.\n'
-          'Apakah Anda ingin mengetahui kebutuhan prioritas sekarang?',
-      isUser: false,
-    ),
+    const _ChatMsg(text: _kWelcome, isUser: false),
   ];
 
   @override
   void initState() {
     super.initState();
+    _loadHistory();
     _initContext();
     _initStt();
+  }
+
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ts = prefs.getInt(_kTsKey) ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - ts > const Duration(hours: 24).inMilliseconds) {
+      await prefs.remove(_kMsgKey);
+      await prefs.remove(_kTsKey);
+      return;
+    }
+    final raw = prefs.getStringList(_kMsgKey);
+    if (raw == null || raw.isEmpty) return;
+    final loaded = raw.map((s) {
+      final m = jsonDecode(s) as Map<String, dynamic>;
+      return _ChatMsg(text: m['text'] as String, isUser: m['isUser'] as bool);
+    }).toList();
+    if (mounted) setState(() { _messages..clear()..addAll(loaded); });
+  }
+
+  Future<void> _saveHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = _messages.map((m) => jsonEncode({'text': m.text, 'isUser': m.isUser})).toList();
+    await prefs.setStringList(_kMsgKey, raw);
+    await prefs.setInt(_kTsKey, DateTime.now().millisecondsSinceEpoch);
   }
 
   Future<void> _initContext() async {
@@ -260,6 +289,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
       _messages.add(_ChatMsg(text: displayLabel, isUser: true));
       _isLoading = true;
     });
+    _saveHistory();
     _history.add({'role': 'user', 'content': hiddenPrompt});
     _scrollToBottom();
     _callAI();
@@ -393,6 +423,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
       _messages.add(_ChatMsg(text: text, isUser: true));
       _isLoading = true;
     });
+    _saveHistory();
     _inputCtrl.clear();
     _history.add({'role': 'user', 'content': text});
     _scrollToBottom();
@@ -439,6 +470,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         _history.add({'role': 'assistant', 'content': reply});
         if (!mounted) return;
         setState(() => _messages.add(_ChatMsg(text: reply, isUser: false)));
+        _saveHistory();
       } else {
         final err = jsonDecode(res.body);
         throw Exception(err['error']?['message'] ?? 'Status ${res.statusCode}');
@@ -486,6 +518,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
       backgroundColor: _kPinkLight,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildHeader(),
@@ -731,12 +764,13 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
   // ── Input bar ──────────────────────────────────────────────────────────────
 
   Widget _buildInputBar() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

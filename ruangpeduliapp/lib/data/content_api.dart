@@ -306,10 +306,14 @@ class ContentApi {
     }
   }
 
-  Future<void> deleteBerita(int beritaId) async {
+  Future<void> deleteBerita(int beritaId, int userId) async {
     final uri = Uri.parse('$_base/content/berita/$beritaId/');
     try {
-      final res = await http.delete(uri).timeout(const Duration(seconds: 15));
+      final res = await http.delete(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId}),
+      ).timeout(const Duration(seconds: 15));
       if (res.statusCode != 204) throw Exception('Gagal menghapus postingan');
     } on SocketException {
       throw Exception('Tidak bisa konek ke server');

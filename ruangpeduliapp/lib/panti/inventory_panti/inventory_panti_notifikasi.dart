@@ -229,13 +229,6 @@ class _CategoryItemsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
-          // ── Summary banner ──────────────────────────────────────────────
-          _SummaryBanner(
-            outOfStockCount: outOfStock.length,
-            almostEmptyCount: almostEmpty.length,
-          ),
-          const SizedBox(height: 16),
-
           if (outOfStock.isNotEmpty) ...[
             _SectionHeader(icon: Icons.cancel_rounded, label: 'Habis (${outOfStock.length})', color: kRed),
             const SizedBox(height: 8),
@@ -278,50 +271,6 @@ class _EmptyState extends StatelessWidget {
           Text('Tidak ada produk yang perlu di-restock.', style: TextStyle(fontSize: 13, color: Colors.grey)),
         ],
       ),
-    );
-  }
-}
-
-// ─── Summary Banner ───────────────────────────────────────────────────────────
-
-class _SummaryBanner extends StatelessWidget {
-  final int outOfStockCount;
-  final int almostEmptyCount;
-  const _SummaryBanner({required this.outOfStockCount, required this.almostEmptyCount});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: Row(
-        children: [
-          Expanded(child: _StatChip(count: outOfStockCount, label: 'Habis', color: kRed)),
-          Container(width: 1, height: 36, color: const Color(0xFFEEEEEE), margin: const EdgeInsets.symmetric(horizontal: 12)),
-          Expanded(child: _StatChip(count: almostEmptyCount, label: 'Segera Habis', color: kOrange)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  final int count;
-  final String label;
-  final Color color;
-  const _StatChip({required this.count, required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text('$count', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color)),
-        Text(label, style: TextStyle(fontSize: 12, color: color)),
-      ],
     );
   }
 }
