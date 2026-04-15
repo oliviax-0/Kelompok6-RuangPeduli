@@ -560,7 +560,7 @@ class _StokDetailKategoriScreenState extends State<StokDetailKategoriScreen> {
                               crossAxisCount: 2,
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
-                              childAspectRatio: 0.95,
+                              mainAxisExtent: 220,
                             ),
                             itemCount: _filtered.length,
                             itemBuilder: (context, index) {

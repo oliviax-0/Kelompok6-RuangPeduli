@@ -129,7 +129,10 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: Stack(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
         children: [
           Container(
             decoration: const BoxDecoration(
@@ -165,14 +168,13 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
                       padding: EdgeInsets.only(left: 16, top: 8),
                       child: AuthBackButton(),
                     ),
-                    SizedBox(height: size.height * 0.28),
                     Expanded(
-                      child: Padding(
+                      child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 28),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const SizedBox(height: 12),
+                            SizedBox(height: size.height * 0.22),
                             const Text(
                               'Kode Verifikasi',
                               style: TextStyle(
@@ -246,7 +248,7 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
                                     ),
                             ),
 
-                            const Spacer(),
+                            const SizedBox(height: 32),
 
                             Center(
                               child: SizedBox(
@@ -290,6 +292,7 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen>
             ),
           ),
         ],
+        ),
       ),
     );
   }

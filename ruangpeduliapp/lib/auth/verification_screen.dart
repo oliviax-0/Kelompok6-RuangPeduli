@@ -151,10 +151,12 @@ class _VerificationScreenState extends State<VerificationScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: Stack(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
         children: [
           // Gradient background
           Container(
@@ -195,14 +197,13 @@ class _VerificationScreenState extends State<VerificationScreen>
                       padding: EdgeInsets.only(left: 16, top: 8),
                       child: AuthBackButton(),
                     ),
-                    Flexible(child: SizedBox(height: size.height * 0.28)),
                     Expanded(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 28),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const SizedBox(height: 12),
+                            SizedBox(height: size.height * 0.22),
 
                             const Text(
                               'Verifikasi',
@@ -325,6 +326,7 @@ class _VerificationScreenState extends State<VerificationScreen>
             ),
           ),
         ],
+        ),
       ),
     );
   }

@@ -156,6 +156,7 @@ class _BeritaDetailPantiState extends State<BeritaDetailPanti> {
             userId: widget.userId,
             showNavBar: false,
             mediaUrls: mediaUrls,
+            isPantiViewer: true,
           ),
         ),
       );

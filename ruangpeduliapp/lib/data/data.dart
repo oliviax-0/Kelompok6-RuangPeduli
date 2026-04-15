@@ -95,7 +95,7 @@ class RegisterData {
 class AppConfig {
   // ✏️ IP laptop kamu — dipakai untuk physical device + simulator sekaligus
   // Kosongkan kalau mau pakai emulator Android saja (10.0.2.2)
-  static const String devIp = '192.168.18.35';
+  static const String devIp = '10.10.179.35';
 
   // Set ke true untuk pakai LAN IP (physical device + simulator bersamaan)
   // Set ke false untuk emulator-only mode

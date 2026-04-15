@@ -450,9 +450,12 @@ class _ProfilePantiState extends State<ProfilePanti> {
     final confirm = await _confirmDelete(context, 'postingan ini');
     if (!confirm || !mounted) return;
     try {
-      await ContentApi().deleteBerita(berita.id);
+      await ContentApi().deleteBerita(berita.id, widget.userId ?? 0);
       if (!mounted) return;
       setState(() => _beritas.removeWhere((b) => b.id == berita.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Postingan berhasil dihapus'), behavior: SnackBarBehavior.floating),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -468,6 +471,9 @@ class _ProfilePantiState extends State<ProfilePanti> {
       await ProfileApi().deletePantiMedia(widget.pantiId!, video.id);
       if (!mounted) return;
       setState(() => _videos.removeWhere((v) => v.id == video.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video berhasil dihapus'), behavior: SnackBarBehavior.floating),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -480,17 +486,32 @@ class _ProfilePantiState extends State<ProfilePanti> {
     return await showDialog<bool>(
       context: ctx,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hapus', style: TextStyle(fontWeight: FontWeight.w800)),
-        content: Text('Yakin ingin menghapus $target?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus $target?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hapus', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFFDDDDDD)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+            ),
+            child: const Text('Ya', style: TextStyle(color: Color(0xFF1A1A1A))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE8848A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+            ),
+            child: const Text('Tidak'),
           ),
         ],
       ),

@@ -183,7 +183,7 @@ class _KebutuhanScreenState extends State<KebutuhanScreen> {
         crossAxisCount: 2,
         mainAxisSpacing: 20,
         crossAxisSpacing: 16,
-        childAspectRatio: 0.85,
+        mainAxisExtent: 200,
       ),
       itemCount: _items.length,
       itemBuilder: (context, i) => _KebutuhanCard(item: _items[i]),
@@ -208,23 +208,24 @@ class _KebutuhanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          width: double.infinity,
-          height: 148,
-          decoration: BoxDecoration(
-            color: _kPinkLight,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Center(
-            child: Icon(_iconFor(item.nama), size: 72, color: const Color(0xFF1A1A1A)),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: _kPinkLight,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Center(
+              child: Icon(_iconFor(item.nama), size: 64, color: const Color(0xFF1A1A1A)),
+            ),
           ),
         ),
         const SizedBox(height: 8),
         Text(
           item.nama,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -232,9 +233,12 @@ class _KebutuhanCard extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           '${item.jumlah} ${item.satuan}',
-          style: const TextStyle(fontSize: 13, color: Color(0xFF555555)),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF555555)),
           textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
+        const SizedBox(height: 4),
       ],
     );
   }

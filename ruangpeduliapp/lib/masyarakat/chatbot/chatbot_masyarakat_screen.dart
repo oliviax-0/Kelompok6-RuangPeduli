@@ -732,6 +732,8 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
 
   Widget _buildInputBar() {
     return Container(
+      color: Colors.white,
+      child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -808,6 +810,7 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
             ),
           ],
         ),
+      ),
     );
   }
 }
