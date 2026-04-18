@@ -1,0 +1,6 @@
+# Database
+ruangpeduli/db.sqlite3
+
+# Sensitive files
+ruangpeduli/.env
+ruangpeduliapp/.env
