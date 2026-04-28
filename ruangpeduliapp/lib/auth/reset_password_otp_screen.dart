@@ -350,6 +350,7 @@ class _WavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paintBack = Paint()
+      // ignore: deprecated_member_use
       ..color = Colors.white.withOpacity(0.40)
       ..style = PaintingStyle.fill;
 
