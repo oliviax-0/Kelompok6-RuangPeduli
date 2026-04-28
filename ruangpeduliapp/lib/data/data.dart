@@ -6,7 +6,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 // ─── GOOGLE SIGN-IN SERVICE ──────────────────────────────────────────────────
 class GoogleSignInService {
   static final _googleSignIn = GoogleSignIn(
-    clientId: '773421848878-1dagn4rc098tqg20e1r84vc3100uim9g.apps.googleusercontent.com',
+    clientId: '773421848878-1dagn4rc098tqg20e1r84vc3100uim9g.apps.googleusercontent.com', // iOS
+    serverClientId: '110989165138-dkq12aq8luceufu4lh2bn3kkrnpo8k4c.apps.googleusercontent.com', // Android
     scopes: ['email', 'profile'],
   );
 
@@ -93,22 +94,28 @@ class RegisterData {
 }
 
 class AppConfig {
-  // ✏️ IP laptop kamu — dipakai untuk physical device + simulator sekaligus
-  // Kosongkan kalau mau pakai emulator Android saja (10.0.2.2)
-  static const String devIp = '10.10.179.35';
+  // ─── PRODUCTION URL ───────────────────────────────────────────────
+  // Set this to your deployed backend URL (e.g. Railway/Render).
+  // Leave empty to fall back to local dev mode.
+  static const String productionUrl = 'https://ruangpeduli.onrender.com/api';
 
-  // Set ke true untuk pakai LAN IP (physical device + simulator bersamaan)
-  // Set ke false untuk emulator-only mode
+  // ─── DEV CONFIG ───────────────────────────────────────────────────
+  // IP laptop kamu — dipakai untuk physical device + simulator sekaligus
+  static const String devIp = '10.10.179.35';  // ✏️ ganti ke IP laptop kamu
   static const bool useLanIp = true;
 
   static String get baseUrl {
+    // Use production URL if set (release builds / deployed backend)
+    if (productionUrl.isNotEmpty) return productionUrl;
+
+    // Dev fallback
     if (useLanIp && devIp.isNotEmpty) {
-      return 'http://$devIp:8000/api'; // works for ALL: emulator, simulator, physical
+      return 'http://$devIp:8000/api';
     }
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:8000/api'; // Android emulator only
+      return 'http://10.0.2.2:8000/api';
     }
-    return 'http://localhost:8000/api'; // iOS Simulator only
+    return 'http://localhost:8000/api';
   }
 }
 

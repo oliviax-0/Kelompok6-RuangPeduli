@@ -11,11 +11,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 os.environ['SSL_CERT_FILE'] = certifi.where()
 
-SECRET_KEY = 'django-insecure-ya_u6d#^raucz5at)6koznrs6uotups@2q%#n07&dr$lvx2@2+'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-ya_u6d#^raucz5at)6koznrs6uotups@2q%#n07&dr$lvx2@2+')
 
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -116,7 +116,9 @@ SIMPLE_JWT = {
 # ============================================================
 # CORS
 # ============================================================
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Allow all in dev, restrict in production via CORS_ALLOWED_ORIGINS
+if not DEBUG:
+    CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
 
 # ============================================================
 # GOOGLE OAUTH

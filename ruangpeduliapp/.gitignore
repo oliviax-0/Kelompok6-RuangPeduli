@@ -50,3 +50,6 @@ app.*.map.json
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 ruangpeduliapp/.env
+android/key.properties
+android/app/*.keystore
+android/app/*.jks
