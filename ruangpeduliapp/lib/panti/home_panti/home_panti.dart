@@ -140,9 +140,11 @@ class _HomePantiState extends State<HomePanti> {
           _fetchBeritas(search: result.recognizedWords.trim());
         }
       },
-      listenFor: const Duration(seconds: 10),
-      pauseFor: const Duration(seconds: 3),
-      localeId: localeId,
+      listenOptions: SpeechListenOptions(
+        listenFor: const Duration(seconds: 10),
+        pauseFor: const Duration(seconds: 3),
+        localeId: localeId,
+      ),
     );
   }
 

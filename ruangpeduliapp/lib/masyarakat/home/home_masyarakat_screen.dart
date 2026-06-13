@@ -96,7 +96,6 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
     }
     setState(() => _listening = true);
     await _stt.listen(
-      localeId: _sttLocale,
       onResult: (r) async {
         if (r.finalResult && mounted) {
           setState(() => _listening = false);
@@ -113,6 +112,7 @@ class _HomeMasyarakatScreenState extends State<HomeMasyarakatScreen> {
         }
       },
       listenOptions: SpeechListenOptions(
+        localeId: _sttLocale,
         partialResults: false,
         cancelOnError: true,
         listenMode: ListenMode.search,

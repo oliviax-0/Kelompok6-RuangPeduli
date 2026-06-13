@@ -64,6 +64,7 @@ class _LoginScreenState extends State<LoginScreen>
       final result = await _api.googleAuth(idToken, backendRole);
 
       if (!mounted) return;
+      if (result['access'] != null) TokenStorage.save(result['access'] as String);
 
       if (result['exists'] == true) {
         final role = result['role'] as String;
@@ -126,6 +127,7 @@ class _LoginScreenState extends State<LoginScreen>
       );
 
       if (!mounted) return;
+      if (result['access'] != null) TokenStorage.save(result['access'] as String);
 
       final role = result['role'] as String;
       final userId = result['user_id'] as int?;

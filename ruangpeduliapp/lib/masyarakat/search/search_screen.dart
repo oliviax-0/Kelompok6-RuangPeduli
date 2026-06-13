@@ -189,7 +189,6 @@ class _SearchScreenState extends State<SearchScreen> {
 
     setState(() => _listening = true);
     await _stt.listen(
-      localeId: _sttLocale,
       onResult: (r) {
         if (!mounted) return;
         if (r.recognizedWords.isNotEmpty) {
@@ -203,6 +202,7 @@ class _SearchScreenState extends State<SearchScreen> {
         }
       },
       listenOptions: SpeechListenOptions(
+        localeId: _sttLocale,
         partialResults: true,
         cancelOnError: true,
         listenMode: ListenMode.search,

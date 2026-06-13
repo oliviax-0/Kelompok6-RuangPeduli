@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -392,10 +391,10 @@ class _ChatbotMasyarakatScreenState extends State<ChatbotMasyarakatScreen> {
         setState(() => _inputCtrl.text = result.recognizedWords);
         if (result.finalResult) setState(() => _listening = false);
       },
-      listenFor: const Duration(seconds: 10),
-      pauseFor: const Duration(seconds: 3),
-      localeId: localeId,
       listenOptions: SpeechListenOptions(
+        listenFor: const Duration(seconds: 10),
+        pauseFor: const Duration(seconds: 3),
+        localeId: localeId,
         partialResults: true,
         cancelOnError: true,
         listenMode: ListenMode.dictation,

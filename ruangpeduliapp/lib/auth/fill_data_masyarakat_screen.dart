@@ -102,11 +102,12 @@ class _FillDataMasyarakatScreenState extends State<FillDataMasyarakatScreen>
         namaPengguna: _namaPenggunaController.text.trim(),
         alamat: _alamatController.text.trim(),
         nomorTelepon: _nomorTeleponController.text.trim().replaceAll('-', ''),
-      ).then((_) {
+      ).then((result) {
         if (!mounted) return;
+        if (result['access'] != null) TokenStorage.save(result['access'] as String);
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const SuccessScreen(role: 'masyarakat')),
+          MaterialPageRoute(builder: (_) => SuccessScreen(role: 'masyarakat', userId: result['user_id'] as int?)),
           (route) => false,
         );
       }).catchError((e) {

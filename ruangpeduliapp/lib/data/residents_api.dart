@@ -57,7 +57,7 @@ class ResidentsApi {
     final params = {'user_id': userId.toString()};
     if (search != null && search.isNotEmpty) params['search'] = search;
     final uri = Uri.parse('$_base/residents/pekerja/').replace(queryParameters: params);
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
     if (res.statusCode == 200) {
       return (jsonDecode(res.body) as List).map((e) => PekerjaModel.fromJson(e)).toList();
     }
@@ -68,7 +68,7 @@ class ResidentsApi {
     final uri = Uri.parse('$_base/residents/pekerja/');
     final res = await http
         .post(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'nama': nama, 'divisi': divisi, 'posisi': posisi}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode == 201) return PekerjaModel.fromJson(jsonDecode(res.body));
@@ -79,7 +79,7 @@ class ResidentsApi {
     final uri = Uri.parse('$_base/residents/pekerja/$id/');
     final res = await http
         .put(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'nama': nama, 'divisi': divisi, 'posisi': posisi}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) throw Exception('Gagal mengubah data pegawai');
@@ -89,7 +89,7 @@ class ResidentsApi {
     final uri = Uri.parse('$_base/residents/pekerja/$id/');
     final res = await http
         .delete(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 204) throw Exception('Gagal menghapus pegawai');
@@ -101,7 +101,7 @@ class ResidentsApi {
     final params = {'user_id': userId.toString()};
     if (search != null && search.isNotEmpty) params['search'] = search;
     final uri = Uri.parse('$_base/residents/penghuni/').replace(queryParameters: params);
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
     if (res.statusCode == 200) {
       return (jsonDecode(res.body) as List).map((e) => PenghuniModel.fromJson(e)).toList();
     }
@@ -112,7 +112,7 @@ class ResidentsApi {
     final uri = Uri.parse('$_base/residents/penghuni/');
     final res = await http
         .post(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'nama': nama, 'tahun_lahir': tahunLahir, 'jenis_kelamin': jenisKelamin}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode == 201) return PenghuniModel.fromJson(jsonDecode(res.body));
@@ -123,7 +123,7 @@ class ResidentsApi {
     final uri = Uri.parse('$_base/residents/penghuni/$id/');
     final res = await http
         .put(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'nama': nama, 'tahun_lahir': tahunLahir, 'jenis_kelamin': jenisKelamin}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) throw Exception('Gagal mengubah data penghuni');
@@ -133,7 +133,7 @@ class ResidentsApi {
     final uri = Uri.parse('$_base/residents/penghuni/$id/');
     final res = await http
         .delete(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 204) throw Exception('Gagal menghapus penghuni');

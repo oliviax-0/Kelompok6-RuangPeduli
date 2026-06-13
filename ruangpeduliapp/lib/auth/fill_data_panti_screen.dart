@@ -236,6 +236,7 @@ class _FillDataPantiScreenState extends State<FillDataPantiScreen>
             : null,
       ).then((result) {
         if (!mounted) return;
+        if (result['access'] != null) TokenStorage.save(result['access'] as String);
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(

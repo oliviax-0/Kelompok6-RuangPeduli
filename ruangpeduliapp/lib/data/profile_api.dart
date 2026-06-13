@@ -222,7 +222,7 @@ class ProfileApi {
   Future<SocietyProfileModel?> fetchMasyarakatProfile(int userId) async {
     final uri = Uri.parse('$_base/profiles/masyarakat/?user_id=$userId');
     try {
-      final res = await http.get(uri).timeout(
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Koneksi timeout'),
       );
@@ -251,6 +251,7 @@ class ProfileApi {
     final uri = Uri.parse('$_base/profiles/masyarakat/$profileId/');
     try {
       final req = http.MultipartRequest('PATCH', uri);
+      req.headers.addAll(TokenStorage.headers);
       if (namaPengguna != null) req.fields['nama_pengguna'] = namaPengguna;
       if (alamat != null) req.fields['alamat'] = alamat;
       if (username != null) req.fields['username'] = username;
@@ -276,7 +277,7 @@ class ProfileApi {
   Future<List<PantiProfileModel>> fetchAllPanti() async {
     final uri = Uri.parse('$_base/profiles/panti/');
     try {
-      final res = await http.get(uri).timeout(
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Koneksi timeout'),
       );
@@ -293,7 +294,7 @@ class ProfileApi {
   Future<PantiProfileModel> fetchPantiProfile(int pantiId) async {
     final uri = Uri.parse('$_base/profiles/panti/$pantiId/');
     try {
-      final res = await http.get(uri).timeout(
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Koneksi timeout'),
       );
@@ -320,6 +321,7 @@ class ProfileApi {
     final uri = Uri.parse('$_base/profiles/panti/$pantiId/');
     try {
       final req = http.MultipartRequest('PATCH', uri);
+      req.headers.addAll(TokenStorage.headers);
 
       if (namaPanti != null) req.fields['nama_panti'] = namaPanti;
       if (alamatPanti != null) req.fields['alamat_panti'] = alamatPanti;
@@ -350,7 +352,7 @@ class ProfileApi {
   Future<List<PantiMediaModel>> fetchPantiMedia(int pantiId) async {
     final uri = Uri.parse('$_base/profiles/panti/$pantiId/media/');
     try {
-      final res = await http.get(uri).timeout(
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Koneksi timeout'),
       );
@@ -376,6 +378,7 @@ class ProfileApi {
     final uri = Uri.parse('$_base/profiles/panti/$pantiId/media/');
     try {
       final req = http.MultipartRequest('POST', uri);
+      req.headers.addAll(TokenStorage.headers);
       req.fields['media_type'] = mediaType;
       req.fields['order'] = order.toString();
       if (title.isNotEmpty) req.fields['title'] = title;
@@ -406,7 +409,7 @@ class ProfileApi {
   Future<List<PantiUploadedVideo>> fetchAllPantiVideos() async {
     final uri = Uri.parse('$_base/profiles/media/videos/');
     try {
-      final res = await http.get(uri).timeout(
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Koneksi timeout'),
       );
@@ -424,7 +427,7 @@ class ProfileApi {
     final uri =
         Uri.parse('$_base/profiles/panti/$pantiId/media/$mediaId/');
     try {
-      final res = await http.delete(uri).timeout(const Duration(seconds: 15));
+      final res = await http.delete(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
       if (res.statusCode != 204) throw Exception('Gagal menghapus media');
     } on SocketException {
       throw Exception('Tidak bisa konek ke server');

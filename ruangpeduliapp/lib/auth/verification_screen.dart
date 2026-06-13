@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, avoid_print
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -99,6 +101,7 @@ class _VerificationScreenState extends State<VerificationScreen>
     try {
       final result = await _authApi.verifyOtp(widget.pendingId, otp);
       if (!mounted) return;
+      if (result['access'] != null) TokenStorage.save(result['access'] as String);
 
       Navigator.pushReplacement(
         context,

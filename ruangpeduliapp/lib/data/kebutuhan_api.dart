@@ -30,7 +30,7 @@ class KebutuhanApi {
     final uri = Uri.parse('$_base/kebutuhan/').replace(
       queryParameters: {'panti': pantiId.toString()},
     );
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
     if (res.statusCode == 200) {
       return (jsonDecode(res.body) as List).map((e) => KebutuhanModel.fromJson(e)).toList();
     }
@@ -41,7 +41,7 @@ class KebutuhanApi {
     final uri = Uri.parse('$_base/kebutuhan/');
     final res = await http
         .post(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'nama': nama, 'satuan': satuan, 'jumlah': jumlah}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode == 201) return KebutuhanModel.fromJson(jsonDecode(res.body));
@@ -53,7 +53,7 @@ class KebutuhanApi {
     final uri = Uri.parse('$_base/kebutuhan/$itemId/');
     final res = await http
         .delete(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 204) throw Exception('Gagal menghapus kebutuhan');

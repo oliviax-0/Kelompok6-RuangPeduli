@@ -11,7 +11,14 @@ import string
 from django.db import transaction, IntegrityError
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+from google.auth import exceptions as google_auth_exceptions
 from accounts.models import User, PendingRegistration, PasswordResetPending
+
+
+class _QuickRequest(google_requests.Request):
+    """google-auth Request with a short timeout so Django never hangs."""
+    def __call__(self, url, method="GET", body=None, headers=None, timeout=10, **kwargs):
+        return super().__call__(url, method=method, body=body, headers=headers, timeout=timeout, **kwargs)
 from .serializers import RegisterStartSerializer
 
 def _get_tokens_for_user(user):
@@ -50,13 +57,13 @@ OTP_HTML = """
 
 def _verify_google_token(token: str):
     """Try verifying against all registered client IDs."""
-    client_ids = [c for c in [
-        settings.GOOGLE_CLIENT_ID,
-    ] if c]
+    client_ids = [c for c in [settings.GOOGLE_CLIENT_ID] if c]
     last_error = None
     for client_id in client_ids:
         try:
-            return id_token.verify_oauth2_token(token, google_requests.Request(), client_id)
+            return id_token.verify_oauth2_token(token, _QuickRequest(), client_id)
+        except google_auth_exceptions.TransportError as e:
+            raise ValueError(f'Tidak dapat menghubungi server Google: {e}')
         except ValueError as e:
             last_error = e
     raise ValueError(last_error)
@@ -584,9 +591,6 @@ class GoogleAuthView(APIView):
         if not token or not role:
             return Response({'error': 'id_token dan role wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not settings.GOOGLE_CLIENT_ID and not settings.GOOGLE_CLIENT_ID_ANDROID:
-            return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         try:
             idinfo = _verify_google_token(token)
         except ValueError as e:
@@ -597,31 +601,33 @@ class GoogleAuthView(APIView):
 
         user = User.objects.filter(email=email, role=role).first()
 
-        if user:
-            panti_id = None
-            if user.role == 'panti':
-                from profiles.models import OrphanageProfile
-                try:
-                    panti_id = OrphanageProfile.objects.get(user=user).id
-                except OrphanageProfile.DoesNotExist:
-                    pass
-            tokens = _get_tokens_for_user(user)
-            return Response({
-                'exists': True,
-                'user_id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'role': user.role,
-                'panti_id': panti_id,
-                **tokens,
-            }, status=status.HTTP_200_OK)
-        else:
+        # Email not registered for this role → send back to sign-up
+        if not user:
             return Response({
                 'exists': False,
                 'email': email,
                 'name': name,
             }, status=status.HTTP_200_OK)
 
+        # Registered user → return JWT tokens
+        panti_id = None
+        if user.role == 'panti':
+            from profiles.models import OrphanageProfile
+            try:
+                panti_id = OrphanageProfile.objects.get(user=user).id
+            except OrphanageProfile.DoesNotExist:
+                pass
+
+        tokens = _get_tokens_for_user(user)
+        return Response({
+            'exists': True,
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'panti_id': panti_id,
+            **tokens,
+        }, status=status.HTTP_200_OK)
 
 class GoogleRegisterView(APIView):
     """
@@ -639,7 +645,7 @@ class GoogleRegisterView(APIView):
         if not token or not role or not username:
             return Response({'error': 'id_token, role, dan username wajib diisi'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not settings.GOOGLE_CLIENT_ID and not settings.GOOGLE_CLIENT_ID_ANDROID:
+        if not settings.GOOGLE_CLIENT_ID:
             return Response({'error': 'Google Client ID belum dikonfigurasi'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
