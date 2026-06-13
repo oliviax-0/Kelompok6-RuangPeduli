@@ -144,7 +144,7 @@ class KebutuhanApi {
   Future<List<KebutuhanItemModel>> fetchAllKebutuhan() async {
     final uri = Uri.parse('$_base/kebutuhan/all/');
     try {
-      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) throw Exception('Gagal memuat kebutuhan');
       final List data = jsonDecode(res.body);
       return data.map((e) => KebutuhanItemModel.fromJson(e as Map<String, dynamic>)).toList();
@@ -159,7 +159,7 @@ class KebutuhanApi {
       queryParameters: {'panti': pantiId.toString()},
     );
     try {
-      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) throw Exception('Gagal memuat kebutuhan');
       final List data = jsonDecode(res.body);
       return data.map((e) {
@@ -193,7 +193,7 @@ class ContentApi {
     final uri = Uri.parse('$_base/content/berita/').replace(queryParameters: params.isEmpty ? null : params);
 
     try {
-      final res = await http.get(uri).timeout(
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Koneksi timeout'),
       );
@@ -214,7 +214,7 @@ class ContentApi {
     final uri = Uri.parse('$_base/content/video/').replace(queryParameters: params.isEmpty ? null : params);
 
     try {
-      final res = await http.get(uri).timeout(
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(
         const Duration(seconds: 15),
         onTimeout: () => throw Exception('Koneksi timeout'),
       );
@@ -235,7 +235,7 @@ class ContentApi {
       queryParameters: {'user_id': userId.toString()},
     );
     try {
-      final res = await http.get(uri).timeout(const Duration(seconds: 10));
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) return jsonDecode(res.body) as Map<String, dynamic>;
       return {};
     } on SocketException {
@@ -253,7 +253,7 @@ class ContentApi {
       final res = await http
           .post(
             uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'vote_type': voteType}),
           )
           .timeout(
@@ -278,6 +278,7 @@ class ContentApi {
     final uri = Uri.parse('$_base/content/berita/');
     try {
       final req = http.MultipartRequest('POST', uri)
+        ..headers.addAll(TokenStorage.headers)
         ..fields['user_id'] = userId.toString()
         ..fields['title']   = title
         ..fields['content'] = content;
@@ -311,7 +312,7 @@ class ContentApi {
     try {
       final res = await http.delete(
         uri,
-        headers: {'Content-Type': 'application/json'},
+        headers: TokenStorage.jsonHeaders,
         body: jsonEncode({'user_id': userId}),
       ).timeout(const Duration(seconds: 15));
       if (res.statusCode != 204) throw Exception('Gagal menghapus postingan');

@@ -1,3 +1,5 @@
+// ignore_for_file: curly_braces_in_flow_control_structures
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -271,9 +273,11 @@ class _HomeAIPantiState extends State<HomeAIPanti> {
         setState(() => _inputController.text = result.recognizedWords);
         if (result.finalResult) setState(() => _listening = false);
       },
-      listenFor: const Duration(seconds: 10),
-      pauseFor: const Duration(seconds: 3),
-      localeId: localeId,
+      listenOptions: SpeechListenOptions(
+        listenFor: const Duration(seconds: 10),
+        pauseFor: const Duration(seconds: 3),
+        localeId: localeId,
+      ),
     );
   }
 

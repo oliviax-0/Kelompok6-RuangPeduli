@@ -28,7 +28,7 @@ class InventoryNotificationService {
     );
 
     await _plugin.initialize(
-      const InitializationSettings(android: android, iOS: ios),
+      settings: const InitializationSettings(android: android, iOS: ios),
     );
 
     // Explicitly request iOS permission so the system dialog appears
@@ -53,7 +53,7 @@ class InventoryNotificationService {
     final items = await InventoryApi().fetchLowStockItems(pantiId);
 
     if (items.isEmpty) {
-      await _plugin.cancel(_notifId);
+      await _plugin.cancel(id: _notifId);
       return items;
     }
 
@@ -90,10 +90,10 @@ class InventoryNotificationService {
     final body = bodyLines.join('\n');
 
     await _plugin.show(
-      _notifId,
-      title,
-      body,
-      NotificationDetails(
+      id: _notifId,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
           _channelName,
@@ -119,7 +119,7 @@ class InventoryNotificationService {
     await _init();
 
     if (saldo > 0) {
-      await _plugin.cancel(_financeNotifId);
+      await _plugin.cancel(id: _financeNotifId);
       return;
     }
 
@@ -129,10 +129,10 @@ class InventoryNotificationService {
         : 'Saldo panti saat ini minus (Rp ${saldo.toInt()}). Pengeluaran melebihi pemasukan.';
 
     await _plugin.show(
-      _financeNotifId,
-      title,
-      body,
-      NotificationDetails(
+      id: _financeNotifId,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           'finance_warning',
           'Peringatan Keuangan',

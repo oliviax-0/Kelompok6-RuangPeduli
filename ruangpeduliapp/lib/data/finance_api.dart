@@ -67,7 +67,7 @@ class FinanceApi {
     final uri = Uri.parse('$_base/finance/dashboard/').replace(
       queryParameters: {'user_id': userId.toString()},
     );
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
     if (res.statusCode == 200) return FinanceDashboard.fromJson(jsonDecode(res.body));
     throw Exception('Gagal memuat dashboard keuangan');
   }
@@ -78,8 +78,8 @@ class FinanceApi {
     final uriPengeluaran = Uri.parse('$_base/finance/pengeluaran/').replace(queryParameters: params);
 
     final results = await Future.wait([
-      http.get(uriPemasukan).timeout(const Duration(seconds: 15)),
-      http.get(uriPengeluaran).timeout(const Duration(seconds: 15)),
+      http.get(uriPemasukan, headers: TokenStorage.headers).timeout(const Duration(seconds: 15)),
+      http.get(uriPengeluaran, headers: TokenStorage.headers).timeout(const Duration(seconds: 15)),
     ]);
 
     if (results[0].statusCode != 200 || results[1].statusCode != 200) {
@@ -119,7 +119,7 @@ class FinanceApi {
     final uri = Uri.parse('$_base/finance/jenis-pemasukan/').replace(
       queryParameters: {'user_id': userId.toString()},
     );
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
     if (res.statusCode == 200) {
       return (jsonDecode(res.body) as List).map((e) => JenisPemasukanModel.fromJson(e)).toList();
     }
@@ -130,7 +130,7 @@ class FinanceApi {
     final uri = Uri.parse('$_base/finance/jenis-pemasukan/');
     final res = await http
         .post(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'nama': nama}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode == 201) return JenisPemasukanModel.fromJson(jsonDecode(res.body));
@@ -142,7 +142,7 @@ class FinanceApi {
     final uri = Uri.parse('$_base/finance/pemasukan/');
     final res = await http
         .post(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'jenis_pemasukan': jenisId, 'jumlah': jumlah, 'catatan': catatan, 'tanggal': tanggal}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 201) {
@@ -155,7 +155,7 @@ class FinanceApi {
     final uri = Uri.parse('$_base/finance/pemasukan/$id/');
     final res = await http
         .delete(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 204) throw Exception('Gagal menghapus pemasukan');
@@ -165,7 +165,7 @@ class FinanceApi {
     final uri = Uri.parse('$_base/finance/pengeluaran/');
     final res = await http
         .post(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'kategori': kategoriId, 'jumlah': jumlah, 'catatan': catatan, 'tanggal': tanggal}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 201) {
@@ -178,7 +178,7 @@ class FinanceApi {
     final uri = Uri.parse('$_base/finance/pengeluaran/$id/');
     final res = await http
         .delete(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 204) throw Exception('Gagal menghapus pengeluaran');

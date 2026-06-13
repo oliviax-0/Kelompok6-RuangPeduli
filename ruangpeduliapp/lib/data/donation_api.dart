@@ -58,7 +58,7 @@ class DonationApi {
   Future<List<DonasiModel>> fetchDonations(int userId) async {
     final url = Uri.parse('$_base/donations/?user_id=$userId');
     final res = await http
-        .get(url)
+        .get(url, headers: TokenStorage.headers)
         .timeout(const Duration(seconds: 15), onTimeout: () => throw Exception('Koneksi timeout'));
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body);
@@ -88,7 +88,7 @@ class DonationApi {
     };
     final res = await http
         .post(url,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode(body))
         .timeout(const Duration(seconds: 15), onTimeout: () => throw Exception('Koneksi timeout'));
     if (res.statusCode != 200 && res.statusCode != 201) {

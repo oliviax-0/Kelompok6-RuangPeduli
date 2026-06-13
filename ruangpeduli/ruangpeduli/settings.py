@@ -124,7 +124,6 @@ if not DEBUG:
 # GOOGLE OAUTH
 # ============================================================
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')            # iOS (Oliv)
-GOOGLE_CLIENT_ID_ANDROID = os.getenv('GOOGLE_CLIENT_ID_ANDROID', '')  # Android
 
 # ============================================================
 # GMAIL SMTP 

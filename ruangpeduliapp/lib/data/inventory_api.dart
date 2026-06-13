@@ -181,7 +181,7 @@ class InventoryApi {
     final uri = Uri.parse('$_base/inventory/categories/').replace(
       queryParameters: {'panti': pantiId.toString()},
     );
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
     if (res.statusCode == 200) {
       return (jsonDecode(res.body) as List).map((e) => CategoryModel.fromJson(e)).toList();
     }
@@ -192,7 +192,7 @@ class InventoryApi {
     final uri = Uri.parse('$_base/inventory/categories/');
     final res = await http
         .post(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId, 'name': name}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode == 201) return CategoryModel.fromJson(jsonDecode(res.body));
@@ -204,7 +204,7 @@ class InventoryApi {
     final uri = Uri.parse('$_base/inventory/categories/$categoryId/');
     final res = await http
         .delete(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 204) throw Exception('Gagal menghapus kategori');
@@ -214,7 +214,7 @@ class InventoryApi {
 
   Future<List<InventoryItemModel>> fetchItems(int categoryId) async {
     final uri = Uri.parse('$_base/inventory/categories/$categoryId/items/');
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
     if (res.statusCode == 200) {
       return (jsonDecode(res.body) as List).map((e) => InventoryItemModel.fromJson(e)).toList();
     }
@@ -233,7 +233,7 @@ class InventoryApi {
     if (dailyUsage != null) bodyMap['daily_usage'] = dailyUsage;
     if (leadTimeDays != null) bodyMap['lead_time_days'] = leadTimeDays;
     final res = await http
-        .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(bodyMap))
+        .post(uri, headers: TokenStorage.jsonHeaders, body: jsonEncode(bodyMap))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode == 201) return InventoryItemModel.fromJson(jsonDecode(res.body));
     throw Exception('Gagal menambah produk');
@@ -252,7 +252,7 @@ class InventoryApi {
     if (dailyUsage != null) body['daily_usage'] = dailyUsage;
     if (leadTimeDays != null) body['lead_time_days'] = leadTimeDays;
     final res = await http
-        .put(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
+        .put(uri, headers: TokenStorage.jsonHeaders, body: jsonEncode(body))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) throw Exception('Gagal mengubah produk');
   }
@@ -263,7 +263,7 @@ class InventoryApi {
     final uri = Uri.parse('$_base/inventory/predict-phrr/');
     final res = await http
         .post(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'panti_id': pantiId, 'product_name': productName, 'unit': unit}))
         .timeout(const Duration(seconds: 30));
     if (res.statusCode == 200) {
@@ -282,7 +282,7 @@ class InventoryApi {
     final uri = Uri.parse('$_base/inventory/low-stock/').replace(
       queryParameters: {'panti_id': pantiId.toString()},
     );
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
     if (res.statusCode == 200) {
       return (jsonDecode(res.body) as List).map((e) => LowStockItemModel.fromJson(e)).toList();
     }
@@ -295,7 +295,7 @@ class InventoryApi {
       final uri = Uri.parse('$_base/inventory/categories/${cat.id}/items/').replace(
         queryParameters: {'status': 'out_of_stock'},
       );
-      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) return <OutOfStockItemModel>[];
       return (jsonDecode(res.body) as List)
           .map((e) => OutOfStockItemModel.fromJson(e, categoryId: cat.id, categoryName: cat.name))
@@ -309,7 +309,7 @@ class InventoryApi {
     final uri = Uri.parse('$_base/inventory/laporan/').replace(
       queryParameters: {'panti': pantiId.toString()},
     );
-    final res = await http.get(uri).timeout(const Duration(seconds: 15));
+    final res = await http.get(uri, headers: TokenStorage.headers).timeout(const Duration(seconds: 15));
     if (res.statusCode == 200) {
       return (jsonDecode(res.body) as List).map((e) => LaporanItemModel.fromJson(e)).toList();
     }
@@ -320,7 +320,7 @@ class InventoryApi {
     final uri = Uri.parse('$_base/inventory/laporan/');
     final res = await http
         .post(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({
               'user_id': userId,
               'item_id': itemId,
@@ -335,7 +335,7 @@ class InventoryApi {
     final uri = Uri.parse('$_base/inventory/items/$itemId/');
     final res = await http
         .delete(uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: TokenStorage.jsonHeaders,
             body: jsonEncode({'user_id': userId}))
         .timeout(const Duration(seconds: 15));
     if (res.statusCode != 204) throw Exception('Gagal menghapus produk');

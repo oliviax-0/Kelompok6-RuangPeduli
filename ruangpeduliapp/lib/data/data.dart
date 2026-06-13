@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -5,29 +7,40 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 // ─── GOOGLE SIGN-IN SERVICE ──────────────────────────────────────────────────
 class GoogleSignInService {
-  static final _googleSignIn = GoogleSignIn(
-    clientId: '773421848878-1dagn4rc098tqg20e1r84vc3100uim9g.apps.googleusercontent.com', // iOS
-    serverClientId: '110989165138-dkq12aq8luceufu4lh2bn3kkrnpo8k4c.apps.googleusercontent.com', // Android
-    scopes: ['email', 'profile'],
-  );
+  static bool _initialized = false;
+
+  static Future<void> _ensureInitialized() async {
+    if (_initialized) return;
+    await GoogleSignIn.instance.initialize(
+      clientId: '773421848878-1dagn4rc098tqg20e1r84vc3100uim9g.apps.googleusercontent.com',
+    );
+    _initialized = true;
+  }
 
   /// Opens the Google account picker and returns the id_token string.
   /// Returns null if the user cancelled. Throws on error.
   static Future<String?> signIn() async {
     try {
-      final account = await _googleSignIn.signIn();
-      if (account == null) return null; // user cancelled
-      final auth = await account.authentication;
-      final token = auth.idToken;
+      await _ensureInitialized();
+      final account = await GoogleSignIn.instance.authenticate(
+        scopeHint: ['email', 'profile'],
+      );
+      final token = account.authentication.idToken;
       if (token == null) throw Exception('Gagal mendapatkan token dari Google');
       return token;
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled ||
+          e.code == GoogleSignInExceptionCode.interrupted) {
+        return null;
+      }
+      throw Exception('Google Sign-In gagal: $e');
     } catch (e) {
       throw Exception('Google Sign-In gagal: $e');
     }
   }
 
   static Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    await GoogleSignIn.instance.signOut();
   }
 }
 
@@ -93,28 +106,29 @@ class RegisterData {
   }
 }
 
-class AppConfig {
-  // ─── PRODUCTION URL ───────────────────────────────────────────────
-  // Set this to your deployed backend URL (e.g. Railway/Render).
-  // Leave empty to fall back to local dev mode.
-  static const String productionUrl = 'https://ruangpeduli.onrender.com/api';
+class TokenStorage {
+  static String? _token;
 
-  // ─── DEV CONFIG ───────────────────────────────────────────────────
-  // IP laptop kamu — dipakai untuk physical device + simulator sekaligus
-  static const String devIp = '10.10.179.35';  // ✏️ ganti ke IP laptop kamu
-  static const bool useLanIp = true;
+  static void save(String token) => _token = token;
+  static void clear() => _token = null;
+
+  static Map<String, String> get headers =>
+      _token != null ? {'Authorization': 'Bearer $_token'} : {};
+
+  static Map<String, String> get jsonHeaders => {
+        'Content-Type': 'application/json',
+        ...headers,
+      };
+}
+
+class AppConfig {
+  // Override for real-device testing only:
+  //   flutter run --dart-define=DEV_HOST=192.168.x.x
+  static const String _devHost = String.fromEnvironment('DEV_HOST');
 
   static String get baseUrl {
-    // Use production URL if set (release builds / deployed backend)
-    if (productionUrl.isNotEmpty) return productionUrl;
-
-    // Dev fallback
-    if (useLanIp && devIp.isNotEmpty) {
-      return 'http://$devIp:8000/api';
-    }
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:8000/api';
-    }
+    if (_devHost.isNotEmpty) return 'http://$_devHost:8000/api';
+    if (Platform.isAndroid)  return 'http://10.0.2.2:8000/api';
     return 'http://localhost:8000/api';
   }
 }
